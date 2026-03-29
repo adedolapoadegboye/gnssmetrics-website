@@ -9,10 +9,27 @@ const CACHE_FILE = './news-cache.json';
 const OUTPUT_DIR = './src/content/news';
 
 const RSS_FEEDS = [
-  { name: 'GPS World',    url: 'https://www.gpsworld.com/feed/' },
-  { name: 'Inside GNSS', url: 'https://insidegnss.com/feed/' },
-  { name: 'NAVCEN',      url: 'https://www.navcen.uscg.gov/rss.xml' },
-  { name: 'ESA GNSS',    url: 'https://www.gsc-europa.eu/news-and-events/news.rss' },
+  // Technical & editorial
+  { name: 'GPS World',        url: 'https://www.gpsworld.com/feed/' },
+  { name: 'Inside GNSS',      url: 'https://insidegnss.com/feed/' },
+  { name: 'NAVCEN',           url: 'https://www.navcen.uscg.gov/rss.xml' },
+  { name: 'ESA Navigation',   url: 'https://www.esa.int/rssfeed/Navigation' },
+  { name: 'ION News',         url: 'https://www.ion.org/rss.cfm' },
+  { name: 'PhysOrg Space',    url: 'https://phys.org/rss-feed/space-news/' },
+  { name: 'EurekAlert Tech',  url: 'https://www.eurekalert.org/rss/technology.xml' },
+  // Academic
+  { name: 'IEEE Aerospace',   url: 'https://ieeexplore.ieee.org/rss/TOC25.XML' },
+  { name: 'USNO',             url: 'https://www.usno.navy.mil/USNO/rss/usno-rss.xml' },
+  // Vendor technical blogs
+  { name: 'Spirent Blog',     url: 'https://www.spirent.com/blogs/feed' },
+  { name: 'NovAtel Blog',     url: 'https://novatel.com/rss' },
+  { name: 'Trimble News',     url: 'https://news.trimble.com/rss' },
+  // Business & industry intelligence
+  { name: 'GPS Business News',  url: 'https://www.gps-business-news.com/feed/' },
+  { name: 'Geospatial World',   url: 'https://www.geospatialworld.net/feed/' },
+  { name: 'Space News',         url: 'https://spacenews.com/feed/' },
+  { name: 'Via Satellite',      url: 'https://www.satellitetoday.com/feed/' },
+  { name: 'Directions Mag',     url: 'https://www.directionsmag.com/rss' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
