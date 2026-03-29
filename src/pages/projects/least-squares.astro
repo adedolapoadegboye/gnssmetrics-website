@@ -1,0 +1,37 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="Weighted Least Squares Positioning">
+  <section class="section">
+    <div class="container">
+      <a href="/projects" class="back">← All projects</a>
+      <div class="project-header">
+        <div class="project-meta">
+          <span class="lang-badge">C</span>
+          <span class="status-badge">Planned</span>
+        </div>
+        <h1>Weighted Least Squares Positioning</h1>
+        <p class="sub">Elevation-weighted position estimation with RAIM fault detection and exclusion.</p>
+      </div>
+      <div class="coming-soon">
+        <div class="cs-icon">🛠️</div>
+        <h3>Project documentation coming soon</h3>
+        <p>Write-up, source code and GitHub link will be published here as the project progresses.</p>
+      </div>
+    </div>
+  </section>
+</Layout>
+<style>
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; }
+  .back:hover { color: var(--accent); }
+  .project-header { margin-bottom: 40px; }
+  .project-meta { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .lang-badge { font-size: 11px; font-weight: 600; font-family: var(--mono); background: rgba(0,153,255,0.12); color: var(--accent2); padding: 3px 10px; border-radius: 4px; }
+  .status-badge { font-size: 11px; font-weight: 500; color: var(--text2); }
+  h1 { font-size: 36px; font-weight: 700; margin-bottom: 12px; }
+  .sub { color: var(--text2); max-width: 600px; font-size: 16px; line-height: 1.7; }
+  .coming-soon { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 60px 40px; text-align: center; max-width: 480px; }
+  .cs-icon { font-size: 40px; margin-bottom: 16px; }
+  .coming-soon h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+  .coming-soon p { font-size: 14px; color: var(--text2); }
+</style>

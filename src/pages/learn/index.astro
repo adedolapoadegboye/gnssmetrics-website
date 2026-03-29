@@ -1,0 +1,40 @@
+---
+import Layout from '../../layouts/Layout.astro';
+const sections = [
+  { href: '/learn/fundamentals', icon: '📡', title: 'GNSS Fundamentals', desc: 'Signals, constellations, coordinates, error sources and satellite geometry from first principles.' },
+  { href: '/learn/positioning', icon: '📍', title: 'Positioning', desc: 'DGNSS, RTK, PPP, SBAS — how each positioning method works, when to use each, and their trade-offs.' },
+  { href: '/learn/protocols', icon: '📋', title: 'Protocols', desc: 'NMEA 0183, RINEX, RTCM3, PQTM and other GNSS message protocols explained with field-level detail.' },
+  { href: '/learn/positioning-math', icon: '📐', title: 'Positioning Mathematics', desc: 'Least squares, weighted least squares, Kalman filter and RAIM — the maths behind GNSS engines.' },
+  { href: '/learn/glossary', icon: '📖', title: 'GNSS Glossary', desc: 'Terminology reference — CEP, DOP, RTK, PPP, SBAS, multipath and 200+ terms explained clearly.' },
+];
+---
+<Layout title="Learn">
+  <section class="section">
+    <div class="container">
+      <span class="badge">Learn</span>
+      <h1>GNSS Learning Resources</h1>
+      <p class="sub">Structured educational content from beginner to advanced. Vendor-neutral. Written by practitioners.</p>
+      <div class="cards-grid">
+        {sections.map(s => (
+          <a href={s.href} class="card">
+            <div class="card-icon">{s.icon}</div>
+            <h3>{s.title}</h3>
+            <p>{s.desc}</p>
+            <span class="card-link">Read more →</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+</Layout>
+<style>
+  h1 { font-size: 36px; font-weight: 700; margin: 12px 0; }
+  .sub { color: var(--text2); margin-bottom: 40px; max-width: 560px; }
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 28px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s; }
+  .card:hover { border-color: rgba(0,212,170,0.3); }
+  .card-icon { font-size: 28px; }
+  .card h3 { font-size: 17px; font-weight: 600; }
+  .card p { font-size: 14px; color: var(--text2); flex: 1; }
+  .card-link { font-size: 13px; color: var(--accent); }
+</style>

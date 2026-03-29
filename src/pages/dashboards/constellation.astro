@@ -1,0 +1,25 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="Constellation Status">
+  <section class="section">
+    <div class="container">
+      <a href="/dashboards" class="back">← All dashboards</a>
+      <h1>Constellation Status</h1>
+      <div class="coming-soon">
+        <div class="cs-icon">🛰️</div>
+        <h3>Dashboard under construction</h3>
+        <p>Live health status for GPS, Galileo, GLONASS and BeiDou from official sources. Coming soon.</p>
+      </div>
+    </div>
+  </section>
+</Layout>
+<style>
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; }
+  .back:hover { color: var(--accent); }
+  h1 { font-size: 36px; font-weight: 700; margin-bottom: 40px; }
+  .coming-soon { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 60px 40px; text-align: center; max-width: 480px; }
+  .cs-icon { font-size: 40px; margin-bottom: 16px; }
+  .coming-soon h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+  .coming-soon p { font-size: 14px; color: var(--text2); }
+</style>

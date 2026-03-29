@@ -1,0 +1,31 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="Tools">
+  <section class="section">
+    <div class="container">
+      <span class="badge">Tools</span>
+      <h1>GNSS Analysis Tools</h1>
+      <p class="sub">Browser-based tools for GNSS engineers. No install. No data leaves your device.</p>
+      <div class="cards-grid">
+        <a href="/tools/gnss-analyzer" class="card">
+          <div class="card-icon">⚙️</div>
+          <h3>GNSS Analyzer</h3>
+          <p>Full NMEA, RINEX, RTK and Quectel PQTM analysis suite. Multi-file, multi-constellation.</p>
+          <span class="card-link">Open tool →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</Layout>
+<style>
+  h1 { font-size: 36px; font-weight: 700; margin: 12px 0; }
+  .sub { color: var(--text2); margin-bottom: 40px; max-width: 560px; }
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 28px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s; }
+  .card:hover { border-color: rgba(0,212,170,0.3); }
+  .card-icon { font-size: 28px; }
+  .card h3 { font-size: 17px; font-weight: 600; }
+  .card p { font-size: 14px; color: var(--text2); flex: 1; }
+  .card-link { font-size: 13px; color: var(--accent); }
+</style>

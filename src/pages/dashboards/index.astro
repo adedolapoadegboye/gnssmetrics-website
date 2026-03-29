@@ -1,0 +1,39 @@
+---
+import Layout from '../../layouts/Layout.astro';
+const dashboards = [
+  { href: '/dashboards/ionosphere', icon: '🌍', title: 'Ionospheric Watch', desc: 'Global TEC maps, Kp index, solar flux and scintillation activity from IGS and NOAA.' },
+  { href: '/dashboards/jamming', icon: '⚡', title: 'Jamming & Interference', desc: 'GNSS jamming activity from GPSJam, EUSPA interference reports and NAVCEN advisories.' },
+  { href: '/dashboards/space-weather', icon: '☀️', title: 'Space Weather', desc: 'Solar wind, geomagnetic storm alerts and X-ray flux from NOAA SWPC public API.' },
+  { href: '/dashboards/constellation', icon: '🛰️', title: 'Constellation Status', desc: 'Live health status for GPS, Galileo, GLONASS and BeiDou from official sources.' },
+];
+---
+<Layout title="Dashboards">
+  <section class="section">
+    <div class="container">
+      <span class="badge">Dashboards</span>
+      <h1>Live GNSS Dashboards</h1>
+      <p class="sub">Real-time GNSS environment monitoring. All data from public APIs — ethically sourced and attributed.</p>
+      <div class="cards-grid">
+        {dashboards.map(d => (
+          <a href={d.href} class="card">
+            <div class="card-icon">{d.icon}</div>
+            <h3>{d.title}</h3>
+            <p>{d.desc}</p>
+            <span class="card-link">View dashboard →</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+</Layout>
+<style>
+  h1 { font-size: 36px; font-weight: 700; margin: 12px 0; }
+  .sub { color: var(--text2); margin-bottom: 40px; max-width: 560px; }
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 28px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s; }
+  .card:hover { border-color: rgba(0,212,170,0.3); }
+  .card-icon { font-size: 28px; }
+  .card h3 { font-size: 17px; font-weight: 600; }
+  .card p { font-size: 14px; color: var(--text2); flex: 1; }
+  .card-link { font-size: 13px; color: var(--accent); }
+</style>

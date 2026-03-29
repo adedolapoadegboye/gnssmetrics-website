@@ -1,0 +1,51 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="About">
+  <section class="section">
+    <div class="container">
+      <span class="badge">About</span>
+      <h1>About GNSSMetrics</h1>
+      <div class="about-grid">
+        <div class="about-main">
+          <h2>What is GNSSMetrics.com?</h2>
+          <p>GNSSMetrics.com is a community-driven, vendor-neutral knowledge platform for the global GNSS engineering community. It brings together analysis tools, live environmental dashboards, educational content, open-source algorithmic projects, and curated industry news in one place.</p>
+          <p>Everything on this site is free. All tools run entirely in your browser — no data ever leaves your device. All dashboard data comes from public APIs with proper attribution.</p>
+          <h2>Who built this?</h2>
+          <p>GNSSMetrics was created by a GNSS engineer with extensive experience in satellite navigation system integration, module evaluation, and algorithm development. The Projects section documents an ongoing journey building GNSS positioning engines from scratch in C, C++, and Python.</p>
+          <h2>Editorial policy</h2>
+          <p>This site carries no commercial bias. No manufacturer is promoted over another. Sponsored content, where it exists, is clearly labelled and separated from editorial content. Contributors are required to disclose any commercial relationships with topics they write about.</p>
+          <h2>Contribute</h2>
+          <p>GNSSMetrics welcomes contributions from verified GNSS practitioners. If you would like to submit a technical article or tutorial, please reach out via the contact below.</p>
+        </div>
+        <div class="about-side">
+          <div class="info-card">
+            <h3>Data sources</h3>
+            <p>All dashboard data is sourced from public APIs including NOAA SWPC, IGS, EUSPA, GPSJam and NAVCEN. Each dashboard page documents its sources and licences.</p>
+          </div>
+          <div class="info-card">
+            <h3>Tools</h3>
+            <p>All tools are open source and available on GitHub. They run entirely client-side — your data never touches our servers.</p>
+          </div>
+          <div class="info-card">
+            <h3>Contact</h3>
+            <p>For contributions, corrections or enquiries — open an issue on the GitHub repository.</p>
+            <a href="https://github.com/adedolapoadegboye/gnssmetrics-website" class="gh-link">GitHub →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
+<style>
+  h1 { font-size: 36px; font-weight: 700; margin: 12px 0 40px; }
+  .about-grid { display: grid; grid-template-columns: 1fr 320px; gap: 48px; align-items: start; }
+  .about-main h2 { font-size: 20px; font-weight: 600; margin: 32px 0 12px; color: var(--accent2); }
+  .about-main h2:first-child { margin-top: 0; }
+  .about-main p { color: var(--text2); font-size: 15px; line-height: 1.7; margin-bottom: 12px; }
+  .info-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+  .info-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--accent); }
+  .info-card p { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .gh-link { display: inline-block; margin-top: 10px; font-size: 13px; color: var(--accent2); }
+  @media (max-width: 768px) { .about-grid { grid-template-columns: 1fr; } }
+</style>
