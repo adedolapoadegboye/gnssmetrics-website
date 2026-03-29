@@ -79,91 +79,31 @@ import Layout from '../layouts/Layout.astro';
         <p>Weekly digest — curated news, new tools, project updates. No spam. Unsubscribe any time.</p>
 
         <form
-          action="https://buttondown.email/api/emails/embed-subscribe/gnssmetrics"
+          action="https://buttondown.com/api/emails/embed-subscribe/gnssmetrics"
           method="post"
-          class="newsletter-form"
-          id="newsletterForm"
+          class="newsletter-form embeddable-buttondown-form"
         >
           <input
             type="email"
             name="email"
+            id="bd-email"
             placeholder="your@email.com"
             required
           />
-          <button type="submit" id="subscribeBtn">Subscribe</button>
+          <button type="submit">Subscribe</button>
         </form>
 
-        <div class="newsletter-success" id="newsletterSuccess">
-          ✅ You're subscribed! Check your inbox for a confirmation email.
-          <button class="newsletter-reset" id="resetBtn">Subscribe another email</button>
-        </div>
-
-        <div class="newsletter-duplicate" id="newsletterDuplicate">
-          ℹ️ That email is already subscribed. Check your inbox for past issues.
-          <button class="newsletter-reset" id="resetBtn2">Try another email</button>
-        </div>
-
         <p class="newsletter-note">
-          Powered by <a href="https://buttondown.email" target="_blank" rel="noopener noreferrer">Buttondown</a>.
-          Free. Cancel any time.
+          <a href="https://buttondown.com/refer/gnssmetrics" target="_blank" rel="noopener noreferrer">
+            Powered by Buttondown
+          </a>
+          · Free · Unsubscribe any time.
         </p>
       </div>
     </div>
   </section>
 
 </Layout>
-
-<script>
-  const form = document.getElementById('newsletterForm');
-  const success = document.getElementById('newsletterSuccess');
-  const duplicate = document.getElementById('newsletterDuplicate');
-  const btn = document.getElementById('subscribeBtn');
-
-  function resetForm() {
-    form.style.display = 'flex';
-    success.style.display = 'none';
-    duplicate.style.display = 'none';
-    form.reset();
-  }
-
-  document.getElementById('resetBtn').addEventListener('click', resetForm);
-  document.getElementById('resetBtn2').addEventListener('click', resetForm);
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = form.querySelector('input[type="email"]').value;
-    let status = 200;
-
-    // Show loading state
-    btn.textContent = 'Subscribing...';
-    btn.disabled = true;
-    btn.style.opacity = '0.7';
-
-    try {
-      const res = await fetch(form.action, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ email }),
-      });
-      status = res.status;
-    } catch (err) {
-      // Buttondown blocks CORS so fetch will throw — subscription still
-      // goes through on their end, safe to treat as success
-    }
-
-    // Reset button before hiding form
-    btn.textContent = 'Subscribe';
-    btn.disabled = false;
-    btn.style.opacity = '1';
-
-    form.style.display = 'none';
-    if (status === 400) {
-      duplicate.style.display = 'block';
-    } else {
-      success.style.display = 'block';
-    }
-  });
-</script>
 
 <style>
   /* HERO */
@@ -249,14 +189,14 @@ import Layout from '../layouts/Layout.astro';
     justify-content: center; flex-wrap: wrap;
     margin-bottom: 12px;
   }
-  .newsletter-form input {
+  .newsletter-form input[type="email"] {
     padding: 11px 16px; border-radius: 8px;
     border: 1px solid var(--border);
     background: var(--bg3); color: var(--text);
     font-size: 14px; flex: 1; min-width: 0;
     outline: none; font-family: var(--sans);
   }
-  .newsletter-form input:focus { border-color: var(--accent); }
+  .newsletter-form input[type="email"]:focus { border-color: var(--accent); }
   .newsletter-form button[type="submit"] {
     padding: 11px 24px; border-radius: 8px; border: none;
     background: var(--accent); color: #0d0f14;
@@ -266,39 +206,6 @@ import Layout from '../layouts/Layout.astro';
     transition: opacity 0.2s;
   }
   .newsletter-form button[type="submit"]:hover { opacity: 0.88; }
-
-  .newsletter-success {
-    display: none;
-    font-size: 15px;
-    color: var(--accent);
-    padding: 16px;
-    background: rgba(0,212,170,0.08);
-    border: 1px solid rgba(0,212,170,0.2);
-    border-radius: 8px;
-    margin-bottom: 12px;
-  }
-
-  .newsletter-duplicate {
-    display: none;
-    font-size: 15px;
-    color: var(--accent2);
-    padding: 16px;
-    background: rgba(0,153,255,0.08);
-    border: 1px solid rgba(0,153,255,0.2);
-    border-radius: 8px;
-    margin-bottom: 12px;
-  }
-
-  .newsletter-reset {
-    display: block;
-    margin: 10px auto 0;
-    background: none; border: none;
-    font-size: 12px; color: var(--text3);
-    cursor: pointer; text-decoration: underline;
-    text-underline-offset: 2px;
-    font-family: var(--sans);
-  }
-  .newsletter-reset:hover { color: var(--text2); }
 
   .newsletter-note {
     font-size: 12px; color: var(--text2);
