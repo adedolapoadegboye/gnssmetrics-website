@@ -14,17 +14,40 @@ const { title = 'GNSSMetrics' } = Astro.props;
 </head>
 <body>
   <header>
-    <nav>
+    <nav class="nav-container">
       <a href="/" class="logo">GNSS<span>Metrics</span></a>
-      <ul>
+
+      <!-- Desktop nav links -->
+      <ul class="nav-links">
         <li><a href="/tools">Tools</a></li>
         <li><a href="/dashboards">Dashboards</a></li>
         <li><a href="/learn">Learn</a></li>
         <li><a href="/projects">Projects</a></li>
         <li><a href="/blog">Blog</a></li>
         <li><a href="/news">News</a></li>
+        <li><a href="/about">About</a></li>
       </ul>
+
+      <!-- Burger button (mobile only) -->
+      <button class="burger" id="burgerBtn" aria-label="Toggle menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
     </nav>
+
+    <!-- Mobile drawer -->
+    <div class="mobile-menu" id="mobileMenu">
+      <ul>
+        <li><a href="/tools" onclick="closeMenu()">Tools</a></li>
+        <li><a href="/dashboards" onclick="closeMenu()">Dashboards</a></li>
+        <li><a href="/learn" onclick="closeMenu()">Learn</a></li>
+        <li><a href="/projects" onclick="closeMenu()">Projects</a></li>
+        <li><a href="/blog" onclick="closeMenu()">Blog</a></li>
+        <li><a href="/news" onclick="closeMenu()">News</a></li>
+        <li><a href="/about" onclick="closeMenu()">About</a></li>
+      </ul>
+    </div>
   </header>
 
   <main>
@@ -49,6 +72,32 @@ const { title = 'GNSSMetrics' } = Astro.props;
       <p class="footer-copy">© 2026 GNSSMetrics.com — All tools run locally in your browser. No data leaves your device.</p>
     </div>
   </footer>
+
+  <script>
+    const burger = document.getElementById('burgerBtn');
+    const menu = document.getElementById('mobileMenu');
+
+    burger.addEventListener('click', () => {
+      const isOpen = menu.classList.toggle('open');
+      burger.classList.toggle('open', isOpen);
+      burger.setAttribute('aria-expanded', isOpen);
+    });
+
+    // Close menu on outside click
+    document.addEventListener('click', (e) => {
+      if (!burger.contains(e.target) && !menu.contains(e.target)) {
+        closeMenu();
+      }
+    });
+
+    function closeMenu() {
+      menu.classList.remove('open');
+      burger.classList.remove('open');
+      burger.setAttribute('aria-expanded', false);
+    }
+    // make closeMenu available to inline onclick handlers
+    window.closeMenu = closeMenu;
+  </script>
 </body>
 </html>
 
@@ -68,6 +117,7 @@ const { title = 'GNSSMetrics' } = Astro.props;
     --danger: #ff4757;
     --mono: 'JetBrains Mono', monospace;
     --sans: 'Inter', sans-serif;
+    --nav-h: 60px;
   }
 
   html { scroll-behavior: smooth; }
@@ -84,29 +134,91 @@ const { title = 'GNSSMetrics' } = Astro.props;
   }
 
   main { flex: 1; }
-
   a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; display: block; }
 
-  /* NAV */
+  /* ── NAV ─────────────────────────────────────────────── */
   header {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(13,15,20,0.95);
+    background: rgba(13,15,20,0.97);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
   }
-  nav {
+
+  .nav-container {
     max-width: 1200px; margin: 0 auto;
     padding: 0 24px;
-    height: 60px;
+    height: var(--nav-h);
     display: flex; align-items: center; justify-content: space-between;
   }
-  .logo { font-family: var(--sans); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
-  .logo span { color: var(--accent); }
-  nav ul { list-style: none; display: flex; gap: 32px; }
-  nav ul a { font-size: 14px; color: var(--text2); transition: color 0.2s; }
-  nav ul a:hover { color: var(--text); }
 
-  /* FOOTER */
+  .logo {
+    font-family: var(--sans); font-weight: 700;
+    font-size: 18px; letter-spacing: -0.02em;
+    flex-shrink: 0;
+  }
+  .logo span { color: var(--accent); }
+
+  /* Desktop links */
+  .nav-links {
+    list-style: none;
+    display: flex; gap: 28px;
+    align-items: center;
+  }
+  .nav-links a {
+    font-size: 14px; color: var(--text2);
+    transition: color 0.2s;
+    white-space: nowrap;
+  }
+  .nav-links a:hover { color: var(--text); }
+
+  /* Burger button */
+  .burger {
+    display: none;
+    flex-direction: column; justify-content: space-between;
+    width: 24px; height: 18px;
+    background: none; border: none;
+    cursor: pointer; padding: 0;
+    flex-shrink: 0;
+  }
+  .burger span {
+    display: block; width: 100%; height: 2px;
+    background: var(--text2);
+    border-radius: 2px;
+    transition: all 0.25s;
+    transform-origin: center;
+  }
+  /* Burger → X animation */
+  .burger.open span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+  .burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+  .burger.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+  /* Mobile drawer */
+  .mobile-menu {
+    display: none;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease;
+  }
+  .mobile-menu.open { max-height: 400px; }
+  .mobile-menu ul { list-style: none; padding: 8px 0 16px; }
+  .mobile-menu ul li a {
+    display: block;
+    padding: 12px 24px;
+    font-size: 15px;
+    color: var(--text2);
+    transition: color 0.15s, background 0.15s;
+    border-left: 3px solid transparent;
+  }
+  .mobile-menu ul li a:hover {
+    color: var(--accent);
+    background: rgba(0,212,170,0.05);
+    border-left-color: var(--accent);
+  }
+
+  /* ── FOOTER ──────────────────────────────────────────── */
   footer {
     background: var(--bg2);
     border-top: 1px solid var(--border);
@@ -116,17 +228,46 @@ const { title = 'GNSSMetrics' } = Astro.props;
   .footer-inner { max-width: 1200px; margin: 0 auto; }
   .footer-brand { margin-bottom: 24px; }
   .footer-brand p { color: var(--text2); font-size: 13px; margin-top: 8px; }
-  .footer-links { display: flex; flex-wrap: wrap; gap: 16px 32px; margin-bottom: 32px; }
+  .footer-links {
+    display: flex; flex-wrap: wrap;
+    gap: 12px 28px; margin-bottom: 28px;
+  }
   .footer-links a { font-size: 13px; color: var(--text2); transition: color 0.2s; }
   .footer-links a:hover { color: var(--accent); }
-  .footer-copy { font-size: 12px; color: var(--text2); opacity: 0.6; }
+  .footer-copy { font-size: 12px; color: var(--text2); opacity: 0.5; line-height: 1.6; }
 
-  /* UTILITIES */
+  /* ── UTILITIES ───────────────────────────────────────── */
   .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
   .section { padding: 80px 0; }
+
   .badge {
     display: inline-block; padding: 3px 10px; border-radius: 20px;
     font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
     background: rgba(0,212,170,0.12); color: var(--accent);
+  }
+
+  /* ── RESPONSIVE BREAKPOINTS ──────────────────────────── */
+
+  /* Tablet — 768px */
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .burger { display: flex; }
+    .mobile-menu { display: block; }
+
+    .section { padding: 56px 0; }
+
+    .container { padding: 0 16px; }
+
+    footer { padding: 40px 16px 28px; }
+    .footer-links { gap: 10px 20px; }
+  }
+
+  /* Small mobile — 480px */
+  @media (max-width: 480px) {
+    :root { --nav-h: 56px; }
+    body { font-size: 14px; }
+    .logo { font-size: 16px; }
+    .section { padding: 40px 0; }
+    .footer-copy { font-size: 11px; }
   }
 </style>
