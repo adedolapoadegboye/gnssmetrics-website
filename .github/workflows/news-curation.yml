@@ -2,8 +2,8 @@ name: Daily GNSS News Curation
 
 on:
   schedule:
-    - cron: '0 6 * * *'   # 06:00 UTC every day
-  workflow_dispatch:        # allow manual trigger from GitHub UI
+    - cron: "0 6 * * *" # 06:00 UTC every day
+  workflow_dispatch: # allow manual trigger from GitHub UI
 
 jobs:
   curate:
@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "24"
 
       - name: Run news curation script
         env:
