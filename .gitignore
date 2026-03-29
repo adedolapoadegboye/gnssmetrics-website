@@ -1,0 +1,25 @@
+# Node dependencies — installed locally, never committed
+node_modules/
+
+# Astro build output — generated on deploy, not source code
+dist/
+.astro/
+
+# Environment variables — may contain API keys later
+.env
+.env.local
+.env.production
+
+# macOS junk
+.DS_Store
+
+# Editor folders
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Generated PDFs and local deliverables
+*.pdf
