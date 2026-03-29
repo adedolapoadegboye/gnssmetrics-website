@@ -1,25 +1,24 @@
-# Node dependencies — installed locally, never committed
-node_modules/
-
-# Astro build output — generated on deploy, not source code
+# build output
 dist/
+
+# generated types
 .astro/
 
-# Environment variables — may contain API keys later
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# environment variables
 .env
-.env.local
 .env.production
 
-# macOS junk
+# macOS-specific files
 .DS_Store
 
-# Editor folders
-.vscode/
+# jetbrains setting folder
 .idea/
-
-# Logs
-*.log
-npm-debug.log*
-
-# Generated PDFs and local deliverables
-*.pdf

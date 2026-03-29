@@ -1,0 +1,132 @@
+---
+const { title = 'GNSSMetrics' } = Astro.props;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} | GNSSMetrics.com</title>
+  <meta name="description" content="Community-driven GNSS knowledge platform — tools, dashboards, news, and learning resources." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="/" class="logo">GNSS<span>Metrics</span></a>
+      <ul>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/dashboards">Dashboards</a></li>
+        <li><a href="/learn">Learn</a></li>
+        <li><a href="/projects">Projects</a></li>
+        <li><a href="/blog">Blog</a></li>
+        <li><a href="/news">News</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <slot />
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a href="/" class="logo">GNSS<span>Metrics</span></a>
+        <p>Community-driven · Vendor-neutral · Open</p>
+      </div>
+      <div class="footer-links">
+        <a href="/tools">Tools</a>
+        <a href="/dashboards">Dashboards</a>
+        <a href="/learn">Learn</a>
+        <a href="/projects">Projects</a>
+        <a href="/blog">Blog</a>
+        <a href="/news">News</a>
+        <a href="/about">About</a>
+      </div>
+      <p class="footer-copy">© 2026 GNSSMetrics.com — All tools run locally in your browser. No data leaves your device.</p>
+    </div>
+  </footer>
+</body>
+</html>
+
+<style is:global>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --bg2: #13161e;
+    --bg3: #1a1e28;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8eaf0;
+    --text2: #8b91a8;
+    --accent: #00d4aa;
+    --accent2: #0099ff;
+    --warn: #f0a500;
+    --danger: #ff4757;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  main { flex: 1; }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* NAV */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,15,20,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  nav {
+    max-width: 1200px; margin: 0 auto;
+    padding: 0 24px;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { font-family: var(--sans); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+  .logo span { color: var(--accent); }
+  nav ul { list-style: none; display: flex; gap: 32px; }
+  nav ul a { font-size: 14px; color: var(--text2); transition: color 0.2s; }
+  nav ul a:hover { color: var(--text); }
+
+  /* FOOTER */
+  footer {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 48px 24px 32px;
+    margin-top: auto;
+  }
+  .footer-inner { max-width: 1200px; margin: 0 auto; }
+  .footer-brand { margin-bottom: 24px; }
+  .footer-brand p { color: var(--text2); font-size: 13px; margin-top: 8px; }
+  .footer-links { display: flex; flex-wrap: wrap; gap: 16px 32px; margin-bottom: 32px; }
+  .footer-links a { font-size: 13px; color: var(--text2); transition: color 0.2s; }
+  .footer-links a:hover { color: var(--accent); }
+  .footer-copy { font-size: 12px; color: var(--text2); opacity: 0.6; }
+
+  /* UTILITIES */
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  .section { padding: 80px 0; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    background: rgba(0,212,170,0.12); color: var(--accent);
+  }
+</style>
