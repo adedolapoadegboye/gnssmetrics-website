@@ -23,7 +23,7 @@ const sorted = allNews.sort((a, b) =>
       ) : (
         <div class="news-list">
           {sorted.map(article => (
-            <a href={`/news/${article.slug}`} class="news-card">
+            <a href={`/news/${article.id}`} class="news-card">
               <div class="news-date">{article.data.date}</div>
               <h3>{article.data.title}</h3>
               {article.data.generated && (
