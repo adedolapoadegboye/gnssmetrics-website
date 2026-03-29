@@ -6,13 +6,26 @@ const allNews = await getCollection('news');
 const sorted = allNews.sort((a, b) =>
   new Date(b.data.date).getTime() - new Date(a.data.date).getTime()
 );
+
+// Format date nicely e.g. "March 29, 2026"
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
+  });
+}
 ---
 <Layout title="News">
   <section class="section">
     <div class="container">
-      <span class="badge">News</span>
-      <h1>GNSS Industry News</h1>
-      <p class="sub">Daily digest curated from public GNSS news sources. Summarised by AI — sources always linked.</p>
+
+      <div class="page-header">
+        <span class="badge">News</span>
+        <h1>GNSS Industry News</h1>
+        <p class="sub">
+          Daily digest curated from public GNSS news sources — industry, research, business and official advisories.
+          AI-summarised with sources always linked. Published every morning at 06:00 UTC.
+        </p>
+      </div>
 
       {sorted.length === 0 ? (
         <div class="coming-soon">
@@ -22,39 +35,110 @@ const sorted = allNews.sort((a, b) =>
         </div>
       ) : (
         <div class="news-list">
-          {sorted.map(article => (
-            <a href={`/news/${article.id}`} class="news-card">
-              <div class="news-date">{article.data.date}</div>
-              <h3>{article.data.title}</h3>
-              {article.data.generated && (
-                <span class="ai-badge">AI curated</span>
+          {sorted.map((article, i) => (
+            <a href={`/news/${article.id}`} class={`news-card ${i === 0 ? 'news-card--latest' : ''}`}>
+              <div class="news-card__meta">
+                <time class="news-date">{formatDate(article.data.date)}</time>
+                <div class="news-badges">
+                  {i === 0 && <span class="badge-latest">Latest</span>}
+                  {article.data.generated && <span class="badge-ai">AI curated</span>}
+                </div>
+              </div>
+              <h3 class="news-card__title">{article.data.title}</h3>
+              {article.data.tags && article.data.tags.length > 0 && (
+                <div class="news-tags">
+                  {article.data.tags.map(tag => (
+                    <span class="news-tag">#{tag}</span>
+                  ))}
+                </div>
               )}
+              <span class="news-card__cta">Read digest →</span>
             </a>
           ))}
         </div>
       )}
+
     </div>
   </section>
 </Layout>
 
 <style>
-  h1 { font-size: 36px; font-weight: 700; margin: 12px 0; }
-  .sub { color: var(--text2); margin-bottom: 40px; max-width: 560px; }
+  /* Page header */
+  .page-header { margin-bottom: 40px; }
+  h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 700; margin: 12px 0 16px; }
+  .sub {
+    color: var(--text2); max-width: 620px;
+    font-size: 15px; line-height: 1.7;
+  }
+
+  /* News list */
   .news-list { display: flex; flex-direction: column; gap: 12px; }
+
+  /* Card base */
   .news-card {
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 20px 24px;
-    display: flex; flex-direction: column; gap: 6px;
-    transition: border-color 0.2s;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 26px;
+    display: flex; flex-direction: column; gap: 10px;
+    transition: border-color 0.2s, transform 0.15s, background 0.2s;
+    position: relative;
   }
-  .news-card:hover { border-color: rgba(0,212,170,0.3); }
-  .news-date { font-size: 11px; color: var(--text3); font-family: var(--mono); }
-  .news-card h3 { font-size: 16px; font-weight: 600; color: var(--text); }
-  .ai-badge {
-    display: inline-block; font-size: 10px; padding: 2px 8px;
+  .news-card:hover {
+    border-color: rgba(0,212,170,0.35);
+    transform: translateY(-1px);
+    background: var(--bg3);
+  }
+
+  /* Latest card gets a subtle accent left border */
+  .news-card--latest {
+    border-left: 3px solid var(--accent);
+  }
+
+  /* Meta row — date + badges */
+  .news-card__meta {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+  }
+  .news-date {
+    font-size: 11px; color: var(--text3);
+    font-family: var(--mono); letter-spacing: 0.04em;
+  }
+  .news-badges { display: flex; gap: 6px; align-items: center; }
+
+  .badge-latest {
+    font-size: 10px; font-weight: 600; padding: 2px 8px;
+    background: rgba(0,212,170,0.15); color: var(--accent);
+    border: 1px solid rgba(0,212,170,0.3); border-radius: 4px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .badge-ai {
+    font-size: 10px; padding: 2px 8px;
     background: rgba(0,153,255,0.1); color: var(--accent2);
-    border-radius: 4px; width: fit-content;
+    border: 1px solid rgba(0,153,255,0.2); border-radius: 4px;
   }
+
+  /* Title */
+  .news-card__title {
+    font-size: 17px; font-weight: 600;
+    color: var(--text); line-height: 1.4;
+  }
+
+  /* Tags */
+  .news-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .news-tag {
+    font-size: 11px; color: var(--text3);
+    font-family: var(--mono);
+  }
+
+  /* CTA */
+  .news-card__cta {
+    font-size: 13px; color: var(--accent);
+    margin-top: 2px;
+  }
+
+  /* Coming soon */
   .coming-soon {
     background: var(--bg2); border: 1px solid var(--border);
     border-radius: 12px; padding: 60px 40px;
@@ -63,8 +147,11 @@ const sorted = allNews.sort((a, b) =>
   .cs-icon { font-size: 40px; margin-bottom: 16px; }
   .coming-soon h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
   .coming-soon p { font-size: 14px; color: var(--text2); }
+
+  /* Mobile */
   @media (max-width: 768px) {
-    h1 { font-size: 28px; }
-    .news-card { padding: 16px; }
+    .news-card { padding: 16px 18px; }
+    .news-card__title { font-size: 15px; }
+    .news-card__meta { flex-direction: column; align-items: flex-start; }
   }
 </style>
