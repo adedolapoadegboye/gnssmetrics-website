@@ -11,7 +11,7 @@ import Layout from '../../layouts/Layout.astro';
     <a href="/public/gnss-analyzer.html" target="_blank" class="open-new">Open in new tab ↗</a>
   </div>
   <div class="frame-wrap">
-    <iframe src="/gnss-analyzer.html" title="GNSS Analyzer v3.0"></iframe>
+    <iframe src="/gnss-analyzer.html" title="GNSS Analyzer v3.0" scrolling="yes"></iframe>
   </div>
 </Layout>
 
@@ -38,11 +38,15 @@ import Layout from '../../layouts/Layout.astro';
   .frame-wrap {
     width: 100%;
     height: calc(100vh - 60px - 41px);
+    overflow-x: auto;
+    overflow-y: hidden;
   }
   iframe {
     width: 100%;
+    min-width: 900px;
     height: 100%;
     border: none;
     display: block;
+    scrolling: yes;
   }
 </style>
