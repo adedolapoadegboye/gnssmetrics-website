@@ -90,7 +90,7 @@ import Layout from '../layouts/Layout.astro';
             placeholder="your@email.com"
             required
           />
-          <button type="submit">Subscribe</button>
+          <button type="submit" id="subscribeBtn">Subscribe</button>
         </form>
 
         <div class="newsletter-success" id="newsletterSuccess">
@@ -117,6 +117,7 @@ import Layout from '../layouts/Layout.astro';
   const form = document.getElementById('newsletterForm');
   const success = document.getElementById('newsletterSuccess');
   const duplicate = document.getElementById('newsletterDuplicate');
+  const btn = document.getElementById('subscribeBtn');
 
   function resetForm() {
     form.style.display = 'flex';
@@ -133,6 +134,11 @@ import Layout from '../layouts/Layout.astro';
     const email = form.querySelector('input[type="email"]').value;
     let status = 200;
 
+    // Show loading state
+    btn.textContent = 'Subscribing...';
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+
     try {
       const res = await fetch(form.action, {
         method: 'POST',
@@ -144,6 +150,11 @@ import Layout from '../layouts/Layout.astro';
       // Buttondown blocks CORS so fetch will throw — subscription still
       // goes through on their end, safe to treat as success
     }
+
+    // Reset button before hiding form
+    btn.textContent = 'Subscribe';
+    btn.disabled = false;
+    btn.style.opacity = '1';
 
     form.style.display = 'none';
     if (status === 400) {
@@ -246,7 +257,7 @@ import Layout from '../layouts/Layout.astro';
     outline: none; font-family: var(--sans);
   }
   .newsletter-form input:focus { border-color: var(--accent); }
-  .newsletter-form button {
+  .newsletter-form button[type="submit"] {
     padding: 11px 24px; border-radius: 8px; border: none;
     background: var(--accent); color: #0d0f14;
     font-weight: 600; font-size: 14px;
@@ -254,7 +265,7 @@ import Layout from '../layouts/Layout.astro';
     font-family: var(--sans);
     transition: opacity 0.2s;
   }
-  .newsletter-form button:hover { opacity: 0.88; }
+  .newsletter-form button[type="submit"]:hover { opacity: 0.88; }
 
   .newsletter-success {
     display: none;
