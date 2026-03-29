@@ -1,5 +1,5 @@
 ---
-import Layout from '../../layouts/Layout.astro';
+import Layout from '../layouts/Layout.astro';
 ---
 <Layout title="About">
   <section class="section">
@@ -8,35 +8,65 @@ import Layout from '../../layouts/Layout.astro';
       <h1>About GNSSMetrics</h1>
       <div class="about-grid">
         <div class="about-main">
+
           <h2>What is GNSSMetrics.com?</h2>
-          <p>GNSSMetrics.com is a community-driven, vendor-neutral knowledge platform for the global GNSS engineering community. It brings together analysis tools, live environmental dashboards, educational content, open-source algorithmic projects, and curated industry news in one place.</p>
+          <p>GNSSMetrics.com is a community-driven, vendor-neutral knowledge platform for the global GNSS engineering community. It brings together browser-based analysis tools, live environmental dashboards, educational content, open-source algorithmic projects, and curated industry news — all in one place.</p>
           <p>Everything on this site is free. All tools run entirely in your browser — no data ever leaves your device. All dashboard data comes from public APIs with proper attribution.</p>
+
           <h2>Who built this?</h2>
-          <p>GNSSMetrics was created by a GNSS engineer with extensive experience in satellite navigation system integration, module evaluation, and algorithm development. The Projects section documents an ongoing journey building GNSS positioning engines from scratch in C, C++, and Python.</p>
+          <p>GNSSMetrics was built by <strong style="color:var(--text);">Ade</strong> — a GNSS Engineer based in Edmonton, Canada, with a Master of Engineering from the University of Calgary and over five years of industry experience across IoT sensor systems and high-precision GNSS.</p>
+          <p>His work spans standard and high-precision positioning technologies including RTK, PPP, PPP-RTK, SBAS, Dead Reckoning, and sensor fusion — across embedded systems, field evaluation, and algorithm development. He has worked with GNSS simulation platforms, HIL/SIL testing environments, and real-world deployments across North America.</p>
+          <p>Beyond GNSS, Ade has contributed to open-source tooling — including adding Quectel proprietary NMEA sentence support to the pynmea2 Python library — and has a background in full-stack development, embedded systems, and LoRaWAN IoT design.</p>
+
           <h2>Editorial policy</h2>
-          <p>This site carries no commercial bias. No manufacturer is promoted over another. Sponsored content, where it exists, is clearly labelled and separated from editorial content. Contributors are required to disclose any commercial relationships with topics they write about.</p>
+          <p>This site carries no commercial bias. No GNSS manufacturer is promoted over another. Sponsored content, where it exists, is clearly labelled and separated from editorial content. Contributors are required to disclose any commercial relationships with topics they write about.</p>
+
           <h2>Contribute</h2>
-          <p>GNSSMetrics welcomes contributions from verified GNSS practitioners. If you would like to submit a technical article or tutorial, please reach out via the contact below.</p>
+          <p>GNSSMetrics welcomes contributions from verified GNSS practitioners. If you would like to submit a technical article, tutorial, or project write-up, get in touch using any of the links on this page.</p>
+
         </div>
         <div class="about-side">
+
+          <div class="info-card">
+            <h3>Connect with Ade</h3>
+            <p>Open to collaborations, technical discussions, and contributions from the GNSS community.</p>
+            <div class="contact-links">
+              <a href="mailto:adedolapo.adegboye@alumni.ucalgary.ca" class="contact-link">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><rect x="1" y="3" width="14" height="10" rx="1"/><polyline points="1,3 8,9 15,3"/></svg>
+                Email
+              </a>
+              <a href="https://www.linkedin.com/in/adegboyeadedolapo" target="_blank" class="contact-link">
+                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M3.5 2a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM2 6h3v8H2V6zm5 0h2.9v1.1C10.4 6.4 11.2 6 12 6c2 0 2 1.5 2 3v5h-3v-4.5c0-.8-.3-1.5-1-1.5s-1 .7-1 1.5V14H7V6z"/></svg>
+                LinkedIn
+              </a>
+              <a href="https://github.com/adedolapoadegboye" target="_blank" class="contact-link">
+                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.34C3.73 14.36 3.26 13 3.26 13c-.36-.92-.89-1.16-.89-1.16-.73-.5.05-.49.05-.49.8.06 1.23.82 1.23.82.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.58.82-2.14-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82a7.65 7.65 0 012-.27c.68 0 1.36.09 2 .27 1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.27.82 2.14 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                GitHub
+              </a>
+              <a href="https://www.adedolapo.dev" target="_blank" class="contact-link">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2a10 10 0 010 12M8 2a10 10 0 000 12"/></svg>
+                Personal site
+              </a>
+            </div>
+          </div>
+
           <div class="info-card">
             <h3>Data sources</h3>
             <p>All dashboard data is sourced from public APIs including NOAA SWPC, IGS, EUSPA, GPSJam and NAVCEN. Each dashboard page documents its sources and licences.</p>
           </div>
+
           <div class="info-card">
             <h3>Tools</h3>
-            <p>All tools are open source and available on GitHub. They run entirely client-side — your data never touches our servers.</p>
+            <p>All tools run entirely client-side — your data never touches a server. Source code is open on GitHub.</p>
+            <a href="https://github.com/adedolapoadegboye/gnssmetrics-website" target="_blank" class="gh-link">View on GitHub →</a>
           </div>
-          <div class="info-card">
-            <h3>Contact</h3>
-            <p>For contributions, corrections or enquiries — open an issue on the GitHub repository.</p>
-            <a href="https://github.com/adedolapoadegboye/gnssmetrics-website" class="gh-link">GitHub →</a>
-          </div>
+
         </div>
       </div>
     </div>
   </section>
 </Layout>
+
 <style>
   h1 { font-size: 36px; font-weight: 700; margin: 12px 0 40px; }
   .about-grid { display: grid; grid-template-columns: 1fr 320px; gap: 48px; align-items: start; }
@@ -45,7 +75,16 @@ import Layout from '../../layouts/Layout.astro';
   .about-main p { color: var(--text2); font-size: 15px; line-height: 1.7; margin-bottom: 12px; }
   .info-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
   .info-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--accent); }
-  .info-card p { font-size: 13px; color: var(--text2); line-height: 1.6; }
-  .gh-link { display: inline-block; margin-top: 10px; font-size: 13px; color: var(--accent2); }
+  .info-card p { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .contact-links { display: flex; flex-direction: column; gap: 10px; }
+  .contact-link {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text2);
+    padding: 8px 12px; border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+  .contact-link:hover { color: var(--accent); border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.05); }
+  .gh-link { display: inline-block; font-size: 13px; color: var(--accent2); }
   @media (max-width: 768px) { .about-grid { grid-template-columns: 1fr; } }
 </style>
