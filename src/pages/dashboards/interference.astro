@@ -4,22 +4,407 @@ import Layout from '../../layouts/Layout.astro';
 <Layout title="GNSS Interference">
   <section class="section">
     <div class="container">
+
       <a href="/dashboards" class="back">← All dashboards</a>
-      <h1>GNSS Interference</h1>
-      <div class="coming-soon">
-        <div class="cs-icon">⚡</div>
-        <h3>Dashboard under construction</h3>
-        <p>GNSS interference monitoring — jamming, spoofing and unintentional RF interference from GPSJam, EUSPA and NAVCEN. Coming soon.</p>
+
+      <div class="dash-header">
+        <div>
+          <span class="badge">Live · Global</span>
+          <h1>GNSS Interference</h1>
+          <p class="sub">
+            Live jamming and spoofing activity worldwide. Data derived from ADS-B aircraft reports,
+            official advisories and community monitoring networks.
+            All sources are public and correctly attributed.
+          </p>
+          <div class="warning-note">
+            ⚠️ <strong>Methodology note:</strong> Jamming and spoofing maps are derived from aircraft
+            ADS-B navigation accuracy reports — not direct RF measurements. Red zones indicate areas
+            where aircraft reported degraded GNSS accuracy. This does not always mean intentional
+            interference — military exercises, terrain and equipment faults can also cause low NIC values.
+            Always cross-reference with official NOTAMs before operational decisions.
+          </div>
+        </div>
       </div>
+
+      <!-- INTERFERENCE TYPE EXPLAINER -->
+      <div class="type-grid">
+        <div class="type-card">
+          <div class="type-icon">📡</div>
+          <div class="type-name">Jamming</div>
+          <div class="type-desc">
+            Broadcast of high-power RF noise on GNSS frequencies. Overpowers satellite signals.
+            Receiver loses lock entirely — position unavailable or invalid.
+            Effect is local to the jammer's range (typically &lt;100 km).
+          </div>
+          <div class="type-indicators">
+            <span class="indicator">SNR drops sharply</span>
+            <span class="indicator">AGC rises</span>
+            <span class="indicator">No fix / low accuracy</span>
+          </div>
+        </div>
+        <div class="type-card">
+          <div class="type-icon">🎭</div>
+          <div class="type-name">Spoofing</div>
+          <div class="type-desc">
+            Transmission of counterfeit GNSS signals. Receiver appears to have a valid fix
+            but at a false location. More dangerous than jamming — the receiver does not know it is deceived.
+            Detected by monitoring for sudden position jumps or time anomalies.
+          </div>
+          <div class="type-indicators">
+            <span class="indicator">False position reported</span>
+            <span class="indicator">NTP vs GNSS time mismatch</span>
+            <span class="indicator">Sudden position jump</span>
+          </div>
+        </div>
+        <div class="type-card">
+          <div class="type-icon">🔌</div>
+          <div class="type-name">Unintentional RFI</div>
+          <div class="type-desc">
+            Accidental interference from faulty equipment, LTE/5G harmonics, TV transmitters or
+            industrial sources. Often localised near airports, repair shops or transmission towers.
+            Reported regularly near major airports worldwide.
+          </div>
+          <div class="type-indicators">
+            <span class="indicator">Localised area</span>
+            <span class="indicator">Intermittent pattern</span>
+            <span class="indicator">Multiple receivers affected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIVE MAPS -->
+      <div class="section-title">
+        <h2>Live Interference Maps</h2>
+        <p class="section-sub">Both maps use ADS-B aircraft data. GPSJam shows jamming heatmaps. GPSwise shows live spoofing detections. Together they give the most complete picture available from public data.</p>
+      </div>
+
+      <div class="maps-grid">
+
+        <div class="map-card">
+          <div class="map-header">
+            <div>
+              <div class="map-title">GPSJam — Daily Jamming Heatmap</div>
+              <div class="map-sub">
+                ADS-B Exchange data · Updated daily · Red = high interference probability
+              </div>
+            </div>
+            <a href="https://gpsjam.org" target="_blank" rel="noopener noreferrer" class="open-external">
+              Open full map ↗
+            </a>
+          </div>
+          <div class="map-frame-wrap">
+            <iframe
+              src="https://gpsjam.org?lat=30&lon=20&z=2.5&dark=true"
+              title="GPSJam GNSS interference map"
+              loading="lazy"
+              allowfullscreen
+            ></iframe>
+          </div>
+          <div class="map-note">
+            GPSJam uses aircraft NIC (Navigation Integrity Category) reports from ADS-B Exchange.
+            Areas where many aircraft report low NIC values are flagged as potential interference zones.
+            Red/yellow does not always indicate intentional jamming.
+            <a href="https://gpsjam.org/faq" target="_blank" rel="noopener noreferrer">Read methodology →</a>
+          </div>
+        </div>
+
+        <div class="map-card">
+          <div class="map-header">
+            <div>
+              <div class="map-title">GPSwise — Live Spoofing Tracker</div>
+              <div class="map-sub">
+                OpenSky Network · Real-time · Blue lines = spoofed position vectors
+              </div>
+            </div>
+            <a href="https://spoofing.skai-data-services.com" target="_blank" rel="noopener noreferrer" class="open-external">
+              Open full map ↗
+            </a>
+          </div>
+          <div class="map-frame-wrap">
+            <iframe
+              src="https://spoofing.skai-data-services.com"
+              title="GPSwise live GPS spoofing tracker"
+              loading="lazy"
+              allowfullscreen
+            ></iframe>
+          </div>
+          <div class="map-note">
+            GPSwise by SkAI Data Services and Zurich University of Applied Sciences.
+            Uses OpenSky Network ADS-B data to detect aircraft position anomalies consistent with spoofing.
+            Blue lines connect true position to spoofed position. Hexagons show jamming intensity.
+            <a href="https://gpswise.aero" target="_blank" rel="noopener noreferrer">Learn more →</a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ACTIVE ADVISORIES -->
+      <div class="section-title">
+        <h2>Active GNSS Advisories</h2>
+        <p class="section-sub">Official notices from navigation authorities. Always check these before precision operations.</p>
+      </div>
+
+      <div class="advisories-grid">
+
+        <a href="https://www.navcen.uscg.gov/gps-nanus" target="_blank" rel="noopener noreferrer" class="advisory-card">
+          <div class="advisory-logo">🇺🇸</div>
+          <div class="advisory-content">
+            <div class="advisory-title">NAVCEN — GPS NANUs</div>
+            <div class="advisory-desc">
+              Notice Advisory to NAVSTAR Users. Official US Coast Guard notices for GPS satellite outages,
+              unhealthy SVs, and signal anomalies. Updated in real time.
+            </div>
+            <div class="advisory-link">View active NANUs →</div>
+          </div>
+        </a>
+
+        <a href="https://www.navcen.uscg.gov/gps-interference-reports" target="_blank" rel="noopener noreferrer" class="advisory-card">
+          <div class="advisory-logo">📋</div>
+          <div class="advisory-content">
+            <div class="advisory-title">NAVCEN — Interference Reports</div>
+            <div class="advisory-desc">
+              US Coast Guard GPS interference report archive. Includes confirmed interference events,
+              test notifications and scheduled outages affecting the US and surrounding areas.
+            </div>
+            <div class="advisory-link">View interference reports →</div>
+          </div>
+        </a>
+
+        <a href="https://www.euspa.europa.eu/gnss-interference-reporting" target="_blank" rel="noopener noreferrer" class="advisory-card">
+          <div class="advisory-logo">🇪🇺</div>
+          <div class="advisory-content">
+            <div class="advisory-title">EUSPA — EU Interference Reporting</div>
+            <div class="advisory-desc">
+              European Union Agency for the Space Programme interference reporting portal.
+              Covers Galileo and GPS interference events across European airspace and beyond.
+            </div>
+            <div class="advisory-link">View EUSPA reports →</div>
+          </div>
+        </a>
+
+        <a href="https://www.faa.gov/air_traffic/publications/atpubs/notam_html/chap6_paragraph_6-1-2.html" target="_blank" rel="noopener noreferrer" class="advisory-card">
+          <div class="advisory-logo">✈️</div>
+          <div class="advisory-content">
+            <div class="advisory-title">FAA — GPS NOTAMs</div>
+            <div class="advisory-desc">
+              FAA Notices to Air Missions for GPS signal interference and outages.
+              Includes scheduled military GPS jamming tests over the US — relevant for any
+              precision GNSS operation near those areas.
+            </div>
+            <div class="advisory-link">View FAA GPS NOTAMs →</div>
+          </div>
+        </a>
+
+        <a href="https://rfi.stanford.edu" target="_blank" rel="noopener noreferrer" class="advisory-card">
+          <div class="advisory-logo">🎓</div>
+          <div class="advisory-content">
+            <div class="advisory-title">Stanford RFI Map</div>
+            <div class="advisory-desc">
+              Stanford University GNSS interference events map. Academic research-grade
+              monitoring of RF interference affecting GNSS signals globally.
+            </div>
+            <div class="advisory-link">View Stanford RFI map →</div>
+          </div>
+        </a>
+
+        <a href="https://www.ops.group/gpsjanuary" target="_blank" rel="noopener noreferrer" class="advisory-card">
+          <div class="advisory-logo">🛫</div>
+          <div class="advisory-content">
+            <div class="advisory-title">OPSGROUP — Aviation Spoofing Reports</div>
+            <div class="advisory-desc">
+              Community-sourced aviation GPS spoofing and jamming reports from pilots worldwide.
+              Particularly valuable for identifying active conflict zone interference patterns.
+            </div>
+            <div class="advisory-link">View OPSGROUP reports →</div>
+          </div>
+        </a>
+
+      </div>
+
+      <!-- HIGH RISK REGIONS -->
+      <div class="risk-section">
+        <h2>Known High-Risk Regions</h2>
+        <p class="section-sub">Areas with persistent or recurring GNSS interference based on historical data and current geopolitical context.</p>
+        <div class="risk-grid">
+          <div class="risk-item risk-critical">
+            <div class="risk-region">Middle East</div>
+            <div class="risk-detail">Eastern Mediterranean, Israel/Lebanon/Syria/Jordan airspace. Among the most heavily jammed and spoofed airspace globally. GPS displacement of 100+ km reported regularly by commercial aviation.</div>
+            <div class="risk-type">Jamming + Spoofing</div>
+          </div>
+          <div class="risk-item risk-critical">
+            <div class="risk-region">Black Sea / Eastern Europe</div>
+            <div class="risk-detail">Ukraine conflict zone and surrounding airspace. Significant jamming affecting Baltic states, Finland, Poland. GPS outages reported in Kaliningrad region extending into civil airspace.</div>
+            <div class="risk-type">Jamming + Spoofing</div>
+          </div>
+          <div class="risk-item risk-high">
+            <div class="risk-region">North Korea Border</div>
+            <div class="risk-detail">Korean Peninsula border regions. Periodic jamming campaigns affecting South Korea, particularly Seoul area. Historically affects maritime and aviation operations in the Yellow Sea.</div>
+            <div class="risk-type">Jamming</div>
+          </div>
+          <div class="risk-item risk-high">
+            <div class="risk-region">US Southwest (Scheduled)</div>
+            <div class="risk-detail">Scheduled military GPS jamming tests over Nevada, California, Arizona. Announced in advance via FAA NOTAMs. Legitimate military exercises — check NOTAMs before precision operations.</div>
+            <div class="risk-type">Scheduled Military Testing</div>
+          </div>
+          <div class="risk-item risk-med">
+            <div class="risk-region">China Border Regions</div>
+            <div class="risk-detail">Tibet, Xinjiang and border areas with India and Taiwan Strait. Intermittent interference reported by aviation. Ground-based GNSS operations may be affected.</div>
+            <div class="risk-type">Jamming (intermittent)</div>
+          </div>
+          <div class="risk-item risk-med">
+            <div class="risk-region">Major Airport Vicinity</div>
+            <div class="risk-detail">Unintentional RFI reported near Denver (DEN), Los Angeles (LAX), and others. Caused by faulty ground equipment or avionics shop emissions. Localised, typically &lt;10 km radius.</div>
+            <div class="risk-type">Unintentional RFI</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORT INTERFERENCE -->
+      <div class="report-section">
+        <div class="report-icon">📡</div>
+        <div>
+          <h3>Experiencing GNSS interference?</h3>
+          <p>Report it to the appropriate authority. Your report helps build the public record and protects other users.</p>
+          <div class="report-links">
+            <a href="https://www.navcen.uscg.gov/gps-interference-reporting" target="_blank" rel="noopener noreferrer">Report to NAVCEN (US) →</a>
+            <a href="https://www.euspa.europa.eu/gnss-interference-reporting" target="_blank" rel="noopener noreferrer">Report to EUSPA (EU) →</a>
+            <a href="https://www.faa.gov/about/initiatives/adsb/gnss_interference" target="_blank" rel="noopener noreferrer">Report to FAA (Aviation) →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ATTRIBUTION -->
+      <div class="attribution">
+        <h4>Data Sources &amp; Attribution</h4>
+        <p>
+          Jamming heatmap: <a href="https://gpsjam.org" target="_blank" rel="noopener noreferrer">GPSJam.org</a> — ADS-B Exchange data, embedded with attribution per site policy.
+          Spoofing tracker: <a href="https://spoofing.skai-data-services.com" target="_blank" rel="noopener noreferrer">SkAI Data Services / Zurich University of Applied Sciences</a> — OpenSky Network data.
+          Advisories: <a href="https://www.navcen.uscg.gov" target="_blank" rel="noopener noreferrer">NAVCEN</a> (US Gov public domain),
+          <a href="https://www.euspa.europa.eu" target="_blank" rel="noopener noreferrer">EUSPA</a> (EU open data),
+          <a href="https://www.faa.gov" target="_blank" rel="noopener noreferrer">FAA</a> (US Gov public domain).
+          GNSSMetrics does not independently verify interference reports. Always consult official NOTAMs for operational decisions.
+        </p>
+      </div>
+
     </div>
   </section>
 </Layout>
+
 <style>
-  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; }
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; transition: color 0.2s; }
   .back:hover { color: var(--accent); }
-  h1 { font-size: 36px; font-weight: 700; margin-bottom: 40px; }
-  .coming-soon { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 60px 40px; text-align: center; max-width: 480px; }
-  .cs-icon { font-size: 40px; margin-bottom: 16px; }
-  .coming-soon h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
-  .coming-soon p { font-size: 14px; color: var(--text2); }
+
+  /* Header */
+  .dash-header { margin-bottom: 28px; }
+  h1 { font-size: clamp(24px, 4vw, 36px); font-weight: 700; margin: 8px 0 12px; }
+  .sub { color: var(--text2); max-width: 680px; font-size: 14px; line-height: 1.7; margin-bottom: 12px; }
+  .warning-note {
+    font-size: 13px; color: var(--text2);
+    background: rgba(240,165,0,0.06); border: 1px solid rgba(240,165,0,0.2);
+    border-radius: 8px; padding: 10px 14px; max-width: 680px; line-height: 1.6;
+  }
+  .warning-note strong { color: var(--warn); }
+
+  /* Section titles */
+  .section-title { margin: 32px 0 16px; }
+  .section-title h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .section-sub { font-size: 13px; color: var(--text3); max-width: 620px; line-height: 1.6; }
+
+  /* Interference types */
+  .type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+  .type-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+  }
+  .type-icon { font-size: 24px; margin-bottom: 10px; }
+  .type-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .type-desc { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .type-indicators { display: flex; flex-wrap: wrap; gap: 6px; }
+  .indicator {
+    font-size: 10px; font-family: var(--mono); padding: 2px 8px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text3);
+  }
+
+  /* Maps */
+  .maps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+  .map-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .map-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 16px 20px; border-bottom: 1px solid var(--border); gap: 12px;
+  }
+  .map-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .map-sub { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .open-external {
+    font-size: 12px; color: var(--accent2); white-space: nowrap;
+    text-decoration: underline; text-underline-offset: 2px; flex-shrink: 0;
+  }
+  .map-frame-wrap { width: 100%; height: 400px; position: relative; background: var(--bg3); }
+  .map-frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
+  .map-note {
+    padding: 12px 20px; font-size: 11px; color: var(--text3);
+    line-height: 1.6; border-top: 1px solid var(--border);
+  }
+  .map-note a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Advisories */
+  .advisories-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 32px; }
+  .advisory-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px;
+    display: flex; gap: 14px; align-items: flex-start;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .advisory-card:hover { border-color: rgba(0,212,170,0.3); transform: translateY(-1px); }
+  .advisory-logo { font-size: 22px; flex-shrink: 0; }
+  .advisory-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .advisory-desc { font-size: 11px; color: var(--text3); line-height: 1.6; margin-bottom: 8px; }
+  .advisory-link { font-size: 11px; color: var(--accent); }
+
+  /* High risk regions */
+  .risk-section { margin-bottom: 28px; }
+  .risk-section h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+  .risk-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; border-left-width: 3px; }
+  .risk-critical { border-left-color: #ff4757; }
+  .risk-high { border-left-color: #f0a500; }
+  .risk-med { border-left-color: #fbbf24; }
+  .risk-region { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .risk-detail { font-size: 11px; color: var(--text3); line-height: 1.6; margin-bottom: 8px; }
+  .risk-type {
+    font-size: 10px; font-weight: 600; font-family: var(--mono);
+    padding: 2px 8px; border-radius: 4px; display: inline-block;
+    background: var(--bg3); color: var(--text3);
+  }
+
+  /* Report section */
+  .report-section {
+    display: flex; gap: 20px; align-items: flex-start;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin-bottom: 20px;
+  }
+  .report-icon { font-size: 32px; flex-shrink: 0; }
+  .report-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .report-section p { font-size: 13px; color: var(--text2); margin-bottom: 12px; }
+  .report-links { display: flex; flex-wrap: wrap; gap: 12px; }
+  .report-links a { font-size: 13px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Attribution */
+  .attribution { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .attribution h4 { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+  .attribution p { font-size: 12px; color: var(--text3); line-height: 1.7; }
+  .attribution a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .advisories-grid { grid-template-columns: repeat(2, 1fr); }
+    .risk-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 768px) {
+    .type-grid { grid-template-columns: 1fr; }
+    .maps-grid { grid-template-columns: 1fr; }
+    .advisories-grid { grid-template-columns: 1fr; }
+    .risk-grid { grid-template-columns: 1fr; }
+    .map-frame-wrap { height: 300px; }
+  }
 </style>
