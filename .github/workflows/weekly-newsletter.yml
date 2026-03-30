@@ -1,0 +1,25 @@
+name: Weekly GNSS Newsletter
+
+on:
+  schedule:
+    - cron: '0 8 * * 0'   # 08:00 UTC every Sunday
+  workflow_dispatch:        # allow manual trigger
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Send weekly newsletter
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BUTTONDOWN_API_KEY: ${{ secrets.BUTTONDOWN_API_KEY }}
+        run: node scripts/send-weekly-newsletter.mjs
