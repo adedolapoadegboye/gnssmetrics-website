@@ -1,10 +1,31 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+
 const dashboards = [
-  { href: '/dashboards/ionosphere', icon: '🌍', title: 'Ionospheric Watch', desc: 'Global TEC maps, Kp index, solar flux and scintillation activity from IGS and NOAA.' },
-  { href: '/dashboards/interference', icon: '⚡', title: 'GNSS Interference', desc: 'GNSS interference monitoring — jamming, spoofing and unintentional RF interference from GPSJam, EUSPA and NAVCEN.' },
-  { href: '/dashboards/space-weather', icon: '☀️', title: 'Space Weather', desc: 'Solar wind, geomagnetic storm alerts and X-ray flux from NOAA SWPC public API.' },
-  { href: '/dashboards/constellation', icon: '🛰️', title: 'Constellation Status', desc: 'Live health status for GPS, Galileo, GLONASS and BeiDou from official sources.' },
+  {
+    href: '/dashboards/environment',
+    icon: '🌍',
+    title: 'GNSS Environment Watch',
+    desc: 'Geomagnetic Kp index, solar X-ray flux, ionospheric scintillation risk and GNSS impact assessment. Global coverage from NOAA SWPC.',
+  },
+  {
+    href: '/dashboards/interference',
+    icon: '⚡',
+    title: 'GNSS Interference',
+    desc: 'GNSS jamming activity from GPSJam, EUSPA interference reports and NAVCEN advisories.',
+  },
+  {
+    href: '/dashboards/space-weather',
+    icon: '☀️',
+    title: 'Space Weather',
+    desc: 'Solar wind, geomagnetic storm alerts and X-ray flux from NOAA SWPC public API.',
+  },
+  {
+    href: '/dashboards/constellation',
+    icon: '🛰️',
+    title: 'Constellation Status',
+    desc: 'Live health status for GPS, Galileo, GLONASS and BeiDou from official sources.',
+  },
 ];
 ---
 <Layout title="Dashboards">
@@ -12,7 +33,10 @@ const dashboards = [
     <div class="container">
       <span class="badge">Dashboards</span>
       <h1>Live GNSS Dashboards</h1>
-      <p class="sub">Real-time GNSS environment monitoring. All data from public APIs — ethically sourced and attributed.</p>
+      <p class="sub">
+        Real-time GNSS environment monitoring. All data from public APIs —
+        ethically sourced, correctly attributed, updated continuously.
+      </p>
       <div class="cards-grid">
         {dashboards.map(d => (
           <a href={d.href} class="card">
@@ -26,14 +50,18 @@ const dashboards = [
     </div>
   </section>
 </Layout>
+
 <style>
-  h1 { font-size: 36px; font-weight: 700; margin: 12px 0; }
-  .sub { color: var(--text2); margin-bottom: 40px; max-width: 560px; }
-  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 28px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s; }
-  .card:hover { border-color: rgba(0,212,170,0.3); }
+  h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 700; margin: 12px 0 16px; }
+  .sub { color: var(--text2); margin-bottom: 40px; max-width: 580px; font-size: 15px; line-height: 1.7; }
+  .cards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 28px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s, transform 0.15s; }
+  .card:hover { border-color: rgba(0,212,170,0.3); transform: translateY(-2px); }
   .card-icon { font-size: 28px; }
   .card h3 { font-size: 17px; font-weight: 600; }
-  .card p { font-size: 14px; color: var(--text2); flex: 1; }
+  .card p { font-size: 14px; color: var(--text2); flex: 1; line-height: 1.6; }
   .card-link { font-size: 13px; color: var(--accent); }
+  @media (max-width: 640px) {
+    .cards-grid { grid-template-columns: 1fr; }
+  }
 </style>

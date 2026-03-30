@@ -1,0 +1,627 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="GNSS Environment Watch">
+  <section class="section">
+    <div class="container">
+
+      <a href="/dashboards" class="back">← All dashboards</a>
+
+      <div class="dash-header">
+        <div>
+          <span class="badge">Live · Global</span>
+          <h1>GNSS Environment Watch</h1>
+          <p class="sub">
+            Real-time geomagnetic, solar and ionospheric conditions affecting GNSS positioning accuracy worldwide.
+            Data from <a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener noreferrer">NOAA Space Weather Prediction Center</a> — updated every few minutes.
+          </p>
+          <div class="coverage-note">
+            🌍 <strong>Global coverage</strong> — Kp and solar flux are planetary measurements.
+            Geomagnetic storm effects (Kp) are strongest at <strong>high latitudes</strong> (Canada, Scandinavia, Russia).
+            Ionospheric scintillation — a separate effect not fully captured by Kp — is worst at
+            <strong>equatorial regions</strong> (Brazil, West Africa, India, Southeast Asia) and auroral zones during storms.
+          </div>
+        </div>
+        <div class="last-updated">
+          Last updated: <span id="lastUpdated">Loading...</span>
+        </div>
+      </div>
+
+      <!-- LOADING STATE -->
+      <div id="loadingState" class="loading-state">
+        <div class="spinner"></div>
+        <span>Fetching live space weather data...</span>
+      </div>
+
+      <!-- ERROR STATE -->
+      <div id="errorState" class="error-state" style="display:none;">
+        <div class="error-icon">⚠️</div>
+        <h3>Unable to fetch live data</h3>
+        <p>NOAA SWPC API may be temporarily unavailable. <a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener noreferrer">View data directly at NOAA →</a></p>
+      </div>
+
+      <!-- DASHBOARD CONTENT -->
+      <div id="dashContent" style="display:none;">
+
+        <!-- KP INDEX HERO -->
+        <div class="kp-hero">
+          <div class="kp-main">
+            <div class="kp-label">Current Kp Index</div>
+            <div class="kp-value" id="kpValue">—</div>
+            <div class="kp-storm" id="kpStorm">—</div>
+            <div class="kp-gnss" id="kpGnss">—</div>
+          </div>
+          <div class="kp-scale">
+            <div class="scale-label">Geomagnetic storm scale (G-scale)</div>
+            <div class="scale-bars">
+              <div class="scale-bar" data-level="0" data-color="#00d4aa">G0<span>Quiet</span><span class="scale-kp">Kp 0–4</span></div>
+              <div class="scale-bar" data-level="1" data-color="#a3e635">G1<span>Minor</span><span class="scale-kp">Kp 5</span></div>
+              <div class="scale-bar" data-level="2" data-color="#fbbf24">G2<span>Moderate</span><span class="scale-kp">Kp 6</span></div>
+              <div class="scale-bar" data-level="3" data-color="#f0a500">G3<span>Strong</span><span class="scale-kp">Kp 7</span></div>
+              <div class="scale-bar" data-level="4" data-color="#f87171">G4<span>Severe</span><span class="scale-kp">Kp 8</span></div>
+              <div class="scale-bar" data-level="5" data-color="#ff4757">G5<span>Extreme</span><span class="scale-kp">Kp 9</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- METRIC CARDS -->
+        <div class="metric-grid">
+
+          <div class="metric-card">
+            <div class="metric-label">Current Kp</div>
+            <div class="metric-value" id="estKp">—</div>
+            <div class="metric-unit">Range: 0 (quiet) – 9 (extreme)</div>
+            <div class="metric-note">Planetary geomagnetic disturbance index. Above 5 = storm conditions. Above 7 = significant GNSS degradation.</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label">7-Day Kp Max</div>
+            <div class="metric-value" id="kp7dMax">—</div>
+            <div class="metric-unit">Range: 0 – 9</div>
+            <div class="metric-note">Highest Kp recorded in the past 7 days. Useful for understanding recent geomagnetic activity level.</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label">Solar X-ray Flux</div>
+            <div class="metric-value" id="xrayFlux">—</div>
+            <div class="metric-unit" id="xrayClassLabel">Class: —</div>
+            <div class="metric-note">
+              Solar flare intensity. C = minor. M = moderate ionospheric impact. X = severe — can cause signal fadeout.
+              <span class="metric-range">A &lt;10⁻⁷ · B 10⁻⁷ · C 10⁻⁶ · M 10⁻⁵ · X &gt;10⁻⁴ W/m²</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label">GNSS Impact</div>
+            <div class="metric-value" id="gnssImpact">—</div>
+            <div class="metric-unit">current conditions</div>
+            <div class="metric-note">Overall assessment based on current Kp and solar flux. Nominal = expected accuracy. Significant = expect degradation.</div>
+          </div>
+
+        </div>
+
+        <!-- KP 7-DAY CHART -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h3>Daily Maximum Kp — Last 7 Days</h3>
+              <p class="chart-note">Each bar shows the worst geomagnetic conditions of that day. Green = quiet, yellow = active, red = storm.</p>
+            </div>
+            <div class="chart-legend">
+              <span class="legend-item" style="color:#00d4aa;">■ Quiet (0–4)</span>
+              <span class="legend-item" style="color:#fbbf24;">■ Active (4–5)</span>
+              <span class="legend-item" style="color:#ff4757;">■ Storm (6+)</span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="kpChart"></canvas>
+          </div>
+          <div class="chart-threshold">
+            <span style="color:#a3e635;">── G1 storm threshold (Kp 5)</span>
+            <span style="color:#ff4757; margin-left:16px;">── G3 storm threshold (Kp 7) — significant GNSS impact</span>
+          </div>
+        </div>
+
+        <!-- SOLAR XRAY CHART -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h3>Solar X-ray Flux — Last 7 Days</h3>
+              <p class="chart-note">Measures solar flare activity. M and X class flares cause radio blackouts and ionospheric disturbances. Y-axis is logarithmic.</p>
+            </div>
+            <div class="chart-legend">
+              <span class="legend-item" style="color:#0099ff;">■ Short (0.05–0.4 nm)</span>
+              <span class="legend-item" style="color:#00d4aa;">■ Long (0.1–0.8 nm)</span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="xrayChart"></canvas>
+          </div>
+          <div class="flare-classes">
+            <span class="flare-class" style="background:rgba(0,212,170,0.1);color:var(--accent);">A — Background</span>
+            <span class="flare-class" style="background:rgba(0,153,255,0.1);color:var(--accent2);">B — Low</span>
+            <span class="flare-class" style="background:rgba(251,191,36,0.1);color:#fbbf24;">C — Minor</span>
+            <span class="flare-class" style="background:rgba(240,165,0,0.1);color:#f0a500;">M — Moderate ⚠️</span>
+            <span class="flare-class" style="background:rgba(255,71,87,0.1);color:#ff4757;">X — Severe 🚨</span>
+          </div>
+        </div>
+
+        <!-- IONOSPHERIC SCINTILLATION SECTION -->
+        <div class="scint-section">
+          <div class="scint-header">
+            <div>
+              <h3>Ionospheric Scintillation</h3>
+              <p class="chart-note">
+                Scintillation is rapid fluctuation in GNSS signal amplitude and phase caused by irregularities in the ionospheric plasma.
+                It is a separate phenomenon from geomagnetic storms and affects different regions.
+                Unlike Kp, there is no single global real-time public API for scintillation — the indices below explain what to look for.
+              </p>
+            </div>
+          </div>
+
+          <div class="scint-grid">
+
+            <div class="scint-card">
+              <div class="scint-index">S4 Index</div>
+              <div class="scint-desc">Amplitude scintillation index. Measures signal power fluctuations.</div>
+              <div class="scint-ranges">
+                <div class="scint-range" style="border-left:3px solid #00d4aa;">
+                  <span class="range-val">0 – 0.3</span>
+                  <span class="range-label">Weak — negligible GNSS impact</span>
+                </div>
+                <div class="scint-range" style="border-left:3px solid #fbbf24;">
+                  <span class="range-val">0.3 – 0.6</span>
+                  <span class="range-label">Moderate — increased tracking errors, possible cycle slips</span>
+                </div>
+                <div class="scint-range" style="border-left:3px solid #ff4757;">
+                  <span class="range-val">&gt; 0.6</span>
+                  <span class="range-label">Severe — loss of lock likely, RTK unreliable</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="scint-card">
+              <div class="scint-index">σφ (Sigma-Phi)</div>
+              <div class="scint-desc">Phase scintillation index. Measures carrier phase fluctuations in radians. Particularly damaging for RTK and PPP.</div>
+              <div class="scint-ranges">
+                <div class="scint-range" style="border-left:3px solid #00d4aa;">
+                  <span class="range-val">&lt; 0.1 rad</span>
+                  <span class="range-label">Weak — normal RTK operation</span>
+                </div>
+                <div class="scint-range" style="border-left:3px solid #fbbf24;">
+                  <span class="range-val">0.1 – 0.5 rad</span>
+                  <span class="range-label">Moderate — longer RTK convergence, float solutions likely</span>
+                </div>
+                <div class="scint-range" style="border-left:3px solid #ff4757;">
+                  <span class="range-val">&gt; 0.5 rad</span>
+                  <span class="range-label">Severe — phase lock lost, RTK/PPP not achievable</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="scint-risk">
+            <div class="scint-risk-header">Scintillation Risk by Region</div>
+            <div class="scint-risk-grid">
+              <div class="risk-card risk-high">
+                <div class="risk-level">🔴 High Risk</div>
+                <div class="risk-region">Equatorial Belt (±20° magnetic latitude)</div>
+                <div class="risk-detail">Brazil, West Africa (Nigeria, Ghana), India, Southeast Asia, Indonesia. Peak activity after local sunset (19:00–02:00 LT). Plasma bubbles form nightly during solar maximum.</div>
+              </div>
+              <div class="risk-card risk-med">
+                <div class="risk-level">🟡 Elevated During Storms</div>
+                <div class="risk-region">Auroral Zones (60–75° latitude)</div>
+                <div class="risk-detail">Canada, Alaska, Scandinavia, Russia. Scintillation occurs during Kp ≥ 5 events. Combined with geomagnetic storm effects — worst-case for high-latitude GNSS operations.</div>
+              </div>
+              <div class="risk-card risk-low">
+                <div class="risk-level">🟢 Generally Low</div>
+                <div class="risk-region">Mid-latitudes</div>
+                <div class="risk-detail">Europe, continental USA, China, Australia. Occasional scintillation during major geomagnetic storms (Kp ≥ 7) but generally good GNSS conditions.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="scint-links">
+            <div class="scint-links-label">Live scintillation monitoring networks</div>
+            <a href="https://impc.dlr.de" target="_blank" rel="noopener noreferrer" class="scint-link">
+              IMPC — DLR Ionosphere Monitoring &amp; Prediction Center →
+            </a>
+            <a href="http://lisn.igp.gob.pe" target="_blank" rel="noopener noreferrer" class="scint-link">
+              LISN — Low-latitude Ionospheric Sensor Network (South America) →
+            </a>
+            <a href="https://www.chain-project.ca" target="_blank" rel="noopener noreferrer" class="scint-link">
+              CHAIN — Canadian High Arctic Ionospheric Network →
+            </a>
+          </div>
+        </div>
+
+        <!-- GNSS IMPACT GUIDE -->
+        <div class="impact-guide">
+          <h3>GNSS Positioning Impact Reference — Geomagnetic Storms</h3>
+          <p class="chart-note" style="margin-bottom:16px;">How each storm level affects GNSS receivers in practice. Effects are more severe at high latitudes and for L1-only receivers.</p>
+          <div class="impact-table">
+            <div class="impact-row impact-header">
+              <span>Storm Level</span>
+              <span>Kp Range</span>
+              <span>GNSS Impact</span>
+              <span>RTK Effect</span>
+            </div>
+            <div class="impact-row" style="border-left: 3px solid #00d4aa;">
+              <span><strong>G0 — Quiet</strong></span>
+              <span>Kp 0–4</span>
+              <span>Nominal accuracy. Ionospheric delay models work well.</span>
+              <span>Normal convergence times. Fixed solution achievable.</span>
+            </div>
+            <div class="impact-row" style="border-left: 3px solid #a3e635;">
+              <span><strong>G1 — Minor</strong></span>
+              <span>Kp 5</span>
+              <span>Slight accuracy degradation at high latitudes. L1-only receivers most affected.</span>
+              <span>Slightly longer TTFF. Fixed solution still achievable.</span>
+            </div>
+            <div class="impact-row" style="border-left: 3px solid #fbbf24;">
+              <span><strong>G2 — Moderate</strong></span>
+              <span>Kp 6</span>
+              <span>Noticeable accuracy loss. Dual-frequency mitigates most effects.</span>
+              <span>Float solution more likely. Longer convergence for PPP.</span>
+            </div>
+            <div class="impact-row" style="border-left: 3px solid #f0a500;">
+              <span><strong>G3 — Strong</strong></span>
+              <span>Kp 7</span>
+              <span>Significant degradation. Scintillation possible. L1-only unreliable.</span>
+              <span>Difficulty achieving fixed solution. RTK accuracy degraded.</span>
+            </div>
+            <div class="impact-row" style="border-left: 3px solid #f87171;">
+              <span><strong>G4 — Severe</strong></span>
+              <span>Kp 8</span>
+              <span>Possible signal outages. Large ionospheric errors. Survey-grade work not advisable.</span>
+              <span>RTK unreliable. Float solution with large uncertainty.</span>
+            </div>
+            <div class="impact-row" style="border-left: 3px solid #ff4757;">
+              <span><strong>G5 — Extreme</strong></span>
+              <span>Kp 9</span>
+              <span>Complete signal loss possible at high latitudes. Major positioning errors globally.</span>
+              <span>GNSS unusable for precision work. Suspend RTK operations.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DATA ATTRIBUTION -->
+        <div class="attribution">
+          <h4>Data Sources &amp; Methodology</h4>
+          <p>
+            Kp geomagnetic index and solar X-ray flux:
+            <a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener noreferrer">NOAA Space Weather Prediction Center</a> —
+            US Government open data, public domain.
+            Kp index derived from ground magnetometer network (GFZ Potsdam standard).
+            Solar X-ray flux from GOES-16/18 geostationary satellites.
+            Scintillation index ranges based on published literature and ITU-R P.531 recommendations.
+            Data refreshed on page load. For real-time alerts subscribe to
+            <a href="https://www.swpc.noaa.gov/products/alerts-watches-and-warnings" target="_blank" rel="noopener noreferrer">NOAA SWPC alerts</a>.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  const chartScript = document.createElement('script');
+  chartScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+  chartScript.onload = initDashboard;
+  document.head.appendChild(chartScript);
+
+  async function fetchJSON(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  function kpToStormLevel(kp) {
+    if (kp >= 9) return { level: 5, label: 'G5 — Extreme',   color: '#ff4757' };
+    if (kp >= 8) return { level: 4, label: 'G4 — Severe',    color: '#f87171' };
+    if (kp >= 7) return { level: 3, label: 'G3 — Strong',    color: '#f0a500' };
+    if (kp >= 6) return { level: 2, label: 'G2 — Moderate',  color: '#fbbf24' };
+    if (kp >= 5) return { level: 1, label: 'G1 — Minor',     color: '#a3e635' };
+    return              { level: 0, label: 'G0 — Quiet',     color: '#00d4aa' };
+  }
+
+  function kpToGnssImpact(kp) {
+    if (kp >= 7) return { text: 'Significant', color: '#ff4757' };
+    if (kp >= 5) return { text: 'Moderate',    color: '#fbbf24' };
+    if (kp >= 3) return { text: 'Minor',       color: '#a3e635' };
+    return              { text: 'Nominal',     color: '#00d4aa' };
+  }
+
+  function xrayToClass(flux) {
+    if (flux >= 1e-4) return { label: 'X', color: '#ff4757' };
+    if (flux >= 1e-5) return { label: 'M', color: '#f0a500' };
+    if (flux >= 1e-6) return { label: 'C', color: '#fbbf24' };
+    if (flux >= 1e-7) return { label: 'B', color: '#0099ff' };
+    return                   { label: 'A', color: '#00d4aa' };
+  }
+
+  function kpBarColor(kp) {
+    if (kp >= 6) return '#ff4757';
+    if (kp >= 4) return '#fbbf24';
+    return '#00d4aa';
+  }
+
+  function dailyMaxKp(rows) {
+    const byDay = {};
+    for (const row of rows) {
+      const day = row[0].slice(0, 10);
+      const kp = parseFloat(row[1]);
+      if (!byDay[day] || kp > byDay[day]) byDay[day] = kp;
+    }
+    return Object.entries(byDay)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-7);
+  }
+
+  function formatDay(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  async function initDashboard() {
+    try {
+      const [kpData, xrayData] = await Promise.all([
+        fetchJSON('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
+        fetchJSON('https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json'),
+      ]);
+
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('dashContent').style.display = 'block';
+      document.getElementById('lastUpdated').textContent = new Date().toUTCString();
+
+      // Kp processing
+      const kpRows = kpData.slice(1);
+      const currentKp = parseFloat(kpRows[kpRows.length - 1][1]);
+      const storm = kpToStormLevel(currentKp);
+      const impact = kpToGnssImpact(currentKp);
+      const dailyKp = dailyMaxKp(kpRows);
+      const kp7dMax = Math.max(...dailyKp.map(d => d[1]));
+
+      // Hero
+      const kpValEl = document.getElementById('kpValue');
+      kpValEl.textContent = currentKp.toFixed(1);
+      kpValEl.style.color = storm.color;
+      document.getElementById('kpStorm').textContent = storm.label;
+      document.getElementById('kpStorm').style.color = storm.color;
+      document.getElementById('kpGnss').textContent = `GNSS Impact: ${impact.text}`;
+      document.getElementById('kpGnss').style.color = impact.color;
+
+      // Metric cards
+      document.getElementById('estKp').textContent = currentKp.toFixed(1);
+      document.getElementById('estKp').style.color = storm.color;
+      document.getElementById('kp7dMax').textContent = kp7dMax.toFixed(1);
+      document.getElementById('kp7dMax').style.color = kpToStormLevel(kp7dMax).color;
+      document.getElementById('gnssImpact').textContent = impact.text;
+      document.getElementById('gnssImpact').style.color = impact.color;
+
+      // Scale bars
+      document.querySelectorAll('.scale-bar').forEach(bar => {
+        const active = parseInt(bar.dataset.level) === storm.level;
+        bar.classList.toggle('active', active);
+        if (active) {
+          bar.style.background = storm.color + '22';
+          bar.style.borderColor = storm.color;
+          bar.style.color = storm.color;
+        }
+      });
+
+      // Kp 7-day chart
+      const kpLabels = dailyKp.map(d => formatDay(d[0]));
+      const kpValues = dailyKp.map(d => d[1]);
+
+      new Chart(document.getElementById('kpChart'), {
+        type: 'bar',
+        data: {
+          labels: kpLabels,
+          datasets: [{
+            label: 'Daily Max Kp',
+            data: kpValues,
+            backgroundColor: kpValues.map(k => kpBarColor(k) + 'bb'),
+            borderColor: kpValues.map(k => kpBarColor(k)),
+            borderWidth: 1, borderRadius: 4,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `Max Kp: ${ctx.parsed.y.toFixed(1)} — ${kpToStormLevel(ctx.parsed.y).label}`
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#4a5068', font: { size: 11 } } },
+            y: {
+              min: 0, max: 9,
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#4a5068', font: { size: 10 }, stepSize: 1 },
+              title: { display: true, text: 'Kp Index', color: '#4a5068', font: { size: 10 } }
+            }
+          }
+        }
+      });
+
+      // X-ray processing
+      const latestXray = parseFloat(xrayData[xrayData.length - 1]?.flux || 0);
+      const xClass = xrayToClass(latestXray);
+      document.getElementById('xrayFlux').textContent = latestXray.toExponential(1);
+      document.getElementById('xrayFlux').style.color = xClass.color;
+      document.getElementById('xrayClassLabel').textContent = `Class ${xClass.label} — ${
+        xClass.label === 'A' ? 'Background, no impact' :
+        xClass.label === 'B' ? 'Low, minimal impact' :
+        xClass.label === 'C' ? 'Minor, slight HF impact' :
+        xClass.label === 'M' ? 'Moderate — HF blackout possible' :
+        'Severe — HF blackout, GNSS degraded'
+      }`;
+      document.getElementById('xrayClassLabel').style.color = xClass.color;
+
+      // X-ray 7-day chart
+      const step = Math.max(1, Math.floor(xrayData.length / 120));
+      const xraySample = xrayData.filter((_, i) => i % step === 0);
+      const xrayLabels = xraySample.map(r => {
+        const d = new Date(r.time_tag);
+        return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${d.getUTCHours().toString().padStart(2,'0')}:00`;
+      });
+
+      new Chart(document.getElementById('xrayChart'), {
+        type: 'line',
+        data: {
+          labels: xrayLabels,
+          datasets: [
+            {
+              label: 'Short (0.05–0.4nm)',
+              data: xraySample.map(r => parseFloat(r.flux || 0)),
+              borderColor: '#0099ff', backgroundColor: 'rgba(0,153,255,0.05)',
+              borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
+            },
+            {
+              label: 'Long (0.1–0.8nm)',
+              data: xraySample.map(r => parseFloat(r.flux_long || r.flux || 0)),
+              borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,0.05)',
+              borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#4a5068', font: { size: 10 }, maxTicksLimit: 8 } },
+            y: {
+              type: 'logarithmic',
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#4a5068', font: { size: 10 }, callback: v => v.toExponential(0) },
+              title: { display: true, text: 'W/m²', color: '#4a5068', font: { size: 10 } }
+            }
+          }
+        }
+      });
+
+    } catch (err) {
+      console.error('Dashboard error:', err);
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('errorState').style.display = 'block';
+    }
+  }
+</script>
+
+<style>
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; transition: color 0.2s; }
+  .back:hover { color: var(--accent); }
+
+  .dash-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 32px; }
+  h1 { font-size: clamp(24px, 4vw, 36px); font-weight: 700; margin: 8px 0 12px; }
+  .sub { color: var(--text2); max-width: 640px; font-size: 14px; line-height: 1.7; margin-bottom: 12px; }
+  .sub a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  .coverage-note {
+    font-size: 13px; color: var(--text2);
+    background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.15);
+    border-radius: 8px; padding: 10px 14px; max-width: 640px; line-height: 1.6;
+  }
+  .coverage-note strong { color: var(--text); }
+  .last-updated { font-size: 11px; color: var(--text3); font-family: var(--mono); white-space: nowrap; padding-top: 4px; }
+
+  .loading-state { display: flex; align-items: center; gap: 12px; padding: 48px 0; color: var(--text2); font-size: 14px; }
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-state { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 48px 40px; text-align: center; max-width: 480px; }
+  .error-icon { font-size: 36px; margin-bottom: 12px; }
+  .error-state h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .error-state p { font-size: 14px; color: var(--text2); }
+  .error-state a { color: var(--accent2); text-decoration: underline; }
+
+  .kp-hero { display: grid; grid-template-columns: 220px 1fr; gap: 24px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 20px; align-items: center; }
+  .kp-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+  .kp-value { font-size: 72px; font-weight: 700; line-height: 1; font-family: var(--mono); margin-bottom: 8px; }
+  .kp-storm { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .kp-gnss { font-size: 13px; color: var(--text2); }
+  .scale-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; font-family: var(--mono); }
+  .scale-bars { display: flex; gap: 6px; }
+  .scale-bar { flex: 1; padding: 8px 4px; border-radius: 6px; border: 1px solid var(--border); text-align: center; font-size: 11px; font-weight: 600; color: var(--text3); display: flex; flex-direction: column; gap: 2px; transition: all 0.2s; }
+  .scale-bar span { font-size: 9px; font-weight: 400; }
+  .scale-bar .scale-kp { font-size: 8px; color: var(--text3); }
+  .scale-bar.active { font-weight: 700; }
+
+  .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .metric-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .metric-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+  .metric-value { font-size: 28px; font-weight: 700; font-family: var(--mono); line-height: 1; margin-bottom: 4px; }
+  .metric-unit { font-size: 11px; color: var(--text3); margin-bottom: 8px; }
+  .metric-note { font-size: 11px; color: var(--text3); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
+  .metric-range { display: block; margin-top: 4px; font-family: var(--mono); font-size: 10px; color: var(--text3); opacity: 0.8; }
+
+  .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .chart-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .chart-header h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .chart-note { font-size: 12px; color: var(--text3); line-height: 1.5; max-width: 500px; }
+  .chart-legend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .legend-item { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .chart-wrap { height: 220px; position: relative; }
+  .chart-threshold { margin-top: 10px; font-size: 11px; font-family: var(--mono); color: var(--text3); }
+  .flare-classes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .flare-class { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 4px; font-family: var(--mono); letter-spacing: 0.04em; }
+
+  /* Scintillation section */
+  .scint-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .scint-header { margin-bottom: 20px; }
+  .scint-header h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .scint-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .scint-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .scint-index { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 6px; font-family: var(--mono); }
+  .scint-desc { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 14px; }
+  .scint-ranges { display: flex; flex-direction: column; gap: 8px; }
+  .scint-range { padding: 8px 12px; border-radius: 4px; background: var(--bg2); display: flex; flex-direction: column; gap: 3px; }
+  .range-val { font-size: 13px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+  .range-label { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+  .scint-risk { margin-bottom: 20px; }
+  .scint-risk-header { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 12px; }
+  .scint-risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .risk-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .risk-level { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .risk-region { font-size: 12px; color: var(--text); font-weight: 500; margin-bottom: 6px; }
+  .risk-detail { font-size: 11px; color: var(--text3); line-height: 1.6; }
+
+  .scint-links { border-top: 1px solid var(--border); padding-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .scint-links-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 4px; }
+  .scint-link { font-size: 13px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  .scint-link:hover { opacity: 0.8; }
+
+  .impact-guide { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .impact-guide h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .impact-table { display: flex; flex-direction: column; }
+  .impact-row { display: grid; grid-template-columns: 160px 80px 1fr 1fr; gap: 16px; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border); border-left: 3px solid transparent; }
+  .impact-row:last-child { border-bottom: none; }
+  .impact-header { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-left: none !important; }
+  .impact-row span { color: var(--text2); font-size: 12px; }
+  .impact-row strong { color: var(--text); }
+
+  .attribution { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .attribution h4 { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+  .attribution p { font-size: 12px; color: var(--text3); line-height: 1.7; }
+  .attribution a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  @media (max-width: 900px) {
+    .kp-hero { grid-template-columns: 1fr; }
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    .scint-grid { grid-template-columns: 1fr; }
+    .scint-risk-grid { grid-template-columns: 1fr; }
+    .impact-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .impact-header { display: none; }
+  }
+  @media (max-width: 560px) {
+    .metric-grid { grid-template-columns: 1fr 1fr; }
+    .scale-bars { flex-wrap: wrap; }
+    .kp-value { font-size: 56px; }
+    .impact-row { grid-template-columns: 1fr; }
+  }
+</style>

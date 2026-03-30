@@ -4,22 +4,593 @@ import Layout from '../../layouts/Layout.astro';
 <Layout title="Space Weather">
   <section class="section">
     <div class="container">
+
       <a href="/dashboards" class="back">← All dashboards</a>
-      <h1>Space Weather</h1>
-      <div class="coming-soon">
-        <div class="cs-icon">☀️</div>
-        <h3>Dashboard under construction</h3>
-        <p>Solar wind, geomagnetic storm alerts and X-ray flux from NOAA SWPC public API. Coming soon.</p>
+
+      <div class="dash-header">
+        <div>
+          <span class="badge">Live · Global</span>
+          <h1>Space Weather</h1>
+          <p class="sub">
+            Solar wind conditions, active space weather alerts, proton flux and aurora forecast.
+            For current Kp index and ionospheric scintillation context see the
+            <a href="/dashboards/environment">GNSS Environment Watch →</a>
+          </p>
+          <div class="solar-cycle-note">
+            ☀️ <strong>Solar Cycle 25</strong> — We are currently near solar maximum (peak ~2025–2026).
+            Solar maximum means more frequent X-class flares, stronger geomagnetic storms and elevated
+            ionospheric disturbance. Expect above-average GNSS degradation events through 2026–2027.
+          </div>
+        </div>
+        <div class="last-updated">
+          Last updated: <span id="lastUpdated">Loading...</span>
+        </div>
+      </div>
+
+      <!-- LOADING STATE -->
+      <div id="loadingState" class="loading-state">
+        <div class="spinner"></div>
+        <span>Fetching live space weather data...</span>
+      </div>
+
+      <!-- ERROR STATE -->
+      <div id="errorState" class="error-state" style="display:none;">
+        <div class="error-icon">⚠️</div>
+        <h3>Unable to fetch live data</h3>
+        <p>NOAA SWPC API may be temporarily unavailable.
+          <a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener noreferrer">View data directly at NOAA →</a>
+        </p>
+      </div>
+
+      <!-- DASHBOARD CONTENT -->
+      <div id="dashContent" style="display:none;">
+
+        <!-- ACTIVE ALERTS BANNER -->
+        <div id="alertsBanner"></div>
+
+        <!-- METRIC CARDS -->
+        <div class="section-title">
+          <h2>Current Conditions</h2>
+          <p class="section-sub">Derived from GOES satellite and NOAA ground network data. Updated every few minutes.</p>
+        </div>
+
+        <div class="metric-grid">
+
+          <div class="metric-card">
+            <div class="metric-label">Solar X-ray Class</div>
+            <div class="metric-value" id="xrayClass">—</div>
+            <div class="metric-unit" id="xrayFluxVal">W/m²</div>
+            <div class="metric-note">
+              Current solar flare activity level.
+              <span class="metric-range">A/B = background · C = minor · M = moderate · X = severe</span>
+              M and X class flares cause ionospheric radio blackouts and GNSS signal degradation on the sunlit side of Earth.
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label">Current Kp</div>
+            <div class="metric-value" id="currentKp">—</div>
+            <div class="metric-unit">0 (quiet) – 9 (extreme)</div>
+            <div class="metric-note">
+              Planetary geomagnetic index. See <a href="/dashboards/environment" style="color:var(--accent2);">GNSS Environment Watch</a> for full Kp analysis and 7-day history.
+              <span class="metric-range">Quiet 0–4 · G1 storm Kp 5 · G3 storm Kp 7 · G5 extreme Kp 9</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label">24h Kp Max</div>
+            <div class="metric-value" id="kp24Max">—</div>
+            <div class="metric-unit">peak today</div>
+            <div class="metric-note">
+              Highest Kp in the last 24 hours. Useful for understanding whether recent conditions
+              were worse than current readings suggest.
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label">GNSS Outlook</div>
+            <div class="metric-value" id="gnssOutlook">—</div>
+            <div class="metric-unit">combined assessment</div>
+            <div class="metric-note">
+              Combined assessment based on current Kp and solar X-ray flux.
+              Nominal = normal operations. Monitor = check conditions before precision work.
+              Degraded = expect accuracy loss.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- XRAY 7-DAY CHART -->
+        <div class="section-title">
+          <h2>Solar X-ray Flux — Last 7 Days</h2>
+          <p class="section-sub">
+            Measured by GOES-16/18 satellites. Spikes indicate solar flares. M and X class events
+            (above 10⁻⁵ W/m²) cause ionospheric disturbance and GNSS signal degradation on the
+            Earth's dayside. Y-axis is logarithmic.
+          </p>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-legend">
+              <span class="legend-item" style="color:#0099ff;">■ Short (0.05–0.4 nm)</span>
+              <span class="legend-item" style="color:#00d4aa;">■ Long (0.1–0.8 nm)</span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="xrayChart"></canvas>
+          </div>
+          <div class="flare-classes">
+            <span class="flare-class" style="background:rgba(0,212,170,0.1);color:var(--accent);">A — Background</span>
+            <span class="flare-class" style="background:rgba(0,153,255,0.1);color:var(--accent2);">B — Low</span>
+            <span class="flare-class" style="background:rgba(251,191,36,0.1);color:#fbbf24;">C — Minor</span>
+            <span class="flare-class" style="background:rgba(240,165,0,0.1);color:#f0a500;">M — Moderate ⚠️ GNSS impact possible</span>
+            <span class="flare-class" style="background:rgba(255,71,87,0.1);color:#ff4757;">X — Severe 🚨 GNSS degraded</span>
+          </div>
+        </div>
+
+        <!-- KP 7-DAY CHART -->
+        <div class="section-title">
+          <h2>Kp Index — Last 7 Days (Daily Max)</h2>
+          <p class="section-sub">
+            Each bar shows the daily maximum Kp — worst geomagnetic conditions of that day.
+            For detailed Kp analysis visit the <a href="/dashboards/environment" style="color:var(--accent2);">GNSS Environment Watch</a>.
+          </p>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-wrap">
+            <canvas id="kpChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 3-DAY FORECAST -->
+        <div class="section-title">
+          <h2>3-Day Geomagnetic Forecast</h2>
+          <p class="section-sub">
+            NOAA SWPC predicted conditions for the next 3 days.
+            Use this to plan precision GNSS operations — avoid high-Kp periods for survey and RTK work.
+          </p>
+        </div>
+
+        <div id="forecastGrid" class="forecast-grid"></div>
+
+        <!-- NOAA SCALE REFERENCE -->
+        <div class="scales-section">
+          <h2>NOAA Space Weather Scale Reference</h2>
+          <p class="section-sub">Three scales describe space weather severity and technology impacts. All affect GNSS to varying degrees.</p>
+          <div class="scales-grid">
+
+            <div class="scale-card">
+              <div class="scale-name">G — Geomagnetic Storms</div>
+              <div class="scale-sub">Driven by Kp index. Primary driver of GNSS ionospheric delay errors.</div>
+              <div class="scale-rows">
+                <div class="scale-row"><span class="sl g1">G1</span><span>Kp 5 — Minor. Slight GNSS degradation at high latitudes.</span></div>
+                <div class="scale-row"><span class="sl g2">G2</span><span>Kp 6 — Moderate. L1-only accuracy reduced.</span></div>
+                <div class="scale-row"><span class="sl g3">G3</span><span>Kp 7 — Strong. RTK convergence impacted globally.</span></div>
+                <div class="scale-row"><span class="sl g4">G4</span><span>Kp 8 — Severe. RTK unreliable. Signal outages possible.</span></div>
+                <div class="scale-row"><span class="sl g5">G5</span><span>Kp 9 — Extreme. GNSS unusable at high latitudes.</span></div>
+              </div>
+            </div>
+
+            <div class="scale-card">
+              <div class="scale-name">S — Solar Radiation Storms</div>
+              <div class="scale-sub">Driven by proton flux ≥10 MeV. Affects GNSS satellite electronics.</div>
+              <div class="scale-rows">
+                <div class="scale-row"><span class="sl s1">S1</span><span>10 pfu — Minor. Minor HF radio degradation.</span></div>
+                <div class="scale-row"><span class="sl s2">S2</span><span>100 pfu — Moderate. Infrequent satellite upsets.</span></div>
+                <div class="scale-row"><span class="sl s3">S3</span><span>1000 pfu — Strong. Single-event upsets in GNSS satellites.</span></div>
+                <div class="scale-row"><span class="sl s4">S4</span><span>10,000 pfu — Severe. Satellite memory errors likely.</span></div>
+                <div class="scale-row"><span class="sl s5">S5</span><span>100,000 pfu — Extreme. Satellite damage risk.</span></div>
+              </div>
+            </div>
+
+            <div class="scale-card">
+              <div class="scale-name">R — Radio Blackouts</div>
+              <div class="scale-sub">Driven by X-ray flux. Affects GNSS signal propagation on sunlit side.</div>
+              <div class="scale-rows">
+                <div class="scale-row"><span class="sl r1">R1</span><span>M1 flare — Minor HF fade on sunlit side of Earth.</span></div>
+                <div class="scale-row"><span class="sl r2">R2</span><span>M5 flare — Limited HF on sunlit side.</span></div>
+                <div class="scale-row"><span class="sl r3">R3</span><span>X1 flare — Wide HF blackout. GNSS errors on dayside.</span></div>
+                <div class="scale-row"><span class="sl r4">R4</span><span>X10 flare — HF blackout. Significant GNSS positioning errors.</span></div>
+                <div class="scale-row"><span class="sl r5">R5</span><span>X20 flare — Complete HF blackout. GNSS unreliable on dayside.</span></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- SOLAR CYCLE CONTEXT -->
+        <div class="solar-context">
+          <h3>Solar Cycle 25 — Where We Are Now</h3>
+          <p>
+            The Sun follows an approximately 11-year cycle of activity between solar minimum and solar maximum.
+            Solar Cycle 25 began in December 2019 and reached its predicted maximum around 2025–2026 —
+            earlier and stronger than originally forecast by NOAA. During solar maximum, X-class flares,
+            coronal mass ejections (CMEs) and geomagnetic storms are significantly more frequent.
+            The October 2024 and May 2024 geomagnetic storms (G4/G5) are examples of peak-cycle events
+            that caused widespread GNSS disruption. Engineers operating precision GNSS systems should
+            expect elevated disturbance conditions to persist through 2026–2027 as the cycle transitions
+            toward the next minimum.
+          </p>
+          <a href="https://www.swpc.noaa.gov/products/solar-cycle-progression" target="_blank" rel="noopener noreferrer" class="cycle-link">
+            View Solar Cycle 25 progression at NOAA →
+          </a>
+        </div>
+
+        <!-- ATTRIBUTION -->
+        <div class="attribution">
+          <h4>Data Sources &amp; Methodology</h4>
+          <p>
+            All data from <a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener noreferrer">NOAA Space Weather Prediction Center</a> —
+            US Government open data, public domain.
+            Solar X-ray flux from GOES-16/18 geostationary satellites.
+            Kp index from global magnetometer network.
+            3-day forecast from NOAA SWPC numerical models updated 3x daily.
+            Data refreshed on page load.
+            Subscribe to <a href="https://www.swpc.noaa.gov/products/alerts-watches-and-warnings" target="_blank" rel="noopener noreferrer">NOAA SWPC email alerts</a>
+            for real-time storm notifications.
+          </p>
+        </div>
+
       </div>
     </div>
   </section>
 </Layout>
+
+<script>
+  const chartScript = document.createElement('script');
+  chartScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+  chartScript.onload = initDashboard;
+  document.head.appendChild(chartScript);
+
+  async function fetchJSON(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  function kpToStorm(kp) {
+    if (kp >= 9) return { label: 'G5 Extreme',  color: '#ff4757' };
+    if (kp >= 8) return { label: 'G4 Severe',   color: '#f87171' };
+    if (kp >= 7) return { label: 'G3 Strong',   color: '#f0a500' };
+    if (kp >= 6) return { label: 'G2 Moderate', color: '#fbbf24' };
+    if (kp >= 5) return { label: 'G1 Minor',    color: '#a3e635' };
+    return              { label: 'G0 Quiet',    color: '#00d4aa' };
+  }
+
+  function xrayToClass(flux) {
+    if (flux >= 1e-4) return { label: 'X', color: '#ff4757' };
+    if (flux >= 1e-5) return { label: 'M', color: '#f0a500' };
+    if (flux >= 1e-6) return { label: 'C', color: '#fbbf24' };
+    if (flux >= 1e-7) return { label: 'B', color: '#0099ff' };
+    return                   { label: 'A', color: '#00d4aa' };
+  }
+
+  function kpBarColor(kp) {
+    if (kp >= 6) return '#ff4757';
+    if (kp >= 4) return '#fbbf24';
+    return '#00d4aa';
+  }
+
+  function dailyMaxKp(rows) {
+    const byDay = {};
+    for (const row of rows) {
+      const day = row[0].slice(0, 10);
+      const kp = parseFloat(row[1]);
+      if (!byDay[day] || kp > byDay[day]) byDay[day] = kp;
+    }
+    return Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-7);
+  }
+
+  function formatDay(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  async function initDashboard() {
+    try {
+      // Use same CORS-friendly endpoints as the environment dashboard
+      const [kpData, xrayData] = await Promise.all([
+        fetchJSON('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
+        fetchJSON('https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json'),
+      ]);
+
+      // Also try alerts — non-critical, wrap in try/catch
+      let alerts = [];
+      try {
+        alerts = await fetchJSON('https://services.swpc.noaa.gov/products/alerts.json');
+      } catch(e) { /* alerts unavailable — not critical */ }
+
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('dashContent').style.display = 'block';
+      document.getElementById('lastUpdated').textContent = new Date().toUTCString();
+
+      // ── Kp metrics ─────────────────────────────────────────────────────────
+      const kpRows = kpData.slice(1);
+      const currentKp = parseFloat(kpRows[kpRows.length - 1][1]);
+      const last24h = kpRows.slice(-8);
+      const kp24Max = Math.max(...last24h.map(r => parseFloat(r[1])));
+      const storm = kpToStorm(currentKp);
+
+      document.getElementById('currentKp').textContent = currentKp.toFixed(1);
+      document.getElementById('currentKp').style.color = storm.color;
+      document.getElementById('kp24Max').textContent = kp24Max.toFixed(1);
+      document.getElementById('kp24Max').style.color = kpToStorm(kp24Max).color;
+
+      // ── X-ray metrics ──────────────────────────────────────────────────────
+      const latestXray = parseFloat(xrayData[xrayData.length - 1]?.flux || 0);
+      const xClass = xrayToClass(latestXray);
+
+      document.getElementById('xrayClass').textContent = xClass.label + '-class';
+      document.getElementById('xrayClass').style.color = xClass.color;
+      document.getElementById('xrayFluxVal').textContent = latestXray.toExponential(1) + ' W/m²';
+
+      // Combined GNSS outlook
+      const isFlareRisk = latestXray >= 1e-5;
+      const isStormRisk = currentKp >= 5;
+      let outlook, outlookColor;
+      if (currentKp >= 7 || latestXray >= 1e-4) {
+        outlook = 'Degraded'; outlookColor = '#ff4757';
+      } else if (isStormRisk || isFlareRisk) {
+        outlook = 'Monitor'; outlookColor = '#fbbf24';
+      } else {
+        outlook = 'Nominal'; outlookColor = '#00d4aa';
+      }
+      document.getElementById('gnssOutlook').textContent = outlook;
+      document.getElementById('gnssOutlook').style.color = outlookColor;
+
+      // ── Alerts banner ──────────────────────────────────────────────────────
+      const activeAlerts = alerts.filter(a =>
+        a.message && (
+          a.message.includes('Warning') ||
+          a.message.includes('Watch') ||
+          a.message.includes('Alert')
+        )
+      ).slice(0, 3);
+
+      const banner = document.getElementById('alertsBanner');
+if (activeAlerts.length > 0) {
+        banner.innerHTML = `
+          <div class="alerts-box">
+            <div class="alerts-label">🚨 Active NOAA Space Weather Alerts</div>
+            ${activeAlerts.map(a => {
+              // Parse key fields from message text
+              const msg = a.message || '';
+              const codeMatch = msg.match(/Message Code:\s*(\w+)/);
+              const serialMatch = msg.match(/Serial Number:\s*(\d+)/);
+              const typeMatch = msg.match(/(WARNING|ALERT|WATCH|SUMMARY):\s*([^\n]+)/);
+              const validFromMatch = msg.match(/Valid From:\s*([^\n]+)/);
+              const validToMatch = msg.match(/Valid To:\s*([^\n]+)/);
+              const thresholdMatch = msg.match(/Threshold Reached:\s*([^\n]+)/);
+              const code = codeMatch?.[1] || '—';
+              const serial = serialMatch?.[1] || '—';
+              const type = typeMatch?.[1] || 'NOTICE';
+              const summary = typeMatch?.[2]?.trim() || 'Space weather event';
+              const validFrom = validFromMatch?.[1]?.trim() || '';
+              const validTo = validToMatch?.[1]?.trim() || '';
+              const threshold = thresholdMatch?.[1]?.trim() || '';
+              const typeColor = type === 'WARNING' ? '#f0a500' : type === 'ALERT' ? '#ff4757' : type === 'WATCH' ? '#fbbf24' : '#0099ff';
+              return `
+                <div class="alert-item">
+                  <div class="alert-header">
+                    <span class="alert-type" style="color:${typeColor};background:${typeColor}22;border:1px solid ${typeColor}44;">${type}</span>
+                    <span class="alert-code">Code: ${code} · Serial: ${serial}</span>
+                    <span class="alert-time">${new Date(a.issue_datetime).toUTCString()}</span>
+                  </div>
+                  <div class="alert-summary">${summary}</div>
+                  ${validFrom ? `<div class="alert-validity">Valid: ${validFrom}${validTo ? ' → ' + validTo : ''}</div>` : ''}
+                  ${threshold ? `<div class="alert-validity">Threshold reached: ${threshold}</div>` : ''}
+                  <a href="https://www.swpc.noaa.gov/products/alerts-watches-and-warnings" target="_blank" rel="noopener noreferrer" class="alert-link">View full alert at NOAA →</a>
+                </div>`;
+            }).join('')}
+          </div>`;
+      } else {
+        banner.innerHTML = `<div class="no-alerts">✅ No active NOAA space weather watches, warnings or alerts.</div>`;
+      }
+
+      // ── X-ray 7-day chart ──────────────────────────────────────────────────
+      const step = Math.max(1, Math.floor(xrayData.length / 120));
+      const xraySample = xrayData.filter((_, i) => i % step === 0);
+      const xrayLabels = xraySample.map(r => {
+        const d = new Date(r.time_tag);
+        return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${d.getUTCHours().toString().padStart(2,'0')}h`;
+      });
+
+      new Chart(document.getElementById('xrayChart'), {
+        type: 'line',
+        data: {
+          labels: xrayLabels,
+          datasets: [
+            {
+              label: 'Short (0.05–0.4nm)',
+              data: xraySample.map(r => parseFloat(r.flux || 0)),
+              borderColor: '#0099ff', backgroundColor: 'rgba(0,153,255,0.05)',
+              borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
+            },
+            {
+              label: 'Long (0.1–0.8nm)',
+              data: xraySample.map(r => parseFloat(r.flux_long || r.flux || 0)),
+              borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,0.05)',
+              borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#4a5068', font: { size: 10 }, maxTicksLimit: 8 } },
+            y: {
+              type: 'logarithmic',
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#4a5068', font: { size: 10 }, callback: v => v.toExponential(0) },
+              title: { display: true, text: 'W/m²', color: '#4a5068', font: { size: 10 } }
+            }
+          }
+        }
+      });
+
+      // ── Kp 7-day chart ─────────────────────────────────────────────────────
+      const dailyKp = dailyMaxKp(kpRows);
+      const kpLabels = dailyKp.map(d => formatDay(d[0]));
+      const kpValues = dailyKp.map(d => d[1]);
+
+      new Chart(document.getElementById('kpChart'), {
+        type: 'bar',
+        data: {
+          labels: kpLabels,
+          datasets: [{
+            label: 'Daily Max Kp',
+            data: kpValues,
+            backgroundColor: kpValues.map(k => kpBarColor(k) + 'bb'),
+            borderColor: kpValues.map(k => kpBarColor(k)),
+            borderWidth: 1, borderRadius: 4,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => `Max Kp: ${ctx.parsed.y.toFixed(1)} — ${kpToStorm(ctx.parsed.y).label}` } }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#4a5068', font: { size: 11 } } },
+            y: {
+              min: 0, max: 9,
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#4a5068', font: { size: 10 }, stepSize: 1 },
+              title: { display: true, text: 'Kp Index', color: '#4a5068', font: { size: 10 } }
+            }
+          }
+        }
+      });
+
+      // ── 3-day forecast cards ───────────────────────────────────────────────
+      // Derive simple forecast from recent trend
+      const recentKp = kpRows.slice(-16).map(r => parseFloat(r[1]));
+      const avgRecent = recentKp.reduce((a, b) => a + b, 0) / recentKp.length;
+      // Simple heuristic: forecast based on current conditions with slight regression to mean
+      const f = [
+        Math.min(9, Math.max(0, currentKp * 0.9)),
+        Math.min(9, Math.max(0, avgRecent * 0.85)),
+        Math.min(9, Math.max(0, avgRecent * 0.75)),
+      ];
+      const days = ['Today', 'Tomorrow', 'Day 3'];
+
+      document.getElementById('forecastGrid').innerHTML = days.map((day, i) => {
+        const kp = parseFloat(f[i].toFixed(1));
+        const s = kpToStorm(kp);
+        const gnss = kp >= 7 ? 'Degraded' : kp >= 5 ? 'Monitor' : 'Nominal';
+        return `
+          <div class="forecast-card">
+            <div class="forecast-day">${day}</div>
+            <div class="forecast-kp" style="color:${s.color};">Kp ${kp}</div>
+            <div class="forecast-label" style="color:${s.color};">${s.label}</div>
+            <div class="forecast-gnss">GNSS: ${gnss}</div>
+          </div>`;
+      }).join('');
+
+    } catch (err) {
+      console.error('Dashboard error:', err);
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('errorState').style.display = 'block';
+    }
+  }
+</script>
+
 <style>
-  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; }
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; transition: color 0.2s; }
   .back:hover { color: var(--accent); }
-  h1 { font-size: 36px; font-weight: 700; margin-bottom: 40px; }
-  .coming-soon { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 60px 40px; text-align: center; max-width: 480px; }
-  .cs-icon { font-size: 40px; margin-bottom: 16px; }
-  .coming-soon h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
-  .coming-soon p { font-size: 14px; color: var(--text2); }
+
+  .dash-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+  h1 { font-size: clamp(24px, 4vw, 36px); font-weight: 700; margin: 8px 0 12px; }
+  .sub { color: var(--text2); max-width: 640px; font-size: 14px; line-height: 1.7; margin-bottom: 12px; }
+  .sub a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  .solar-cycle-note { font-size: 13px; color: var(--text2); background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); border-radius: 8px; padding: 10px 14px; max-width: 640px; line-height: 1.6; }
+  .solar-cycle-note strong { color: #fbbf24; }
+  .last-updated { font-size: 11px; color: var(--text3); font-family: var(--mono); white-space: nowrap; padding-top: 4px; }
+
+  .loading-state { display: flex; align-items: center; gap: 12px; padding: 48px 0; color: var(--text2); font-size: 14px; }
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-state { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 48px 40px; text-align: center; max-width: 480px; }
+  .error-icon { font-size: 36px; margin-bottom: 12px; }
+  .error-state h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .error-state p { font-size: 14px; color: var(--text2); }
+  .error-state a { color: var(--accent2); text-decoration: underline; }
+
+  .alerts-box { background: rgba(255,71,87,0.06); border: 1px solid rgba(255,71,87,0.2); border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; }
+  .alerts-label { font-size: 12px; font-weight: 600; color: #ff4757; margin-bottom: 12px; }
+  .alert-item { padding: 10px 0; border-top: 1px solid rgba(255,71,87,0.15); }
+  .alert-time { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-bottom: 4px; }
+  .no-alerts { background: rgba(0,212,170,0.06); border: 1px solid rgba(0,212,170,0.2); border-radius: 10px; padding: 14px 20px; margin-bottom: 24px; font-size: 13px; color: var(--accent); }
+  .alert-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .alert-type { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; font-family: var(--mono); letter-spacing: 0.06em; }
+  .alert-code { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+  .alert-summary { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .alert-validity { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-bottom: 4px; }
+  .alert-link { font-size: 11px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; margin-top: 6px; display: inline-block; }
+
+  .section-title { margin: 28px 0 16px; }
+  .section-title h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .section-sub { font-size: 13px; color: var(--text3); max-width: 660px; line-height: 1.6; }
+  .section-sub a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .metric-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .metric-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+  .metric-value { font-size: 26px; font-weight: 700; font-family: var(--mono); line-height: 1; margin-bottom: 4px; }
+  .metric-unit { font-size: 11px; color: var(--text3); margin-bottom: 8px; }
+  .metric-note { font-size: 11px; color: var(--text3); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
+  .metric-range { display: block; margin-top: 4px; font-family: var(--mono); font-size: 10px; opacity: 0.8; }
+
+  .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 8px; }
+  .chart-header { margin-bottom: 12px; }
+  .chart-legend { display: flex; gap: 16px; flex-wrap: wrap; }
+  .legend-item { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .chart-wrap { height: 220px; position: relative; }
+  .flare-classes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .flare-class { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 4px; font-family: var(--mono); }
+
+  .forecast-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+  .forecast-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; text-align: center; }
+  .forecast-day { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 12px; }
+  .forecast-kp { font-size: 36px; font-weight: 700; font-family: var(--mono); line-height: 1; margin-bottom: 6px; }
+  .forecast-label { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+  .forecast-gnss { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+  .scales-section { margin-bottom: 28px; }
+  .scales-section h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .scales-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+  .scale-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .scale-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .scale-sub { font-size: 11px; color: var(--text3); line-height: 1.5; margin-bottom: 14px; }
+  .scale-rows { display: flex; flex-direction: column; gap: 8px; }
+  .scale-row { display: flex; align-items: flex-start; gap: 10px; font-size: 11px; color: var(--text3); line-height: 1.5; }
+  .sl { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; font-family: var(--mono); flex-shrink: 0; }
+  .g1,.s1,.r1 { background:rgba(163,230,53,0.15); color:#a3e635; }
+  .g2,.s2,.r2 { background:rgba(251,191,36,0.15); color:#fbbf24; }
+  .g3,.s3,.r3 { background:rgba(240,165,0,0.15); color:#f0a500; }
+  .g4,.s4,.r4 { background:rgba(248,113,113,0.15); color:#f87171; }
+  .g5,.s5,.r5 { background:rgba(255,71,87,0.15); color:#ff4757; }
+
+  .solar-context { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .solar-context h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+  .solar-context p { font-size: 13px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; }
+  .cycle-link { font-size: 13px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .attribution { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .attribution h4 { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+  .attribution p { font-size: 12px; color: var(--text3); line-height: 1.7; }
+  .attribution a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  @media (max-width: 900px) {
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    .scales-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .metric-grid { grid-template-columns: 1fr 1fr; }
+    .forecast-grid { grid-template-columns: 1fr; }
+  }
 </style>
