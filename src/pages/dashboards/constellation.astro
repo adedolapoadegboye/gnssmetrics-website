@@ -4,22 +4,562 @@ import Layout from '../../layouts/Layout.astro';
 <Layout title="Constellation Status">
   <section class="section">
     <div class="container">
+
       <a href="/dashboards" class="back">← All dashboards</a>
-      <h1>Constellation Status</h1>
-      <div class="coming-soon">
-        <div class="cs-icon">🛰️</div>
-        <h3>Dashboard under construction</h3>
-        <p>Live health status for GPS, Galileo, GLONASS and BeiDou from official sources. Coming soon.</p>
+
+      <div class="dash-header">
+        <div>
+          <span class="badge">Live · Global</span>
+          <h1>Constellation Status</h1>
+          <p class="sub">
+            Live health monitoring for GPS, Galileo, GLONASS and BeiDou.
+            Real-time satellite tracking from <a href="https://galmon.eu" target="_blank" rel="noopener noreferrer">galmon.eu</a> —
+            an open source community GNSS monitor with volunteer receivers worldwide.
+            Official advisories linked directly from each constellation operator.
+          </p>
+          <div class="info-note">
+            ℹ️ <strong>Data sources:</strong> Live satellite health data from galmon.eu (GPL-3.0 open source, Bert Hubert / AHU Holding BV).
+            GPS NANUs from NAVCEN. Official status pages from each constellation operator.
+          </div>
+        </div>
+        <div class="last-updated">
+          Last updated: <span id="lastUpdated">—</span>
+        </div>
       </div>
+
+      <!-- LIVE MAPS SECTION -->
+      <div class="section-title">
+        <h2>Live Coverage &amp; Satellite Health</h2>
+        <p class="section-sub">
+          Real-time data from galmon.eu — a community-operated open source monitoring network
+          with receiver stations across 20+ countries. Shows live satellite geometry, coverage
+          and per-satellite health across all four constellations.
+        </p>
+      </div>
+
+      <div class="maps-grid">
+
+        <div class="map-card">
+          <div class="map-header">
+            <div>
+              <div class="map-title">Global Coverage &amp; DOP Map</div>
+              <div class="map-sub">Live satellite geometry · HDOP/VDOP · Coverage by elevation mask</div>
+            </div>
+            <a href="https://galmon.eu/geo/coverage.html" target="_blank" rel="noopener noreferrer" class="open-external">Open full map ↗</a>
+          </div>
+          <div class="map-frame-wrap">
+            <iframe
+              src="https://galmon.eu/geo/coverage.html"
+              title="galmon.eu global GNSS coverage and DOP map"
+              loading="lazy"
+              allowfullscreen
+            ></iframe>
+          </div>
+          <div class="map-note">
+            Shows number of visible satellites and DOP values by location for all four constellations combined.
+            Green = good geometry · Yellow = degraded · Red = poor coverage.
+            Source: <a href="https://galmon.eu" target="_blank" rel="noopener noreferrer">galmon.eu</a> (GPL-3.0)
+          </div>
+        </div>
+
+        <div class="map-card">
+          <div class="map-header">
+            <div>
+              <div class="map-title">Per-Satellite Health — galmon.eu</div>
+              <div class="map-sub">Live signal health · Clock status · Ephemeris age · All 4 constellations</div>
+            </div>
+            <a href="https://galmon.eu" target="_blank" rel="noopener noreferrer" class="open-external">Open galmon.eu ↗</a>
+          </div>
+          <div class="map-frame-wrap">
+            <iframe
+              src="https://galmon.eu"
+              title="galmon.eu live GNSS satellite health monitor"
+              loading="lazy"
+              allowfullscreen
+            ></iframe>
+          </div>
+          <div class="map-note">
+            Live per-satellite health table for Galileo, GPS, BeiDou and GLONASS. Shows signal-in-space accuracy (SISA),
+            ephemeris age, clock jumps and pseudorange residuals from volunteer receivers across 20+ countries.
+            Source: <a href="https://galmon.eu" target="_blank" rel="noopener noreferrer">galmon.eu</a> (GPL-3.0 · Bert Hubert / AHU Holding BV)
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CONSTELLATION CARDS -->
+      <div class="section-title">
+        <h2>Constellation Overview</h2>
+        <p class="section-sub">Key specifications and official status links for each global GNSS constellation.</p>
+      </div>
+
+      <div class="const-grid">
+
+        <!-- GPS -->
+        <div class="const-card">
+          <div class="const-header">
+            <div class="const-flag">🇺🇸</div>
+            <div>
+              <div class="const-name">GPS</div>
+              <div class="const-full">Global Positioning System</div>
+            </div>
+            <div class="const-status" id="gpsStatus">
+              <span class="status-dot checking"></span>
+              <span class="status-text">Checking...</span>
+            </div>
+          </div>
+          <div class="const-specs">
+            <div class="spec"><span>Operator</span><span>US Space Force (USSF)</span></div>
+            <div class="spec"><span>Satellites</span><span>31 operational (Block IIF / III / IIIF)</span></div>
+            <div class="spec"><span>Frequencies</span><span>L1 1575.42 · L2 1227.60 · L5 1176.45 MHz</span></div>
+            <div class="spec"><span>Accuracy (SPS)</span><span>~3.5 m horizontal (95%) open sky</span></div>
+            <div class="spec"><span>Strengths</span><span>Global reliability, widest receiver support, mature correction services</span></div>
+          </div>
+          <div class="const-links">
+            <a href="https://www.navcen.uscg.gov/gps-constellation" target="_blank" rel="noopener noreferrer">Constellation Status →</a>
+            <a href="https://www.navcen.uscg.gov/gps-nanus" target="_blank" rel="noopener noreferrer">Active NANUs →</a>
+            <a href="https://www.navcen.uscg.gov/gps-nanus" target="_blank" rel="noopener noreferrer">GPS Almanac →</a>
+          </div>
+          <div class="const-advisories" id="gpsAdvisories">
+            <div class="advisory-loading">Fetching active NANUs...</div>
+          </div>
+        </div>
+
+        <!-- GALILEO -->
+        <div class="const-card">
+          <div class="const-header">
+            <div class="const-flag">🇪🇺</div>
+            <div>
+              <div class="const-name">Galileo</div>
+              <div class="const-full">European Global Navigation Satellite System</div>
+            </div>
+            <div class="const-status">
+              <span class="status-dot operational"></span>
+              <span class="status-text">Operational</span>
+            </div>
+          </div>
+          <div class="const-specs">
+            <div class="spec"><span>Operator</span><span>ESA / EUSPA (EU)</span></div>
+            <div class="spec"><span>Satellites</span><span>28 operational (FOC generation)</span></div>
+            <div class="spec"><span>Frequencies</span><span>E1 1575.42 · E5a 1176.45 · E5b 1207.14 · E6 1278.75 MHz</span></div>
+            <div class="spec"><span>Accuracy (OS)</span><span>~1 m horizontal (95%) dual-frequency</span></div>
+            <div class="spec"><span>Strengths</span><span>Best open-service accuracy, free PPP via HAS (E6), interoperable with GPS on L1/L5</span></div>
+          </div>
+          <div class="const-links">
+            <a href="https://www.gsc-europa.eu/system-service-status/constellation-information" target="_blank" rel="noopener noreferrer">Constellation Status →</a>
+            <a href="https://www.gsc-europa.eu/system-status/user-notifications" target="_blank" rel="noopener noreferrer">NAGUs (Advisories) →</a>
+            <a href="https://www.euspa.europa.eu/galileo/services/high-accuracy-service" target="_blank" rel="noopener noreferrer">HAS Service Info →</a>
+          </div>
+          <div class="const-note">
+            Galileo E1 shares the same centre frequency as GPS L1 (1575.42 MHz) enabling interoperable receivers.
+            The High Accuracy Service (HAS) on E6 delivers free global PPP corrections — no subscription required.
+            Passive Hydrogen Maser clocks on FOC satellites provide exceptional timing stability.
+          </div>
+        </div>
+
+        <!-- GLONASS -->
+        <div class="const-card">
+          <div class="const-header">
+            <div class="const-flag">🇷🇺</div>
+            <div>
+              <div class="const-name">GLONASS</div>
+              <div class="const-full">Globalnaya Navigatsionnaya Sputnikovaya Sistema</div>
+            </div>
+            <div class="const-status">
+              <span class="status-dot operational"></span>
+              <span class="status-text">Operational</span>
+            </div>
+          </div>
+          <div class="const-specs">
+            <div class="spec"><span>Operator</span><span>Roscosmos (Russia)</span></div>
+            <div class="spec"><span>Satellites</span><span>24 operational (GLONASS-M / K)</span></div>
+            <div class="spec"><span>Frequencies</span><span>L1 1598–1606 MHz (FDMA) · L2 1242–1249 MHz · L3 1202.025 MHz (CDMA)</span></div>
+            <div class="spec"><span>Accuracy</span><span>~5 m horizontal (95%) open sky</span></div>
+            <div class="spec"><span>Strengths</span><span>Excellent high-latitude coverage, FDMA architecture provides natural anti-spoofing advantage</span></div>
+          </div>
+          <div class="const-links">
+            <a href="https://www.glonass-iac.ru/en/GLONASS/" target="_blank" rel="noopener noreferrer">Constellation Status →</a>
+            <a href="https://www.glonass-iac.ru/en/sostavOG/" target="_blank" rel="noopener noreferrer">Operational Satellites →</a>
+            <a href="https://www.glonass-iac.ru/en/manageSystem/nagu.php" target="_blank" rel="noopener noreferrer">NAGUs (Advisories) →</a>
+          </div>
+          <div class="const-note">
+            GLONASS is unique among the four constellations in using FDMA — each satellite transmits on a slightly
+            different frequency. This makes GLONASS receivers more complex to build but provides inherent
+            resistance to broadband jamming. Particularly valuable at high latitudes above 60°N
+            where GLONASS geometry is superior to GPS.
+          </div>
+        </div>
+
+        <!-- BEIDOU -->
+        <div class="const-card">
+          <div class="const-header">
+            <div class="const-flag">🇨🇳</div>
+            <div>
+              <div class="const-name">BeiDou</div>
+              <div class="const-full">BeiDou Navigation Satellite System (BDS-3)</div>
+            </div>
+            <div class="const-status">
+              <span class="status-dot operational"></span>
+              <span class="status-text">Operational</span>
+            </div>
+          </div>
+          <div class="const-specs">
+            <div class="spec"><span>Operator</span><span>CSNO (China Satellite Navigation Office)</span></div>
+            <div class="spec"><span>Satellites</span><span>35 operational (MEO + IGSO + GEO)</span></div>
+            <div class="spec"><span>Frequencies</span><span>B1C 1575.42 · B1I 1561.098 · B2a 1176.45 · B3I 1268.52 MHz</span></div>
+            <div class="spec"><span>Accuracy</span><span>~2.5 m horizontal (95%) open sky</span></div>
+            <div class="spec"><span>Strengths</span><span>Largest constellation, superior Asia-Pacific coverage via IGSO/GEO, PPP-B2b free corrections in Asia</span></div>
+          </div>
+          <div class="const-links">
+            <a href="http://www.csno-tarc.cn/system/constellation&ce=english" target="_blank" rel="noopener noreferrer">Constellation Status →</a>
+            <a href="http://www.csno-tarc.cn/en/system/health" target="_blank" rel="noopener noreferrer">Satellite Health →</a>
+            <a href="http://www.beidou.gov.cn/xt/gcjg/" target="_blank" rel="noopener noreferrer">System Info →</a>
+          </div>
+          <div class="const-note">
+            BDS-3 has the most satellites of any constellation with a unique mixed-orbit architecture.
+            MEO satellites provide global coverage, IGSO satellites enhance Asia-Pacific availability,
+            and GEO satellites provide SBAS-like augmentation. B1C (1575.42 MHz) and B2a (1176.45 MHz)
+            are fully interoperable with GPS L1/L5 and Galileo E1/E5a.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FREQUENCY TABLE -->
+      <div class="section-title">
+        <h2>Signal Frequency Reference</h2>
+        <p class="section-sub">
+          All four constellations transmit in the L-band (1–2 GHz).
+          Several frequencies are intentionally shared to enable interoperability and simpler receiver design.
+          Dual or triple-frequency receivers eliminate ionospheric delay without external corrections.
+        </p>
+      </div>
+
+      <div class="freq-table-wrap">
+        <div class="freq-table">
+          <div class="freq-header">
+            <span>Band</span>
+            <span>MHz</span>
+            <span>GPS</span>
+            <span>Galileo</span>
+            <span>GLONASS</span>
+            <span>BeiDou</span>
+            <span>Notes</span>
+          </div>
+          <div class="freq-row">
+            <span><strong>L1 / E1 / B1C</strong></span>
+            <span>1575.42</span>
+            <span class="freq-yes">L1 C/A · L1C</span>
+            <span class="freq-yes">E1</span>
+            <span class="freq-near">~1598–1606 (FDMA)</span>
+            <span class="freq-yes">B1C</span>
+            <span>Shared centre frequency — primary civil signal. Interoperable across GPS, Galileo, BeiDou.</span>
+          </div>
+          <div class="freq-row">
+            <span><strong>L5 / E5a / B2a</strong></span>
+            <span>1176.45</span>
+            <span class="freq-yes">L5</span>
+            <span class="freq-yes">E5a</span>
+            <span class="freq-no">—</span>
+            <span class="freq-yes">B2a</span>
+            <span>Protected aviation band. Excellent multipath resistance. Enables iono-free dual-frequency positioning.</span>
+          </div>
+          <div class="freq-row">
+            <span><strong>E5b / B2b</strong></span>
+            <span>1207.14</span>
+            <span class="freq-no">—</span>
+            <span class="freq-yes">E5b</span>
+            <span class="freq-no">—</span>
+            <span class="freq-yes">B2b</span>
+            <span>Galileo E5b carries I/NAV message. BeiDou B2b used for PPP-B2b free correction service in Asia-Pacific.</span>
+          </div>
+          <div class="freq-row">
+            <span><strong>L2 / B1I</strong></span>
+            <span>~1227–1561</span>
+            <span class="freq-yes">L2C · L2P(Y)</span>
+            <span class="freq-no">—</span>
+            <span class="freq-near">L2 1242–1249 (FDMA)</span>
+            <span class="freq-yes">B1I 1561.098</span>
+            <span>GPS L2 used for dual-frequency iono correction. B1I is legacy BDS-2 frequency, still operational on BDS-3.</span>
+          </div>
+          <div class="freq-row">
+            <span><strong>E6 / B3I</strong></span>
+            <span>~1268–1279</span>
+            <span class="freq-no">—</span>
+            <span class="freq-yes">E6 (HAS PPP)</span>
+            <span class="freq-no">—</span>
+            <span class="freq-yes">B3I 1268.52</span>
+            <span>Galileo E6 carries free global High Accuracy Service (PPP corrections). BDS B3I is primary BDS-3 ranging signal.</span>
+          </div>
+          <div class="freq-row">
+            <span><strong>L3 CDMA</strong></span>
+            <span>1202.025</span>
+            <span class="freq-no">—</span>
+            <span class="freq-no">—</span>
+            <span class="freq-yes">L3 (CDMA, new)</span>
+            <span class="freq-no">—</span>
+            <span>New GLONASS CDMA signal on GLONASS-K satellites. Enables interoperability with CDMA-based receivers.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- WHY MULTI-CONSTELLATION -->
+      <div class="multi-section">
+        <h2>Why Multi-Constellation Matters</h2>
+        <div class="multi-grid">
+          <div class="multi-card">
+            <div class="multi-icon">📡</div>
+            <h3>Satellite Geometry (DOP)</h3>
+            <p>GPS alone gives 8–12 visible satellites. Adding Galileo, GLONASS and BeiDou pushes the count above 40. More satellites = lower DOP = better accuracy. In urban canyons and forests, multi-constellation is often the difference between a usable fix and no fix at all.</p>
+          </div>
+          <div class="multi-card">
+            <div class="multi-icon">🔒</div>
+            <h3>Resilience &amp; Redundancy</h3>
+            <p>GPS experienced a significant timing anomaly in 2016. Galileo had a 6-day outage in 2019. Multi-constellation receivers continue operating through single-constellation events. Critical infrastructure and safety-of-life applications require this redundancy.</p>
+          </div>
+          <div class="multi-card">
+            <div class="multi-icon">📐</div>
+            <h3>RTK Performance</h3>
+            <p>RTK ambiguity resolution depends fundamentally on geometry. More satellites with diverse geometries and multiple frequencies accelerate integer ambiguity resolution. A GPS+Galileo+BeiDou RTK engine achieves fixed solution 2–3× faster than GPS-only in the same conditions.</p>
+          </div>
+          <div class="multi-card">
+            <div class="multi-icon">🌍</div>
+            <h3>Frequency Interoperability</h3>
+            <p>GPS L1, Galileo E1 and BeiDou B1C all transmit at exactly 1575.42 MHz — a single receiver front-end tracks all three simultaneously. GPS L5, Galileo E5a and BeiDou B2a share 1176.45 MHz. This interoperability simplifies receiver hardware while delivering full multi-constellation performance.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SBAS -->
+      <div class="sbas-section">
+        <h2>SBAS Augmentation Systems</h2>
+        <p class="section-sub">Free satellite-based augmentation systems providing differential corrections and integrity data via geostationary satellites. No subscription required.</p>
+        <div class="sbas-grid">
+          <div class="sbas-card">
+            <div class="sbas-name">WAAS</div>
+            <div class="sbas-region">North America</div>
+            <div class="sbas-op">FAA · USA</div>
+            <div class="sbas-freq">L1 · L5</div>
+            <a href="https://www.faa.gov/about/office_org/headquarters_offices/ato/service_units/techops/navservices/gnss/waas" target="_blank" rel="noopener noreferrer" class="sbas-link">Info →</a>
+          </div>
+          <div class="sbas-card">
+            <div class="sbas-name">EGNOS</div>
+            <div class="sbas-region">Europe</div>
+            <div class="sbas-op">EUSPA · EU</div>
+            <div class="sbas-freq">L1 · L5</div>
+            <a href="https://egnos-user-support.essp-sas.eu/new_egnos_ops/" target="_blank" rel="noopener noreferrer" class="sbas-link">Status →</a>
+          </div>
+          <div class="sbas-card">
+            <div class="sbas-name">MSAS</div>
+            <div class="sbas-region">Japan</div>
+            <div class="sbas-op">JCAB · Japan</div>
+            <div class="sbas-freq">L1</div>
+            <a href="https://www.kasc.go.jp/english/msas.html" target="_blank" rel="noopener noreferrer" class="sbas-link">Info →</a>
+          </div>
+          <div class="sbas-card">
+            <div class="sbas-name">GAGAN</div>
+            <div class="sbas-region">India</div>
+            <div class="sbas-op">AAI / ISRO · India</div>
+            <div class="sbas-freq">L1 · L5</div>
+            <a href="https://www.isro.gov.in/GAGAN.html" target="_blank" rel="noopener noreferrer" class="sbas-link">Info →</a>
+          </div>
+          <div class="sbas-card">
+            <div class="sbas-name">SDCM</div>
+            <div class="sbas-region">Russia</div>
+            <div class="sbas-op">Roscosmos · Russia</div>
+            <div class="sbas-freq">L1 · L5</div>
+            <a href="https://www.sdcm.ru/en/index.html" target="_blank" rel="noopener noreferrer" class="sbas-link">Info →</a>
+          </div>
+          <div class="sbas-card">
+            <div class="sbas-name">BDSBAS</div>
+            <div class="sbas-region">China</div>
+            <div class="sbas-op">CSNO · China</div>
+            <div class="sbas-freq">B1C · B2a</div>
+            <a href="http://www.csno-tarc.cn/en/" target="_blank" rel="noopener noreferrer" class="sbas-link">Info →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ATTRIBUTION -->
+      <div class="attribution">
+        <h4>Data Sources &amp; Attribution</h4>
+        <p>
+          Live satellite health and coverage maps: <a href="https://galmon.eu" target="_blank" rel="noopener noreferrer">galmon.eu</a>
+          by Bert Hubert / AHU Holding BV — GPL-3.0 open source, community-operated global GNSS monitor.
+          GPS NANUs and constellation status: <a href="https://www.navcen.uscg.gov" target="_blank" rel="noopener noreferrer">NAVCEN</a> (US Coast Guard, public domain).
+          Galileo status: <a href="https://www.gsc-europa.eu" target="_blank" rel="noopener noreferrer">GSC / EUSPA</a> (EU open data).
+          GLONASS status: <a href="https://www.glonass-iac.ru/en/" target="_blank" rel="noopener noreferrer">IAC Russia</a>.
+          BeiDou status: <a href="http://www.csno-tarc.cn/en/" target="_blank" rel="noopener noreferrer">CSNO / TARC China</a>.
+          Satellite counts are approximate and subject to change.
+        </p>
+      </div>
+
     </div>
   </section>
 </Layout>
+
+<script>
+  document.getElementById('lastUpdated').textContent = new Date().toUTCString();
+
+  async function fetchGPSAdvisories() {
+    try {
+      const res = await fetch('https://www.navcen.uscg.gov/rss/gps-outages.xml');
+      if (!res.ok) throw new Error('NAVCEN unavailable');
+      const text = await res.text();
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(text, 'text/xml');
+      const items = Array.from(xml.querySelectorAll('item')).slice(0, 4);
+
+      const advisoriesEl = document.getElementById('gpsAdvisories');
+      const statusEl = document.getElementById('gpsStatus');
+
+      if (items.length === 0) {
+        advisoriesEl.innerHTML = `<div class="no-advisory">✅ No active GPS outage advisories.</div>`;
+        statusEl.innerHTML = `<span class="status-dot operational"></span><span class="status-text">Nominal</span>`;
+        return;
+      }
+
+      statusEl.innerHTML = `<span class="status-dot advisory"></span><span class="status-text">${items.length} Active Notice${items.length > 1 ? 's' : ''}</span>`;
+
+      advisoriesEl.innerHTML = `
+        <div class="advisory-header">Active GPS NANUs</div>
+        ${items.map(item => {
+          const title = item.querySelector('title')?.textContent || '—';
+          const pubDate = item.querySelector('pubDate')?.textContent || '';
+          const link = item.querySelector('link')?.textContent || 'https://www.navcen.uscg.gov/gps-nanus';
+          const desc = item.querySelector('description')?.textContent?.slice(0, 120) || '';
+          return `
+            <div class="advisory-item">
+              <div class="advisory-title">${title}</div>
+              ${pubDate ? `<div class="advisory-date">${new Date(pubDate).toUTCString()}</div>` : ''}
+              ${desc ? `<div class="advisory-desc">${desc}${desc.length >= 120 ? '…' : ''}</div>` : ''}
+              <a href="${link}" target="_blank" rel="noopener noreferrer" class="advisory-link">View NANU →</a>
+            </div>`;
+        }).join('')}`;
+
+    } catch (e) {
+      document.getElementById('gpsAdvisories').innerHTML = `
+        <div class="advisory-cors">
+          <a href="https://www.navcen.uscg.gov/gps-nanus" target="_blank" rel="noopener noreferrer">
+            View active GPS NANUs at NAVCEN →
+          </a>
+        </div>`;
+      document.getElementById('gpsStatus').innerHTML =
+        `<span class="status-dot operational"></span><span class="status-text">See NAVCEN</span>`;
+    }
+  }
+
+  fetchGPSAdvisories();
+</script>
+
 <style>
-  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; }
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; transition: color 0.2s; }
   .back:hover { color: var(--accent); }
-  h1 { font-size: 36px; font-weight: 700; margin-bottom: 40px; }
-  .coming-soon { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 60px 40px; text-align: center; max-width: 480px; }
-  .cs-icon { font-size: 40px; margin-bottom: 16px; }
-  .coming-soon h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
-  .coming-soon p { font-size: 14px; color: var(--text2); }
+
+  .dash-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+  h1 { font-size: clamp(24px, 4vw, 36px); font-weight: 700; margin: 8px 0 12px; }
+  .sub { color: var(--text2); max-width: 680px; font-size: 14px; line-height: 1.7; margin-bottom: 12px; }
+  .sub a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  .info-note { font-size: 13px; color: var(--text2); background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.15); border-radius: 8px; padding: 10px 14px; max-width: 680px; line-height: 1.6; }
+  .info-note strong { color: var(--accent2); }
+  .last-updated { font-size: 11px; color: var(--text3); font-family: var(--mono); white-space: nowrap; padding-top: 4px; }
+
+  .section-title { margin: 8px 0 16px; }
+  .section-title h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .section-sub { font-size: 13px; color: var(--text3); max-width: 680px; line-height: 1.6; }
+
+  .maps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+  .map-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .map-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 16px 20px; border-bottom: 1px solid var(--border); gap: 12px; }
+  .map-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .map-sub { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .open-external { font-size: 12px; color: var(--accent2); white-space: nowrap; text-decoration: underline; text-underline-offset: 2px; flex-shrink: 0; }
+  .map-frame-wrap { width: 100%; height: 420px; background: var(--bg3); }
+  .map-frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
+  .map-note { padding: 12px 20px; font-size: 11px; color: var(--text3); line-height: 1.6; border-top: 1px solid var(--border); }
+  .map-note a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .const-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+  .const-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .const-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .const-flag { font-size: 26px; flex-shrink: 0; }
+  .const-name { font-size: 20px; font-weight: 700; }
+  .const-full { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .const-status { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.operational { background: #00d4aa; box-shadow: 0 0 0 3px rgba(0,212,170,0.2); }
+  .status-dot.advisory { background: #fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,0.2); }
+  .status-dot.checking { background: var(--text3); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .status-text { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+
+  .const-specs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .spec { display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 12px; }
+  .spec span:first-child { color: var(--text3); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .spec span:last-child { color: var(--text2); }
+
+  .const-links { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .const-links a { font-size: 11px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .const-note { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+  .const-advisories { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+  .advisory-loading { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .advisory-header { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 8px; }
+  .advisory-item { padding: 8px 0; border-top: 1px solid var(--border); }
+  .advisory-item:first-of-type { border-top: none; }
+  .advisory-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .advisory-date { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-bottom: 3px; }
+  .advisory-desc { font-size: 11px; color: var(--text3); line-height: 1.5; margin-bottom: 4px; }
+  .advisory-link { font-size: 11px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  .advisory-cors a { font-size: 12px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  .no-advisory { font-size: 12px; color: var(--accent); }
+
+  .freq-table-wrap { margin-bottom: 32px; overflow-x: auto; }
+  .freq-table { min-width: 820px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .freq-header { display: grid; grid-template-columns: 150px 90px 110px 100px 140px 110px 1fr; padding: 10px 16px; background: var(--bg3); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); }
+  .freq-row { display: grid; grid-template-columns: 150px 90px 110px 100px 140px 110px 1fr; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 12px; align-items: center; }
+  .freq-row:hover { background: var(--bg3); }
+  .freq-row span { color: var(--text2); padding-right: 8px; }
+  .freq-row span:first-child { color: var(--text); font-size: 12px; }
+  .freq-row span:last-child { color: var(--text3); font-size: 11px; }
+  .freq-yes { color: #00d4aa !important; font-family: var(--mono); font-size: 11px !important; }
+  .freq-near { color: #fbbf24 !important; font-family: var(--mono); font-size: 11px !important; }
+  .freq-no { color: var(--border) !important; font-family: var(--mono); font-size: 11px !important; }
+
+  .multi-section { margin-bottom: 32px; }
+  .multi-section h2 { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+  .multi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .multi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .multi-icon { font-size: 22px; margin-bottom: 10px; }
+  .multi-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+  .multi-card p { font-size: 12px; color: var(--text3); line-height: 1.7; }
+
+  .sbas-section { margin-bottom: 28px; }
+  .sbas-section h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .sbas-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 16px; }
+  .sbas-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 12px; text-align: center; }
+  .sbas-name { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 4px; font-family: var(--mono); }
+  .sbas-region { font-size: 11px; color: var(--text); font-weight: 500; margin-bottom: 3px; }
+  .sbas-op { font-size: 10px; color: var(--text3); margin-bottom: 5px; }
+  .sbas-freq { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-bottom: 8px; }
+  .sbas-link { font-size: 11px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .attribution { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .attribution h4 { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+  .attribution p { font-size: 12px; color: var(--text3); line-height: 1.7; }
+  .attribution a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  @media (max-width: 1024px) {
+    .sbas-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 900px) {
+    .maps-grid { grid-template-columns: 1fr; }
+    .const-grid { grid-template-columns: 1fr; }
+    .multi-grid { grid-template-columns: 1fr; }
+    .map-frame-wrap { height: 300px; }
+  }
+  @media (max-width: 640px) {
+    .sbas-grid { grid-template-columns: repeat(2, 1fr); }
+  }
 </style>
