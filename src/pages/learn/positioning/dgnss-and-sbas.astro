@@ -1,0 +1,585 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="DGNSS and SBAS">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/positioning">Positioning</a>
+        <span>›</span>
+        <span>DGNSS and SBAS</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Positioning · Article 2 of 5</span>
+        <h1>DGNSS and SBAS</h1>
+        <p class="lead">
+          Differential GNSS exploits a simple insight: two receivers close together experience nearly
+          identical satellite clock, ephemeris and ionospheric errors. By computing corrections at a
+          reference station with a known position and broadcasting them to a rover, errors that were
+          metres can be reduced to decimetres — without any change to the rover hardware.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#principle">The differential principle</a></li>
+          <li><a href="#code-dgnss">Code-based DGNSS</a></li>
+          <li><a href="#corrections">Correction types — PRC and RRC</a></li>
+          <li><a href="#baseline-effect">The baseline effect</a></li>
+          <li><a href="#sbas">SBAS — Satellite-Based Augmentation</a></li>
+          <li><a href="#sbas-signals">SBAS signal structure</a></li>
+          <li><a href="#accuracy">Accuracy comparison</a></li>
+          <li><a href="#when-to-use">When to use DGNSS vs SBAS</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="principle">The differential principle</h2>
+      <p>
+        Consider a reference station at a precisely known position. It measures pseudoranges to visible
+        satellites and compares them to the <em>expected</em> pseudoranges computed from its known
+        position and the satellite ephemeris. The difference is the pseudorange correction (PRC) —
+        the combined effect of all spatially correlated errors for that satellite:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">PRC_i = ρ_expected_i − ρ_measured_i</div>
+        <div class="formula-desc">
+          where ρ_expected_i = geometric range (from known position to satellite) + tropospheric delay
+          (modelled) and ρ_measured_i = raw pseudorange measurement at the reference station.
+          PRC_i therefore captures: satellite clock error + ephemeris error + ionospheric delay
+          + any remaining tropospheric model error.
+        </div>
+      </div>
+
+      <p>
+        The rover receives these corrections and applies them to its own pseudoranges before computing
+        its position:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">ρ_corrected_i = ρ_rover_i + PRC_i</div>
+        <div class="formula-desc">
+          The corrected pseudorange has the spatially correlated errors largely removed.
+          The rover then solves for position using ρ_corrected exactly as in standalone GNSS.
+          Only errors that differ between reference and rover remain — primarily multipath
+          and receiver noise (both local, uncorrelated).
+        </div>
+      </div>
+
+      <!-- DGNSS architecture diagram -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">DGNSS architecture — reference station to rover</div>
+        <svg viewBox="0 0 680 220" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+          <!-- Satellites -->
+          <circle cx="200" cy="30" r="8" fill="var(--accent)" opacity="0.8"/>
+          <circle cx="340" cy="20" r="8" fill="var(--accent)" opacity="0.8"/>
+          <circle cx="480" cy="30" r="8" fill="var(--accent)" opacity="0.8"/>
+          <text x="340" y="10" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--sans)">GNSS satellites</text>
+
+          <!-- Reference station -->
+          <rect x="60" y="130" width="130" height="60" rx="8" fill="none" stroke="var(--accent2)" stroke-width="1"/>
+          <text x="125" y="152" text-anchor="middle" font-size="12" fill="var(--accent2)" font-family="var(--sans)" font-weight="500">Reference station</text>
+          <text x="125" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">Known position</text>
+          <text x="125" y="182" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">Computes PRCs</text>
+
+          <!-- Rover -->
+          <rect x="490" y="130" width="130" height="60" rx="8" fill="none" stroke="var(--accent)" stroke-width="1"/>
+          <text x="555" y="152" text-anchor="middle" font-size="12" fill="var(--accent)" font-family="var(--sans)" font-weight="500">Rover</text>
+          <text x="555" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">Unknown position</text>
+          <text x="555" y="182" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">Applies PRCs</text>
+
+          <!-- Correction data link -->
+          <line x1="192" y1="158" x2="490" y2="158" stroke="var(--text3)" stroke-width="1" stroke-dasharray="5 3" marker-end="url(#arr6)"/>
+          <text x="341" y="148" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--sans)">Corrections (PRC, RRC)</text>
+          <text x="341" y="175" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">Radio · NTRIP · SBAS · 4G</text>
+
+          <!-- Signal lines from satellites -->
+          <line x1="200" y1="38" x2="125" y2="130" stroke="var(--accent)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.5" marker-end="url(#arr6)"/>
+          <line x1="340" y1="28" x2="250" y2="130" stroke="var(--accent)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.5" marker-end="url(#arr6)"/>
+          <line x1="340" y1="28" x2="490" y2="130" stroke="var(--accent)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.5" marker-end="url(#arr6)"/>
+          <line x1="480" y1="38" x2="555" y2="130" stroke="var(--accent)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.5" marker-end="url(#arr6)"/>
+        </svg>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="code-dgnss">Code-based DGNSS</h2>
+      <p>
+        The simplest form of differential GNSS works on code pseudoranges — giving accuracy of
+        0.5–3 m. This is what most maritime, aviation and consumer differential systems provide.
+      </p>
+      <p>
+        The reference station broadcasts corrections in real time via a data link — historically
+        an FM radio subcarrier or dedicated marine radio beacon, today typically via NTRIP over
+        4G/LTE. The rover receives the corrections and applies them before computing position.
+      </p>
+      <p>
+        The standard data format for DGNSS corrections is <strong>RTCM SC-104</strong>. Message
+        types 1 and 9 carry pseudorange corrections; message type 3 carries reference station
+        coordinates. See the <a href="/learn/protocols/rtcm">RTCM article</a> for protocol details.
+      </p>
+
+      <!-- SECTION 3 -->
+      <h2 id="corrections">Correction types — PRC and RRC</h2>
+      <p>
+        A pseudorange correction is only accurate at the moment it was computed. Because satellites
+        move, the geometric range changes continuously — and so does the error. To allow the rover
+        to extrapolate corrections forward in time, DGNSS broadcasts two values per satellite:
+      </p>
+
+      <div class="correction-grid">
+        <div class="correction-card">
+          <div class="corr-name">PRC — Pseudorange Correction</div>
+          <div class="corr-formula">PRC(t₀) = ρ_expected − ρ_measured</div>
+          <div class="corr-desc">
+            The correction valid at reference time t₀. Captures all systematic errors at that instant.
+            Units: metres. One value per satellite.
+          </div>
+        </div>
+        <div class="correction-card">
+          <div class="corr-name">RRC — Range Rate Correction</div>
+          <div class="corr-formula">RRC = dPRC/dt</div>
+          <div class="corr-desc">
+            The rate of change of the correction in m/s. Allows the rover to compute an updated
+            correction at time t: PRC(t) = PRC(t₀) + RRC × (t − t₀).
+            Typically &lt;0.1 m/s. Latency correction is critical for moving rovers.
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Correction latency matters:</strong> If corrections are 5 seconds old and the
+          satellite clock error is drifting at 0.05 m/s, the uncorrected drift is 0.25 m.
+          The RRC mitigates this but is itself an estimate. For code DGNSS, correction latencies
+          up to ~30 s are acceptable. For RTK carrier-phase, latency of more than a few seconds
+          degrades performance significantly.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="baseline-effect">The baseline effect</h2>
+      <p>
+        Differential corrections work because nearby receivers share the same errors. But as the
+        distance between reference and rover increases — the <strong>baseline length</strong> —
+        errors become less correlated and the corrections become less effective.
+      </p>
+
+      <div class="baseline-table">
+        <div class="baseline-row baseline-header">
+          <span>Baseline</span>
+          <span>Iono correction</span>
+          <span>Residual iono error</span>
+          <span>Typical accuracy</span>
+        </div>
+        <div class="baseline-row">
+          <span>&lt;10 km</span>
+          <span class="good">~99% effective</span>
+          <span>&lt;0.1 m</span>
+          <span class="good">0.3 – 0.5 m</span>
+        </div>
+        <div class="baseline-row">
+          <span>10 – 50 km</span>
+          <span class="ok">~95% effective</span>
+          <span>0.1 – 0.3 m</span>
+          <span class="ok">0.5 – 1.0 m</span>
+        </div>
+        <div class="baseline-row">
+          <span>50 – 200 km</span>
+          <span class="warn">~80% effective</span>
+          <span>0.3 – 1.0 m</span>
+          <span class="warn">1.0 – 2.0 m</span>
+        </div>
+        <div class="baseline-row">
+          <span>&gt;500 km</span>
+          <span class="bad">~50% effective</span>
+          <span>&gt;1.5 m</span>
+          <span class="bad">2.0 – 5.0 m</span>
+        </div>
+      </div>
+
+      <p>
+        This is why maritime radio beacon DGNSS (broadcast from shore stations, usable up to
+        ~300 km) gives ~1–3 m accuracy rather than the &lt;0.5 m achievable with a local base station.
+        SBAS systems address this by modelling the ionosphere spatially — see below.
+      </p>
+
+      <!-- SECTION 5 -->
+      <h2 id="sbas">SBAS — Satellite-Based Augmentation</h2>
+      <p>
+        Satellite-Based Augmentation Systems (SBAS) are regional infrastructure systems that broadcast
+        DGNSS corrections and integrity information via geostationary satellites. They differ from
+        ground-based DGNSS in three important ways:
+      </p>
+
+      <ul>
+        <li><strong>Wide-area coverage:</strong> A single SBAS covers an entire continent using a network of ground reference stations.</li>
+        <li><strong>Spatial ionospheric model:</strong> Rather than a single PRC per satellite, SBAS broadcasts an ionospheric grid with delay estimates at each grid point, enabling better corrections over large areas.</li>
+        <li><strong>Integrity monitoring:</strong> SBAS provides guaranteed bounds on position error — if the system cannot guarantee the stated accuracy, it broadcasts an alert. This is why SBAS is approved for aviation navigation (APV-I and APV-II approaches).</li>
+      </ul>
+
+      <div class="sbas-systems">
+        <div class="sbas-item">
+          <div class="sbas-name">WAAS</div>
+          <div class="sbas-region">North America</div>
+          <div class="sbas-op">FAA</div>
+        </div>
+        <div class="sbas-item">
+          <div class="sbas-name">EGNOS</div>
+          <div class="sbas-region">Europe</div>
+          <div class="sbas-op">EUSPA</div>
+        </div>
+        <div class="sbas-item">
+          <div class="sbas-name">MSAS</div>
+          <div class="sbas-region">Japan</div>
+          <div class="sbas-op">JCAB</div>
+        </div>
+        <div class="sbas-item">
+          <div class="sbas-name">GAGAN</div>
+          <div class="sbas-region">India</div>
+          <div class="sbas-op">AAI / ISRO</div>
+        </div>
+        <div class="sbas-item">
+          <div class="sbas-name">SDCM</div>
+          <div class="sbas-region">Russia</div>
+          <div class="sbas-op">Roscosmos</div>
+        </div>
+        <div class="sbas-item">
+          <div class="sbas-name">BDSBAS</div>
+          <div class="sbas-region">China</div>
+          <div class="sbas-op">CSNO</div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="sbas-signals">SBAS signal structure</h2>
+      <p>
+        SBAS satellites broadcast on GPS L1 (1575.42 MHz) using the same BPSK modulation and
+        1.023 Mcps chip rate as GPS C/A code. This means any GPS receiver can receive SBAS
+        signals without hardware changes — only software needs updating to decode and apply
+        the corrections.
+      </p>
+      <p>
+        SBAS messages are 250 bits long, transmitted at 250 bps (one message per second).
+        Each message type carries different correction data:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Message type</th>
+              <th>Content</th>
+              <th>Update rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>MT 1</strong></td>
+              <td>PRN mask — which satellites are being corrected</td>
+              <td>As needed</td>
+            </tr>
+            <tr>
+              <td><strong>MT 2–5</strong></td>
+              <td>Fast corrections — pseudorange corrections for each satellite</td>
+              <td>1 – 6 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 6</strong></td>
+              <td>Integrity information — UDRE bounds on fast corrections</td>
+              <td>1 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 7</strong></td>
+              <td>Fast correction degradation factors</td>
+              <td>120 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 10</strong></td>
+              <td>Degradation parameters for ranging function</td>
+              <td>120 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 18</strong></td>
+              <td>Ionospheric grid point mask</td>
+              <td>As needed</td>
+            </tr>
+            <tr>
+              <td><strong>MT 24–25</strong></td>
+              <td>Slow (long-term) satellite orbit and clock corrections</td>
+              <td>120 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 26</strong></td>
+              <td>Ionospheric delay corrections at each grid point</td>
+              <td>300 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 28</strong></td>
+              <td>Clock-ephemeris covariance matrix</td>
+              <td>120 s</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">✈️</div>
+        <div>
+          <strong>Aviation use:</strong> SBAS enables <strong>APV-I</strong> (Approach with Vertical
+          Guidance) and <strong>APV-II</strong> approaches at airports — reducing minimum descent
+          altitudes to 250 ft and 200 ft respectively. This provides precision approach capability
+          at thousands of airports that lack ILS. WAAS now supports LPV approaches at over
+          4,000 US airports.
+        </div>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="accuracy">Accuracy comparison</h2>
+
+      <div class="accuracy-grid">
+        <div class="accuracy-card">
+          <div class="acc-method">Standalone (L1)</div>
+          <div class="acc-h">3 – 5 m</div>
+          <div class="acc-label">Horizontal (95%)</div>
+          <div class="acc-bar"><div class="acc-fill" style="width:90%; background:rgba(255,71,87,0.5);"></div></div>
+        </div>
+        <div class="accuracy-card">
+          <div class="acc-method">Standalone (L1+L5)</div>
+          <div class="acc-h">1 – 2 m</div>
+          <div class="acc-label">Horizontal (95%)</div>
+          <div class="acc-bar"><div class="acc-fill" style="width:55%; background:rgba(240,165,0,0.5);"></div></div>
+        </div>
+        <div class="accuracy-card">
+          <div class="acc-method">SBAS (WAAS/EGNOS)</div>
+          <div class="acc-h">0.5 – 1.5 m</div>
+          <div class="acc-label">Horizontal (95%)</div>
+          <div class="acc-bar"><div class="acc-fill" style="width:35%; background:rgba(251,191,36,0.5);"></div></div>
+        </div>
+        <div class="accuracy-card">
+          <div class="acc-method">Local DGNSS (&lt;50 km)</div>
+          <div class="acc-h">0.3 – 1.0 m</div>
+          <div class="acc-label">Horizontal (95%)</div>
+          <div class="acc-bar"><div class="acc-fill" style="width:22%; background:rgba(0,212,170,0.5);"></div></div>
+        </div>
+      </div>
+
+      <!-- SECTION 8 -->
+      <h2 id="when-to-use">When to use DGNSS vs SBAS</h2>
+
+      <div class="compare-grid">
+        <div class="compare-card">
+          <div class="compare-header" style="color:var(--accent2);border-bottom-color:rgba(0,153,255,0.2);background:rgba(0,153,255,0.05);">
+            Local DGNSS — use when:
+          </div>
+          <div class="compare-body">
+            <ul>
+              <li>Sub-metre accuracy required over a defined work area</li>
+              <li>Reference station available within 50 km</li>
+              <li>Network RTK infrastructure available (CORS network)</li>
+              <li>Real-time operation required (not post-processing)</li>
+              <li>Budget for NTRIP subscription or own base station</li>
+            </ul>
+            <div class="compare-example">
+              <strong>Example:</strong> Agricultural guidance, utility locating,
+              topographic survey (moderate accuracy), port navigation.
+            </div>
+          </div>
+        </div>
+        <div class="compare-card">
+          <div class="compare-header" style="color:#fbbf24;border-bottom-color:rgba(251,191,36,0.2);background:rgba(251,191,36,0.05);">
+            SBAS — use when:
+          </div>
+          <div class="compare-body">
+            <ul>
+              <li>Wide-area operation with no fixed infrastructure</li>
+              <li>Free corrections acceptable (0.5–1.5 m)</li>
+              <li>Aviation approach guidance required</li>
+              <li>Integrity guarantee required (SBAS provides UDRE bounds)</li>
+              <li>Receiver already supports SBAS (virtually all modern GPS receivers)</li>
+            </ul>
+            <div class="compare-example">
+              <strong>Example:</strong> Aviation (APV approaches), maritime navigation,
+              recreational use, road transport where &lt;1 m is sufficient.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 9 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📡</div>
+          <div class="summary-title">Spatial correlation</div>
+          <div class="summary-body">Nearby receivers share satellite clock, ephemeris and ionospheric errors. Differencing at a reference station removes these — leaving only local errors (multipath, noise).</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📏</div>
+          <div class="summary-title">Baseline degrades corrections</div>
+          <div class="summary-body">Ionospheric correlation decays with distance. Beyond 100 km, DGNSS corrections become less effective. SBAS models this spatially with an ionospheric grid.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🛰️</div>
+          <div class="summary-title">SBAS is free and wide-area</div>
+          <div class="summary-body">SBAS broadcasts via GEO satellites on GPS L1. Any GPS receiver can use it at no cost. Provides 0.5–1.5 m horizontal and integrity bounds for aviation.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📊</div>
+          <div class="summary-title">Code DGNSS ceiling</div>
+          <div class="summary-body">Even with perfect corrections, code DGNSS is limited by multipath (~1 m) and receiver noise (~0.3 m). Getting below 0.1 m requires carrier phase — that is RTK.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/positioning/standalone-gnss" class="nav-prev">← Standalone GNSS</a>
+        <a href="/learn/positioning/rtk" class="nav-next">RTK →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>RTCM SC-104 Special Committee 104. RTCM Standard 10402.3 — Differential GNSS Services. <a href="https://www.rtcm.org" target="_blank" rel="noopener noreferrer">rtcm.org →</a></li>
+          <li>ICAO Annex 10, Volume I — Radio Navigation Aids. Chapter 3 (SBAS standards).</li>
+          <li>Kaplan, E. D. & Hegarty, C. J. (2017). <em>Understanding GPS/GNSS: Principles and Applications</em>, 3rd ed. Artech House. Chapter 8.</li>
+          <li>FAA WAAS Performance Analysis. <a href="https://www.nstb.tc.faa.gov" target="_blank" rel="noopener noreferrer">nstb.tc.faa.gov →</a></li>
+          <li>EGNOS Service Definition Document. <a href="https://egnos-user-support.essp-sas.eu" target="_blank" rel="noopener noreferrer">egnos-user-support.essp-sas.eu →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 8px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 14px; color: var(--text); margin-bottom: 4px; line-height: 1.7; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-top: 8px; }
+
+  .diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 24px 0; }
+  .diagram-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* Correction grid */
+  .correction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .correction-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .corr-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .corr-formula { font-family: var(--mono); font-size: 13px; color: var(--accent); margin-bottom: 8px; background: var(--bg3); padding: 6px 10px; border-radius: 4px; }
+  .corr-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Baseline table */
+  .baseline-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .baseline-row { display: grid; grid-template-columns: 120px 1fr 1fr 1fr; gap: 12px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .baseline-header { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .good { color: var(--accent); }
+  .ok { color: #a3e635; }
+  .warn { color: #fbbf24; }
+  .bad { color: #ff4757; }
+
+  /* SBAS systems */
+  .sbas-systems { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 16px 0; }
+  .sbas-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 8px; text-align: center; }
+  .sbas-name { font-size: 14px; font-weight: 700; color: var(--accent); font-family: var(--mono); margin-bottom: 4px; }
+  .sbas-region { font-size: 11px; color: var(--text); margin-bottom: 2px; }
+  .sbas-op { font-size: 10px; color: var(--text3); }
+
+  /* Accuracy grid */
+  .accuracy-grid { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+  .accuracy-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .acc-method { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .acc-h { font-size: 18px; font-weight: 700; color: var(--accent); font-family: var(--mono); }
+  .acc-label { font-size: 11px; color: var(--text3); margin-bottom: 8px; }
+  .acc-bar { background: var(--bg3); border-radius: 3px; height: 8px; }
+  .acc-fill { height: 100%; border-radius: 3px; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+
+  /* Compare grid */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .compare-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .compare-header { padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 1px solid; }
+  .compare-body { padding: 16px; font-size: 13px; color: var(--text2); }
+  .compare-body ul { font-size: 13px; margin-bottom: 12px; }
+  .compare-body li { margin-bottom: 4px; }
+  .compare-example { font-size: 12px; color: var(--text3); line-height: 1.6; padding-top: 10px; border-top: 1px solid var(--border); }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .correction-grid { grid-template-columns: 1fr; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .sbas-systems { grid-template-columns: repeat(3, 1fr); }
+    .baseline-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+    .baseline-header { display: none; }
+  }
+  @media (max-width: 480px) {
+    .sbas-systems { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>

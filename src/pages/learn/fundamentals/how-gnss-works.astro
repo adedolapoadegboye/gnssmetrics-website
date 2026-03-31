@@ -1,0 +1,446 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="How GNSS Works">
+  <section class="section">
+    <div class="container learn-container">
+
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/fundamentals">Fundamentals</a>
+        <span>›</span>
+        <span>How GNSS Works</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Fundamentals · Article 1 of 5</span>
+        <h1>How GNSS Works</h1>
+        <p class="lead">
+          Your phone knows where you are within a few metres, anywhere on Earth, using signals from
+          satellites 20,000 km away. This article explains the physics and mathematics that make that possible —
+          from atomic clocks in orbit to the position fix in your receiver.
+        </p>
+        <div class="article-meta">
+          <span>12 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <!-- TABLE OF CONTENTS -->
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#overview">The big picture</a></li>
+          <li><a href="#ranging">Ranging — measuring distance with time</a></li>
+          <li><a href="#trilateration">Trilateration — turning distances into a position</a></li>
+          <li><a href="#four-satellites">Why four satellites?</a></li>
+          <li><a href="#receiver">What the receiver actually does</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="overview">The big picture</h2>
+      <p>
+        GNSS stands for <strong>Global Navigation Satellite System</strong> — the umbrella term for any
+        satellite-based positioning system. GPS (USA), Galileo (EU), GLONASS (Russia) and BeiDou (China)
+        are all GNSS constellations. They all work on the same fundamental principle.
+      </p>
+      <p>
+        The core idea is simple: if you know exactly how far you are from several known points in space,
+        you can calculate your own position. GNSS satellites are those known points. Your receiver measures
+        the distance to each visible satellite and uses those distances to solve for its own location.
+      </p>
+      <p>
+        The difficult part is <em>measuring distance to a satellite 20,200 km away with sub-metre accuracy</em>.
+        GNSS does this by measuring time — specifically, how long a radio signal takes to travel from satellite to receiver.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">📐</div>
+        <div>
+          <strong>Key principle:</strong> Radio signals travel at the speed of light — approximately
+          299,792,458 m/s in vacuum. If a signal takes 67 milliseconds to arrive, the satellite is
+          approximately 0.067 × 299,792,458 ≈ <strong>20,095 km</strong> away.
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="ranging">Ranging — measuring distance with time</h2>
+      <p>
+        Each GNSS satellite continuously broadcasts a signal that contains two things:
+      </p>
+      <ul>
+        <li>A <strong>ranging code</strong> — a precisely timed pattern of ones and zeros</li>
+        <li>A <strong>navigation message</strong> — the satellite's position and clock information</li>
+      </ul>
+      <p>
+        The receiver generates an identical copy of the ranging code internally. It then slides its copy
+        in time until it aligns with the received signal. The time shift required for alignment is the
+        signal travel time — called the <strong>propagation delay</strong>.
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">distance = c × Δt</div>
+        <div class="formula-desc">
+          where <em>c</em> = speed of light (299,792,458 m/s) and <em>Δt</em> = measured propagation delay (seconds)
+        </div>
+      </div>
+
+      <p>
+        This measured distance is called a <strong>pseudorange</strong> — "pseudo" because it contains errors,
+        most importantly a timing error in the receiver's own clock.
+      </p>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Clock problem:</strong> A timing error of just 1 microsecond (0.000001 seconds) causes
+          a ranging error of 300 metres. GNSS satellites carry atomic clocks accurate to nanoseconds,
+          but receivers use much cheaper oscillators. This is why clock error must be solved for
+          simultaneously with position — it is the fourth unknown.
+        </div>
+      </div>
+
+      <!-- Pseudorange diagram -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">Signal travel from satellite to receiver</div>
+        <svg viewBox="0 0 680 180" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+          <!-- Satellite -->
+          <g>
+            <rect x="40" y="30" width="100" height="44" rx="8" fill="none" stroke="var(--accent)" stroke-width="1"/>
+            <text x="90" y="49" text-anchor="middle" font-size="12" fill="var(--accent)" font-family="var(--sans)" font-weight="500">Satellite</text>
+            <text x="90" y="65" text-anchor="middle" font-size="11" fill="var(--text2)" font-family="var(--sans)">Atomic clock</text>
+          </g>
+          <!-- Receiver -->
+          <g>
+            <rect x="540" y="30" width="100" height="44" rx="8" fill="none" stroke="var(--accent2)" stroke-width="1"/>
+            <text x="590" y="49" text-anchor="middle" font-size="12" fill="var(--accent2)" font-family="var(--sans)" font-weight="500">Receiver</text>
+            <text x="590" y="65" text-anchor="middle" font-size="11" fill="var(--text2)" font-family="var(--sans)">Quartz clock</text>
+          </g>
+          <!-- Signal arrow -->
+          <line x1="142" y1="52" x2="538" y2="52" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)" stroke-dasharray="6 4"/>
+          <!-- Time labels -->
+          <text x="90" y="110" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--mono)">t_transmit</text>
+          <text x="590" y="110" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--mono)">t_receive</text>
+          <!-- Delta t brace -->
+          <line x1="140" y1="120" x2="540" y2="120" stroke="var(--text3)" stroke-width="0.5"/>
+          <line x1="140" y1="115" x2="140" y2="125" stroke="var(--text3)" stroke-width="0.5"/>
+          <line x1="540" y1="115" x2="540" y2="125" stroke="var(--text3)" stroke-width="0.5"/>
+          <text x="340" y="142" text-anchor="middle" font-size="12" fill="var(--text2)" font-family="var(--mono)">Δt = t_receive − t_transmit</text>
+          <text x="340" y="162" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--sans)">pseudorange ρ = c × Δt</text>
+        </svg>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="trilateration">Trilateration — turning distances into a position</h2>
+      <p>
+        Once you have a distance to a satellite, you know you are somewhere on a <strong>sphere</strong>
+        of that radius centred on the satellite. With distances from <em>three</em> satellites, you get
+        three spheres — and you are at one of the (usually two) points where all three spheres intersect.
+        In practice, one of those two points is deep inside the Earth and can be discarded, leaving
+        a unique surface position. This geometric technique is called <strong>trilateration</strong>.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div>
+          <strong>Trilateration vs triangulation:</strong> These are often confused.
+          Triangulation uses <em>angles</em> (as in surveying with a theodolite).
+          Trilateration uses <em>distances</em>. GNSS is trilateration.
+        </div>
+      </div>
+
+      <!-- Trilateration diagram -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">Trilateration — intersection of spheres</div>
+        <svg viewBox="0 0 680 300" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+          <!-- Sat 1 circle -->
+          <circle cx="200" cy="100" r="130" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.4" stroke-dasharray="5 3"/>
+          <!-- Sat 2 circle -->
+          <circle cx="400" cy="80" r="150" fill="none" stroke="var(--accent2)" stroke-width="1" opacity="0.4" stroke-dasharray="5 3"/>
+          <!-- Sat 3 circle -->
+          <circle cx="300" cy="240" r="120" fill="none" stroke="#fbbf24" stroke-width="1" opacity="0.4" stroke-dasharray="5 3"/>
+          <!-- Satellites -->
+          <circle cx="200" cy="100" r="8" fill="var(--accent)" opacity="0.8"/>
+          <text x="200" y="88" text-anchor="middle" font-size="11" fill="var(--accent)" font-family="var(--sans)">SV1</text>
+          <circle cx="400" cy="80" r="8" fill="var(--accent2)" opacity="0.8"/>
+          <text x="400" y="68" text-anchor="middle" font-size="11" fill="var(--accent2)" font-family="var(--sans)">SV2</text>
+          <circle cx="300" cy="240" r="8" fill="#fbbf24" opacity="0.8"/>
+          <text x="300" y="260" text-anchor="middle" font-size="11" fill="#fbbf24" font-family="var(--sans)">SV3</text>
+          <!-- Intersection point (approximate) -->
+          <circle cx="318" cy="150" r="10" fill="var(--text)" opacity="0.9"/>
+          <circle cx="318" cy="150" r="5" fill="var(--accent)" opacity="1"/>
+          <text x="340" y="146" font-size="12" fill="var(--text)" font-family="var(--sans)" font-weight="500">Your position</text>
+          <!-- Range lines -->
+          <line x1="208" y1="104" x2="312" y2="146" stroke="var(--accent)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.6" marker-end="url(#arr2)"/>
+          <line x1="392" y1="86" x2="326" y2="146" stroke="var(--accent2)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.6" marker-end="url(#arr2)"/>
+          <line x1="302" y1="232" x2="316" y2="160" stroke="#fbbf24" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.6" marker-end="url(#arr2)"/>
+          <!-- Range labels -->
+          <text x="248" y="128" font-size="10" fill="var(--accent)" font-family="var(--mono)" opacity="0.8">ρ₁</text>
+          <text x="368" y="110" font-size="10" fill="var(--accent2)" font-family="var(--mono)" opacity="0.8">ρ₂</text>
+          <text x="308" y="200" font-size="10" fill="#fbbf24" font-family="var(--mono)" opacity="0.8">ρ₃</text>
+        </svg>
+      </div>
+
+      <p>
+        Mathematically, each pseudorange defines a sphere equation. For satellite <em>i</em> at known
+        position (x<sub>i</sub>, y<sub>i</sub>, z<sub>i</sub>), the pseudorange ρ<sub>i</sub> to receiver
+        at unknown position (x, y, z) is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">ρ<sub>i</sub> = √[(x − x<sub>i</sub>)² + (y − y<sub>i</sub>)² + (z − z<sub>i</sub>)²] + c·δt</div>
+        <div class="formula-desc">
+          where <em>c·δt</em> is the receiver clock error term (clock offset in seconds × speed of light).
+          The unknowns are x, y, z (position) and δt (receiver clock offset).
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="four-satellites">Why four satellites?</h2>
+      <p>
+        Three spheres give you a 3D position — so why do textbooks always say you need <em>four</em> satellites?
+      </p>
+      <p>
+        Because of the receiver clock error <strong>δt</strong>. The receiver's internal clock is a cheap
+        quartz oscillator, not an atomic clock. Its offset from true GNSS system time is unknown and must
+        be solved for simultaneously. That adds a <strong>fourth unknown</strong> to the system.
+      </p>
+      <p>
+        To solve for four unknowns (x, y, z, δt) you need at least four equations — one pseudorange per satellite.
+        Four satellites give you exactly four equations, which can be solved (with some iteration) for the four unknowns.
+      </p>
+
+      <div class="unknowns-grid">
+        <div class="unknown-card">
+          <div class="unknown-symbol">x</div>
+          <div class="unknown-label">East position</div>
+        </div>
+        <div class="unknown-card">
+          <div class="unknown-symbol">y</div>
+          <div class="unknown-label">North position</div>
+        </div>
+        <div class="unknown-card">
+          <div class="unknown-symbol">z</div>
+          <div class="unknown-label">Up position</div>
+        </div>
+        <div class="unknown-card unknown-clock">
+          <div class="unknown-symbol">δt</div>
+          <div class="unknown-label">Clock offset</div>
+        </div>
+      </div>
+
+      <p>
+        In practice, modern receivers track 10–40 satellites simultaneously. The overdetermined system
+        (more equations than unknowns) is solved using least squares estimation, which improves accuracy
+        and enables integrity checks. More satellites = better geometry = lower DOP = more accurate position.
+      </p>
+
+      <!-- SECTION 5 -->
+      <h2 id="receiver">What the receiver actually does</h2>
+      <p>
+        A GNSS receiver performs several steps in a continuous loop:
+      </p>
+
+      <ol class="steps">
+        <li>
+          <strong>Signal acquisition</strong> — search for satellite signals by scanning frequencies and
+          code phases. This is the slow part (cold start can take 30–60 seconds).
+        </li>
+        <li>
+          <strong>Signal tracking</strong> — once acquired, a phase-locked loop (PLL) tracks the carrier
+          phase and a delay-locked loop (DLL) tracks the code phase continuously.
+        </li>
+        <li>
+          <strong>Navigation message decoding</strong> — extract satellite position (ephemeris) and clock
+          correction parameters from the 50 bps navigation message broadcast by each satellite.
+        </li>
+        <li>
+          <strong>Pseudorange measurement</strong> — measure the code phase offset between received and
+          locally generated signal to compute the pseudorange.
+        </li>
+        <li>
+          <strong>Position solution</strong> — using pseudoranges from ≥4 satellites and their known positions
+          (from ephemeris), solve the nonlinear system of equations iteratively for (x, y, z, δt).
+        </li>
+        <li>
+          <strong>Output</strong> — convert the 3D ECEF position to latitude, longitude and height.
+          Format as NMEA sentences or proprietary binary and send to the host application.
+        </li>
+      </ol>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔄</div>
+        <div>
+          <strong>Update rate:</strong> Consumer GNSS receivers typically output positions at 1 Hz (once per second).
+          High-performance receivers can output at 10, 20, or even 100 Hz. The fundamental measurement loop
+          runs faster still — typically at the chip rate of the ranging code (1.023 MHz for GPS C/A code).
+        </div>
+      </div>
+
+      <!-- SECTION 6 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📡</div>
+          <div class="summary-title">Signal travel time</div>
+          <div class="summary-body">Satellites broadcast timestamped signals. The receiver measures how long each signal took to arrive — this is the pseudorange.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🌐</div>
+          <div class="summary-title">Trilateration</div>
+          <div class="summary-body">Four or more pseudoranges define four or more spheres. The receiver is at their intersection — solving simultaneously for position and clock error.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">⏱️</div>
+          <div class="summary-title">The clock problem</div>
+          <div class="summary-body">Receiver clocks are not precise enough — a 1 µs error means 300 m of ranging error. The receiver clock offset is solved as a fourth unknown alongside position.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📈</div>
+          <div class="summary-title">More satellites = better</div>
+          <div class="summary-body">With more than 4 satellites, the overdetermined system is solved by least squares. This improves accuracy, redundancy and enables error detection.</div>
+        </div>
+      </div>
+
+      <!-- NEXT ARTICLE -->
+      <div class="next-article">
+        <div class="next-label">Next in Fundamentals</div>
+        <a href="/learn/fundamentals/signals-and-frequencies" class="next-card">
+          <div>
+            <div class="next-title">GNSS Signals and Frequencies →</div>
+            <div class="next-desc">L-band frequencies, signal structure, CDMA vs FDMA, spreading codes and carrier phase.</div>
+          </div>
+        </a>
+      </div>
+
+      <!-- REFERENCES -->
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>
+            Kaplan, E. D. & Hegarty, C. J. (2017). <em>Understanding GPS/GNSS: Principles and Applications</em>, 3rd ed. Artech House.
+          </li>
+          <li>
+            IS-GPS-200N — Interface Specification for GPS.
+            <a href="https://www.navcen.uscg.gov/sites/default/files/pdf/gps/IS-GPS-200N.pdf" target="_blank" rel="noopener noreferrer">NAVCEN →</a>
+          </li>
+          <li>
+            Teunissen, P. J. G. & Montenbruck, O. (eds.) (2017). <em>Springer Handbook of Global Navigation Satellite Systems</em>. Springer.
+          </li>
+          <li>
+            Misra, P. & Enge, P. (2011). <em>Global Positioning System: Signals, Measurements and Performance</em>, 2nd ed. Ganga-Jamuna Press.
+          </li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+
+  /* Breadcrumb */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .breadcrumb span { color: var(--text3); }
+
+  /* Article header */
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+
+  /* TOC */
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); transition: color 0.2s; }
+  .toc a:hover { color: var(--accent); }
+
+  /* Body text */
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul, ol { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  em { color: var(--text2); }
+  sub { font-size: 0.75em; }
+
+  /* Callouts */
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; padding-top: 1px; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  /* Formulas */
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; }
+  .formula { font-family: var(--mono); font-size: 16px; color: var(--text); margin-bottom: 8px; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Diagrams */
+  .diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 24px 0; }
+  .diagram-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* Unknowns grid */
+  .unknowns-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+  .unknown-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+  .unknown-clock { border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.04); }
+  .unknown-symbol { font-size: 28px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .unknown-label { font-size: 12px; color: var(--text3); }
+
+  /* Steps */
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li { counter-increment: step; padding: 14px 14px 14px 52px; position: relative; border-bottom: 1px solid var(--border); font-size: 15px; color: var(--text2); line-height: 1.7; }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before { content: counter(step); position: absolute; left: 12px; top: 14px; width: 24px; height: 24px; background: rgba(0,212,170,0.12); color: var(--accent); border-radius: 50%; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; font-family: var(--mono); }
+
+  /* Summary grid */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Next article */
+  .next-article { margin: 48px 0 32px; }
+  .next-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+  .next-card { display: block; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; transition: border-color 0.2s; }
+  .next-card:hover { border-color: rgba(0,212,170,0.3); }
+  .next-title { font-size: 16px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+  .next-desc { font-size: 13px; color: var(--text3); line-height: 1.5; }
+
+  /* References */
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .unknowns-grid { grid-template-columns: repeat(2, 1fr); }
+    .summary-grid { grid-template-columns: 1fr; }
+    h2 { font-size: 20px; }
+  }
+</style>
