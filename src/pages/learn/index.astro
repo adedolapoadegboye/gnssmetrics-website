@@ -1,40 +1,97 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 const sections = [
-  { href: '/learn/fundamentals', icon: '📡', title: 'GNSS Fundamentals', desc: 'Signals, constellations, coordinates, error sources and satellite geometry from first principles.' },
-  { href: '/learn/positioning', icon: '📍', title: 'Positioning', desc: 'DGNSS, RTK, PPP, SBAS — how each positioning method works, when to use each, and their trade-offs.' },
-  { href: '/learn/protocols', icon: '📋', title: 'Protocols', desc: 'NMEA 0183, RINEX, RTCM3, PQTM and other GNSS message protocols explained with field-level detail.' },
-  { href: '/learn/positioning-math', icon: '📐', title: 'Positioning Mathematics', desc: 'Least squares, weighted least squares, Kalman filter and RAIM — the maths behind GNSS engines.' },
-  { href: '/learn/glossary', icon: '📖', title: 'GNSS Glossary', desc: 'Terminology reference — CEP, DOP, RTK, PPP, SBAS, multipath and 200+ terms explained clearly.' },
+  {
+    href: '/learn/fundamentals',
+    icon: '📡',
+    title: 'GNSS Fundamentals',
+    desc: 'Signals, constellations, coordinates, error sources and satellite geometry from first principles.',
+    articles: 5,
+  },
+  {
+    href: '/learn/positioning',
+    icon: '📍',
+    title: 'Positioning',
+    desc: 'DGNSS, RTK, PPP, SBAS — how each positioning method works, when to use each, and their trade-offs.',
+    articles: 5,
+  },
+  {
+    href: '/learn/protocols',
+    icon: '📋',
+    title: 'Protocols',
+    desc: 'NMEA 0183, RINEX, RTCM3, NTRIP and binary protocols — message structure explained with field-level detail.',
+    articles: 5,
+  },
+  {
+    href: '/learn/mathematics',
+    icon: '📐',
+    title: 'Positioning Mathematics',
+    desc: 'Least squares, Kalman filter, ambiguity resolution and ionospheric models — the mathematics behind GNSS engines.',
+    articles: 5,
+  },
+  {
+    href: '/learn/timing',
+    icon: '⏱️',
+    title: 'Timing',
+    desc: 'GNSS as a precision timing source — time scales, atomic clocks, leap seconds, PPS output and real-world applications.',
+    articles: 5,
+  },
+  {
+    href: '/learn/glossary',
+    icon: '📖',
+    title: 'GNSS Glossary',
+    desc: 'Terminology reference — CEP, DOP, RTK, PPP, SBAS, multipath and 200+ terms explained clearly.',
+    articles: null,
+  },
 ];
 ---
-<Layout title="Learn">
+<Layout title="Learn GNSS">
   <section class="section">
     <div class="container">
       <span class="badge">Learn</span>
       <h1>GNSS Learning Resources</h1>
-      <p class="sub">Structured educational content from beginner to advanced. Vendor-neutral. Written by practitioners.</p>
+      <p class="sub">
+        Structured educational content from fundamentals to advanced topics.
+        Vendor-neutral. Written for engineers and university students.
+        Articles include worked examples, diagrams and primary source references.
+      </p>
       <div class="cards-grid">
         {sections.map(s => (
           <a href={s.href} class="card">
             <div class="card-icon">{s.icon}</div>
-            <h3>{s.title}</h3>
-            <p>{s.desc}</p>
-            <span class="card-link">Read more →</span>
+            <div class="card-body">
+              <h3>{s.title}</h3>
+              <p>{s.desc}</p>
+            </div>
+            <div class="card-footer">
+              {s.articles && <span class="article-count">{s.articles} articles</span>}
+              <span class="card-link">Read more →</span>
+            </div>
           </a>
         ))}
       </div>
     </div>
   </section>
 </Layout>
+
 <style>
-  h1 { font-size: 36px; font-weight: 700; margin: 12px 0; }
-  .sub { color: var(--text2); margin-bottom: 40px; max-width: 560px; }
-  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 28px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s; }
-  .card:hover { border-color: rgba(0,212,170,0.3); }
+  h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 700; margin: 12px 0 16px; }
+  .sub { color: var(--text2); margin-bottom: 40px; max-width: 600px; font-size: 15px; line-height: 1.7; }
+  .cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px;
+    display: flex; flex-direction: column; gap: 12px;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .card:hover { border-color: rgba(0,212,170,0.3); transform: translateY(-2px); }
   .card-icon { font-size: 28px; }
-  .card h3 { font-size: 17px; font-weight: 600; }
-  .card p { font-size: 14px; color: var(--text2); flex: 1; }
+  .card-body { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .card-body h3 { font-size: 17px; font-weight: 600; }
+  .card-body p { font-size: 14px; color: var(--text2); line-height: 1.6; }
+  .card-footer { display: flex; justify-content: space-between; align-items: center; }
+  .article-count { font-size: 11px; color: var(--text3); font-family: var(--mono); }
   .card-link { font-size: 13px; color: var(--accent); }
+  @media (max-width: 900px) { .cards-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .cards-grid { grid-template-columns: 1fr; } }
 </style>

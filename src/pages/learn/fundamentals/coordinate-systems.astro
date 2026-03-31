@@ -1,0 +1,528 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Coordinate Systems">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/fundamentals">Fundamentals</a>
+        <span>›</span>
+        <span>Coordinate Systems</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Fundamentals · Article 4 of 5</span>
+        <h1>Coordinate Systems</h1>
+        <p class="lead">
+          A GNSS receiver outputs latitude, longitude and height — but internally it computes
+          a position in a 3D Cartesian frame centred at the Earth's centre of mass. Understanding
+          the different coordinate systems used in GNSS — and how to convert between them — is
+          essential for any positioning application.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#wgs84">WGS84 — the GPS reference datum</a></li>
+          <li><a href="#ecef">ECEF — Earth-Centred Earth-Fixed</a></li>
+          <li><a href="#geodetic">Geodetic coordinates — latitude, longitude, height</a></li>
+          <li><a href="#ecef-to-geodetic">Converting ECEF to geodetic</a></li>
+          <li><a href="#enu">ENU — local East-North-Up frame</a></li>
+          <li><a href="#datums">Other datums and datum shifts</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="wgs84">WGS84 — the GPS reference datum</h2>
+      <p>
+        All GPS positions are expressed in <strong>WGS84</strong> — the World Geodetic System 1984.
+        It is both a reference ellipsoid (a mathematical model of the Earth's shape) and a reference
+        frame (a set of coordinates for points on or near the Earth).
+      </p>
+      <p>
+        The Earth is not a perfect sphere — it is an <strong>oblate spheroid</strong>, flattened at the
+        poles and bulging at the equator due to its rotation. WGS84 models this with an ellipsoid defined
+        by two parameters:
+      </p>
+
+      <div class="param-grid">
+        <div class="param-card">
+          <div class="param-symbol">a</div>
+          <div class="param-name">Semi-major axis</div>
+          <div class="param-value">6,378,137.0 m</div>
+          <div class="param-desc">Equatorial radius</div>
+        </div>
+        <div class="param-card">
+          <div class="param-symbol">f</div>
+          <div class="param-name">Flattening</div>
+          <div class="param-value">1 / 298.257223563</div>
+          <div class="param-desc">f = (a − b) / a</div>
+        </div>
+        <div class="param-card">
+          <div class="param-symbol">b</div>
+          <div class="param-name">Semi-minor axis</div>
+          <div class="param-value">6,356,752.314 m</div>
+          <div class="param-desc">Polar radius (derived)</div>
+        </div>
+        <div class="param-card">
+          <div class="param-symbol">e²</div>
+          <div class="param-name">Eccentricity squared</div>
+          <div class="param-value">0.00669437999014</div>
+          <div class="param-desc">e² = 1 − (b/a)²</div>
+        </div>
+      </div>
+
+      <p>
+        The equatorial radius exceeds the polar radius by about <strong>21.4 km</strong>. This is small
+        relative to the Earth's radius (~6,371 km mean) but significant for precise positioning —
+        ignoring flattening would introduce errors of tens of kilometres.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🌍</div>
+        <div>
+          <strong>Galileo, BeiDou, GLONASS:</strong> Each constellation uses its own reference frame —
+          GTRF (Galileo), CGCS2000 (BeiDou), PZ-90 (GLONASS). In practice these differ from WGS84
+          by less than a few centimetres at the current time, so for most applications they are
+          interchangeable. For sub-centimetre work the frame differences must be accounted for.
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="ecef">ECEF — Earth-Centred Earth-Fixed</h2>
+      <p>
+        The GNSS navigation solution computes position in <strong>ECEF</strong> (Earth-Centred
+        Earth-Fixed) coordinates — a 3D Cartesian system with:
+      </p>
+
+      <div class="axis-grid">
+        <div class="axis-card axis-x">
+          <div class="axis-label">X-axis</div>
+          <div class="axis-desc">Points from Earth's centre toward the intersection of the equatorial plane and the prime meridian (0° longitude, 0° latitude)</div>
+        </div>
+        <div class="axis-card axis-y">
+          <div class="axis-label">Y-axis</div>
+          <div class="axis-desc">Points from Earth's centre toward 90°E longitude on the equator. Completes the right-handed coordinate system with X and Z.</div>
+        </div>
+        <div class="axis-card axis-z">
+          <div class="axis-label">Z-axis</div>
+          <div class="axis-desc">Points from Earth's centre toward the North Pole (conventional terrestrial pole, CTP)</div>
+        </div>
+      </div>
+
+      <!-- ECEF diagram -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">ECEF coordinate system</div>
+        <svg viewBox="0 0 680 280" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+          <!-- Earth ellipse -->
+          <ellipse cx="300" cy="160" rx="120" ry="110" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 3"/>
+          <!-- Equator line -->
+          <ellipse cx="300" cy="165" rx="120" ry="20" fill="none" stroke="var(--text3)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.5"/>
+          <!-- Centre point -->
+          <circle cx="300" cy="160" r="4" fill="var(--text2)"/>
+          <!-- X axis -->
+          <line x1="300" y1="160" x2="450" y2="175" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr4)"/>
+          <text x="460" y="180" font-size="13" fill="var(--accent)" font-family="var(--mono)" font-weight="500">X</text>
+          <text x="475" y="180" font-size="11" fill="var(--text3)" font-family="var(--sans)">0°N, 0°E</text>
+          <!-- Y axis -->
+          <line x1="300" y1="160" x2="430" y2="130" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arr4)" stroke-dasharray="5 3"/>
+          <text x="438" y="128" font-size="13" fill="var(--accent2)" font-family="var(--mono)" font-weight="500">Y</text>
+          <text x="453" y="128" font-size="11" fill="var(--text3)" font-family="var(--sans)">0°N, 90°E</text>
+          <!-- Z axis -->
+          <line x1="300" y1="160" x2="300" y2="30" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arr4)"/>
+          <text x="308" y="24" font-size="13" fill="#fbbf24" font-family="var(--mono)" font-weight="500">Z</text>
+          <text x="323" y="24" font-size="11" fill="var(--text3)" font-family="var(--sans)">North Pole</text>
+          <!-- Example point P -->
+          <circle cx="390" cy="80" r="5" fill="var(--text)" opacity="0.8"/>
+          <text x="400" y="78" font-size="12" fill="var(--text)" font-family="var(--sans)" font-weight="500">P(X, Y, Z)</text>
+          <!-- Dashed lines to axes -->
+          <line x1="390" y1="80" x2="390" y2="160" stroke="var(--text3)" stroke-width="0.6" stroke-dasharray="3 3"/>
+          <line x1="300" y1="160" x2="390" y2="160" stroke="var(--text3)" stroke-width="0.6" stroke-dasharray="3 3"/>
+          <!-- Labels -->
+          <text x="160" y="260" font-size="11" fill="var(--text3)" font-family="var(--sans)">Origin: Earth's centre of mass · "Fixed" means it rotates with the Earth</text>
+        </svg>
+      </div>
+
+      <p>
+        "Earth-Fixed" means the coordinate frame rotates with the Earth — a point on the Earth's surface
+        has a constant (X, Y, Z) despite the Earth's rotation. This is convenient for geodesy but means
+        satellite positions change continuously as they orbit.
+      </p>
+
+      <p>
+        A point in London (51.5°N, 0.1°W) has ECEF coordinates approximately
+        (3,979,316 m, −7,026 m, 4,966,154 m). These large numbers are awkward for everyday use,
+        which is why geodetic coordinates (latitude, longitude, height) are preferred for output.
+      </p>
+
+      <!-- SECTION 3 -->
+      <h2 id="geodetic">Geodetic coordinates — latitude, longitude, height</h2>
+      <p>
+        The familiar latitude (φ), longitude (λ) and ellipsoidal height (h) are defined relative to
+        the WGS84 ellipsoid:
+      </p>
+
+      <div class="definition-list">
+        <div class="definition">
+          <div class="def-term">Geodetic latitude φ</div>
+          <div class="def-body">
+            The angle between the equatorial plane and the normal to the ellipsoid surface at the point.
+            Ranges from −90° (South Pole) to +90° (North Pole).
+            <strong>Not</strong> the same as geocentric latitude (the angle to the Earth's centre) —
+            they differ by up to 0.19° at mid-latitudes due to the Earth's flattening.
+          </div>
+        </div>
+        <div class="definition">
+          <div class="def-term">Geodetic longitude λ</div>
+          <div class="def-body">
+            The angle in the equatorial plane between the prime meridian (Greenwich) and the meridian
+            through the point. Ranges from −180° to +180°. Identical to geocentric longitude.
+          </div>
+        </div>
+        <div class="definition">
+          <div class="def-term">Ellipsoidal height h</div>
+          <div class="def-body">
+            The distance above (positive) or below (negative) the WGS84 ellipsoid surface, measured
+            along the ellipsoidal normal. This is <strong>not</strong> the same as orthometric height
+            (height above mean sea level). The difference between the two is the <strong>geoid undulation N</strong>:
+            h = H + N, where H is orthometric height.
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Ellipsoidal vs orthometric height — a common source of confusion:</strong>
+          GNSS gives you ellipsoidal height h (above the mathematical ellipsoid). Most engineering
+          applications need orthometric height H (above the geoid — roughly mean sea level).
+          The difference N (geoid undulation) varies from about −100 m to +85 m globally.
+          In the UK, N ≈ +45 m, so GNSS heights are ~45 m above Ordnance Datum.
+          Use a geoid model (EGM2008, OSGM15) to convert.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="ecef-to-geodetic">Converting ECEF to geodetic</h2>
+      <p>
+        The GNSS receiver solves for position in ECEF, then converts to geodetic for output. The forward
+        conversion (geodetic → ECEF) is straightforward:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">X = (N(φ) + h) · cos(φ) · cos(λ)</div>
+        <div class="formula">Y = (N(φ) + h) · cos(φ) · sin(λ)</div>
+        <div class="formula">Z = (N(φ)(1 − e²) + h) · sin(φ)</div>
+        <div class="formula-desc">
+          where N(φ) = a / √(1 − e²·sin²(φ)) is the radius of curvature in the prime vertical —
+          the distance from the ellipsoid surface to the Z-axis along the ellipsoidal normal.
+          a = 6,378,137 m, e² = 0.00669437999014.
+        </div>
+      </div>
+
+      <p>
+        The inverse conversion (ECEF → geodetic) has no closed-form solution. The most widely used
+        iterative method is <strong>Bowring's method</strong>, which converges in 2–3 iterations to
+        millimetre accuracy:
+      </p>
+
+      <div class="algorithm-block">
+        <div class="algo-title">Bowring's iterative method (ECEF → geodetic)</div>
+        <ol class="algo-steps">
+          <li>Compute p = √(X² + Y²) — distance from Z-axis</li>
+          <li>Initial estimate: φ₀ = arctan(Z / (p · (1 − e²)))</li>
+          <li>Iterate: N = a / √(1 − e²·sin²(φ))</li>
+          <li>Update: φ = arctan((Z + e²·N·sin(φ)) / p)</li>
+          <li>Repeat steps 3–4 until φ converges (2–3 iterations)</li>
+          <li>λ = arctan2(Y, X)</li>
+          <li>h = p / cos(φ) − N</li>
+        </ol>
+      </div>
+
+      <p>
+        For non-iterative conversion, Zhu's (1994) closed-form solution and Bowring's one-step
+        approximation are also widely used and give sub-millimetre accuracy.
+      </p>
+
+      <!-- SECTION 5 -->
+      <h2 id="enu">ENU — local East-North-Up frame</h2>
+      <p>
+        ECEF coordinates are global but awkward for local navigation — nobody thinks in terms of
+        changes in X, Y, Z when walking around. The <strong>ENU (East-North-Up)</strong> frame is a
+        local Cartesian system anchored at a reference point on the Earth's surface:
+      </p>
+
+      <div class="axis-grid">
+        <div class="axis-card axis-x">
+          <div class="axis-label">E — East</div>
+          <div class="axis-desc">Points east along the local horizon. Positive eastward.</div>
+        </div>
+        <div class="axis-card axis-y">
+          <div class="axis-label">N — North</div>
+          <div class="axis-desc">Points north along the local horizon. Positive northward.</div>
+        </div>
+        <div class="axis-card axis-z">
+          <div class="axis-label">U — Up</div>
+          <div class="axis-desc">Points away from the Earth's surface (normal to ellipsoid). Positive upward.</div>
+        </div>
+      </div>
+
+      <p>
+        The transformation from ECEF differences (ΔX, ΔY, ΔZ) to ENU differences (ΔE, ΔN, ΔU)
+        at a reference point with geodetic coordinates (φ₀, λ₀) is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">⎡ΔE⎤   ⎡−sin(λ₀)          cos(λ₀)         0      ⎤ ⎡ΔX⎤</div>
+        <div class="formula">⎢ΔN⎥ = ⎢−sin(φ₀)cos(λ₀)  −sin(φ₀)sin(λ₀)  cos(φ₀)⎥ ⎢ΔY⎥</div>
+        <div class="formula">⎣ΔU⎦   ⎣ cos(φ₀)cos(λ₀)   cos(φ₀)sin(λ₀)  sin(φ₀)⎦ ⎣ΔZ⎦</div>
+        <div class="formula-desc">
+          This rotation matrix R is called the <strong>topocentric rotation matrix</strong>. It converts
+          ECEF baseline vectors to local horizontal components. Used extensively in RTK to express
+          the baseline between rover and base station.
+        </div>
+      </div>
+
+      <p>
+        ENU is also used to express satellite direction in terms of
+        <strong>azimuth</strong> (clockwise from north) and <strong>elevation</strong> (angle above
+        horizon) — the two quantities used to describe satellite visibility and compute DOP.
+      </p>
+
+      <!-- SECTION 6 -->
+      <h2 id="datums">Other datums and datum shifts</h2>
+      <p>
+        WGS84 is the global standard for GNSS, but many countries use local datums for mapping and
+        engineering — datums that were established before satellite geodesy and may differ from WGS84
+        by metres to hundreds of metres.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Region</th>
+              <th>Ellipsoid</th>
+              <th>Offset from WGS84</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>ETRS89</strong></td>
+              <td>Europe</td>
+              <td>GRS80</td>
+              <td>&lt;1 m (coincides with WGS84 at 1989 epoch)</td>
+            </tr>
+            <tr>
+              <td><strong>OSGB36</strong></td>
+              <td>Great Britain</td>
+              <td>Airy 1830</td>
+              <td>~100 m (varies across UK)</td>
+            </tr>
+            <tr>
+              <td><strong>NAD83</strong></td>
+              <td>North America</td>
+              <td>GRS80</td>
+              <td>&lt;2 m (quasi-identical to WGS84)</td>
+            </tr>
+            <tr>
+              <td><strong>NAD27</strong></td>
+              <td>North America (legacy)</td>
+              <td>Clarke 1866</td>
+              <td>10–100 m depending on location</td>
+            </tr>
+            <tr>
+              <td><strong>GDA2020</strong></td>
+              <td>Australia</td>
+              <td>GRS80</td>
+              <td>~1.8 m from GDA94 due to tectonic motion</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        Converting between datums requires a <strong>datum transformation</strong>. The most common
+        model is the 7-parameter Helmert transformation:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">⎡X'⎤   ⎡T_x⎤         ⎡ 1    R_z  −R_y⎤ ⎡X⎤</div>
+        <div class="formula">⎢Y'⎥ = ⎢T_y⎥ + (1+s) ⎢−R_z   1    R_x⎥ ⎢Y⎥</div>
+        <div class="formula">⎣Z'⎦   ⎣T_z⎦         ⎣ R_y  −R_x   1 ⎦ ⎣Z⎦</div>
+        <div class="formula-desc">
+          Parameters: T_x, T_y, T_z = translations (metres), R_x, R_y, R_z = rotations (radians),
+          s = scale factor (parts per million). For OSGB36 ↔ WGS84, the UK's Ordnance Survey
+          publishes a 7-parameter transformation plus a NTv2 grid shift file (OSTN15) for
+          sub-centimetre accuracy.
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Practical warning:</strong> Many GIS and CAD software packages apply datum shifts
+          automatically — but silently, and sometimes incorrectly. Always verify which datum your
+          GNSS output is in and which datum your base map uses. A WGS84 position plotted on an
+          OSGB36 map without transformation will be offset by ~100 m in the UK.
+        </div>
+      </div>
+
+      <!-- SECTION 7 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">🌐</div>
+          <div class="summary-title">WGS84</div>
+          <div class="summary-body">The reference ellipsoid and datum for GPS. Defined by semi-major axis a = 6,378,137 m and flattening f = 1/298.257. Approximates the Earth's shape to ~100 m accuracy.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📍</div>
+          <div class="summary-title">ECEF</div>
+          <div class="summary-body">The frame GNSS solves in. 3D Cartesian, origin at Earth's centre, rotates with the Earth. Coordinates in metres — awkward for humans, essential for computation.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🧭</div>
+          <div class="summary-title">Geodetic (φ, λ, h)</div>
+          <div class="summary-body">Latitude, longitude and ellipsoidal height. The standard GNSS output. Note: ellipsoidal height ≠ orthometric height. Apply a geoid model to convert to "height above sea level".</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">↗️</div>
+          <div class="summary-title">ENU</div>
+          <div class="summary-body">Local East-North-Up frame. Used for expressing baselines, satellite azimuths and elevations, and position differences in intuitive local coordinates.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/fundamentals/error-sources" class="nav-prev">← Error Sources</a>
+        <a href="/learn/fundamentals/dilution-of-precision" class="nav-next">Dilution of Precision →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>NIMA TR8350.2 — Department of Defense World Geodetic System 1984. <a href="https://earth-info.nga.mil/php/download.php?file=coord-wgs84" target="_blank" rel="noopener noreferrer">NGA →</a></li>
+          <li>Hofmann-Wellenhof, B., Lichtenegger, H. & Wasle, E. (2008). <em>GNSS — Global Navigation Satellite Systems</em>. Springer. Chapter 3.</li>
+          <li>Bowring, B. R. (1985). The geodesic line and short distances on the surface of an ellipsoid. <em>Survey Review</em>, 28(218), 202–219.</li>
+          <li>Ordnance Survey (2015). A guide to coordinate systems in Great Britain. <a href="https://www.ordnancesurvey.co.uk/documents/resources/guide-coordinate-systems-great-britain.pdf" target="_blank" rel="noopener noreferrer">OS →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul, ol { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 14px; color: var(--text); margin-bottom: 4px; line-height: 1.8; white-space: pre; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-top: 8px; }
+
+  .diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 24px 0; }
+  .diagram-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* Param grid */
+  .param-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+  .param-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+  .param-symbol { font-size: 28px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .param-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .param-value { font-size: 12px; font-family: var(--mono); color: var(--accent2); margin-bottom: 4px; }
+  .param-desc { font-size: 11px; color: var(--text3); }
+
+  /* Axis grid */
+  .axis-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .axis-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .axis-label { font-size: 15px; font-weight: 700; font-family: var(--mono); margin-bottom: 8px; }
+  .axis-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+  .axis-x .axis-label { color: var(--accent); }
+  .axis-y .axis-label { color: var(--accent2); }
+  .axis-z .axis-label { color: #fbbf24; }
+
+  /* Definition list */
+  .definition-list { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .definition { padding: 16px 20px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; }
+  .def-term { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 6px; font-family: var(--mono); }
+  .def-body { font-size: 14px; color: var(--text2); line-height: 1.7; }
+
+  /* Algorithm block */
+  .algorithm-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin: 20px 0; }
+  .algo-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; font-family: var(--mono); }
+  .algo-steps { font-size: 14px; color: var(--text2); line-height: 1.8; padding-left: 20px; margin: 0; }
+  .algo-steps li { margin-bottom: 4px; font-family: var(--mono); font-size: 13px; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .param-grid { grid-template-columns: repeat(2, 1fr); }
+    .axis-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    h2 { font-size: 20px; }
+  }
+</style>

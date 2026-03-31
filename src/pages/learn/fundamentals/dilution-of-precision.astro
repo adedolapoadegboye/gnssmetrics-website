@@ -1,0 +1,520 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Dilution of Precision (DOP)">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/fundamentals">Fundamentals</a>
+        <span>›</span>
+        <span>Dilution of Precision</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Fundamentals · Article 5 of 5</span>
+        <h1>Dilution of Precision (DOP)</h1>
+        <p class="lead">
+          Two receivers in the same environment with identical hardware can produce dramatically
+          different positioning accuracy — not because of signal quality, but because of satellite
+          geometry. DOP quantifies this geometric effect and explains why spreading satellites across
+          the sky matters more than simply having more of them.
+        </p>
+        <div class="article-meta">
+          <span>8 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#intuition">The geometric intuition</a></li>
+          <li><a href="#types">Types of DOP</a></li>
+          <li><a href="#mathematics">The mathematics of DOP</a></li>
+          <li><a href="#values">What DOP values mean in practice</a></li>
+          <li><a href="#factors">What affects DOP</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="intuition">The geometric intuition</h2>
+      <p>
+        Consider measuring your distance from two landmarks using a tape measure. If both landmarks
+        are side by side in the same direction, small errors in your distance measurements produce
+        large errors in your computed position — the two ranging spheres are nearly parallel and their
+        intersection is poorly defined. If the landmarks are far apart at right angles to each other,
+        the same measurement errors produce much smaller position errors.
+      </p>
+      <p>
+        The same principle applies to GNSS. Satellites clustered in one part of the sky give poor
+        geometry. Satellites spread evenly across the sky give good geometry. DOP is the numerical
+        measure of this effect.
+      </p>
+
+      <!-- Geometry intuition diagram -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">Satellite geometry and its effect on position uncertainty</div>
+        <svg viewBox="0 0 680 260" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- LEFT: Poor geometry -->
+          <text x="170" y="24" text-anchor="middle" font-size="13" fill="var(--text)" font-family="var(--sans)" font-weight="500">Poor geometry</text>
+          <text x="170" y="40" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--mono)">High DOP</text>
+
+          <!-- Two satellites close together top-right -->
+          <circle cx="240" cy="70" r="7" fill="var(--accent)" opacity="0.8"/>
+          <circle cx="270" cy="60" r="7" fill="var(--accent)" opacity="0.8"/>
+          <!-- Receiver -->
+          <circle cx="170" cy="180" r="6" fill="var(--text2)"/>
+          <!-- Ranging arcs (circles) -->
+          <circle cx="240" cy="70" r="115" fill="none" stroke="var(--accent)" stroke-width="0.8" opacity="0.3" stroke-dasharray="4 3"/>
+          <circle cx="270" cy="60" r="130" fill="none" stroke="var(--accent)" stroke-width="0.8" opacity="0.3" stroke-dasharray="4 3"/>
+          <!-- Uncertainty ellipse (elongated) -->
+          <ellipse cx="170" cy="180" rx="50" ry="10" fill="rgba(255,71,87,0.15)" stroke="#ff4757" stroke-width="1" stroke-dasharray="3 2"
+            transform="rotate(-20, 170, 180)"/>
+          <text x="170" y="230" text-anchor="middle" font-size="11" fill="#ff4757" font-family="var(--sans)">Large uncertainty ellipse</text>
+
+          <!-- Divider -->
+          <line x1="340" y1="20" x2="340" y2="250" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4"/>
+
+          <!-- RIGHT: Good geometry -->
+          <text x="510" y="24" text-anchor="middle" font-size="13" fill="var(--text)" font-family="var(--sans)" font-weight="500">Good geometry</text>
+          <text x="510" y="40" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--mono)">Low DOP</text>
+
+          <!-- Four satellites spread out -->
+          <circle cx="450" cy="65" r="7" fill="var(--accent)" opacity="0.8"/>
+          <circle cx="570" cy="65" r="7" fill="var(--accent)" opacity="0.8"/>
+          <circle cx="420" cy="160" r="7" fill="var(--accent)" opacity="0.8"/>
+          <circle cx="600" cy="160" r="7" fill="var(--accent)" opacity="0.8"/>
+          <!-- Receiver -->
+          <circle cx="510" cy="170" r="6" fill="var(--text2)"/>
+          <!-- Ranging arcs -->
+          <circle cx="450" cy="65" r="118" fill="none" stroke="var(--accent)" stroke-width="0.8" opacity="0.25" stroke-dasharray="4 3"/>
+          <circle cx="570" cy="65" r="118" fill="none" stroke="var(--accent)" stroke-width="0.8" opacity="0.25" stroke-dasharray="4 3"/>
+          <!-- Small uncertainty ellipse -->
+          <ellipse cx="510" cy="170" rx="12" ry="12" fill="rgba(0,212,170,0.15)" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 2"/>
+          <text x="510" y="218" text-anchor="middle" font-size="11" fill="var(--accent)" font-family="var(--sans)">Small uncertainty region</text>
+        </svg>
+      </div>
+
+      <p>
+        The key relationship is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">σ_position = DOP × σ_UERE</div>
+        <div class="formula-desc">
+          σ_position = final position error (metres, 1σ)<br/>
+          DOP = Dilution of Precision (dimensionless, geometry factor)<br/>
+          σ_UERE = User Equivalent Range Error (metres, 1σ) — the combined ranging error from all sources<br/><br/>
+          Example: DOP = 1.5, σ_UERE = 3 m → σ_position = 4.5 m
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="types">Types of DOP</h2>
+      <p>
+        DOP is not a single number — it comes in several flavours depending on which components of
+        position error you care about:
+      </p>
+
+      <div class="dop-grid">
+        <div class="dop-card">
+          <div class="dop-acronym">PDOP</div>
+          <div class="dop-name">Position DOP</div>
+          <div class="dop-desc">3D position error amplification. Combines horizontal and vertical components. The most commonly quoted DOP value.</div>
+          <div class="dop-formula">PDOP² = HDOP² + VDOP²</div>
+        </div>
+        <div class="dop-card">
+          <div class="dop-acronym">HDOP</div>
+          <div class="dop-name">Horizontal DOP</div>
+          <div class="dop-desc">Error amplification in the horizontal plane (East-North). Most relevant for navigation and mapping applications.</div>
+          <div class="dop-formula">HDOP = √(σ_E² + σ_N²) / σ_UERE</div>
+        </div>
+        <div class="dop-card">
+          <div class="dop-acronym">VDOP</div>
+          <div class="dop-name">Vertical DOP</div>
+          <div class="dop-desc">Error amplification in the vertical (Up) direction. Always larger than HDOP because satellites are only visible above the horizon — vertical geometry is inherently weaker.</div>
+          <div class="dop-formula">Typically VDOP ≈ 1.5–2 × HDOP</div>
+        </div>
+        <div class="dop-card">
+          <div class="dop-acronym">TDOP</div>
+          <div class="dop-name">Time DOP</div>
+          <div class="dop-desc">Error amplification for receiver clock offset estimation. Relevant for GNSS timing applications where clock accuracy matters.</div>
+          <div class="dop-formula">GDOP² = PDOP² + TDOP²</div>
+        </div>
+        <div class="dop-card">
+          <div class="dop-acronym">GDOP</div>
+          <div class="dop-name">Geometric DOP</div>
+          <div class="dop-desc">The most complete DOP — combines 3D position and time. Represents the total geometry of the four-dimensional navigation solution.</div>
+          <div class="dop-formula">GDOP = √(PDOP² + TDOP²)</div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div>
+          <strong>Why is VDOP always worse than HDOP?</strong> Satellites are only visible above the
+          horizon — you never have satellites below you. This means ranging lines all point upward,
+          and the vertical direction is always geometrically weaker than horizontal.
+          A zenith satellite helps enormously: one satellite directly overhead provides excellent
+          vertical geometry and is why GNSS constellations are designed to include overhead coverage.
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="mathematics">The mathematics of DOP</h2>
+      <p>
+        DOP values are computed from the <strong>design matrix H</strong> — the matrix of direction
+        cosines (unit vectors from receiver to each satellite) in the ENU frame, augmented with a
+        column of ones for the clock component.
+      </p>
+      <p>
+        For n satellites, each row of H contains the partial derivatives of the pseudorange with
+        respect to the unknowns (E, N, U, cδt):
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">H = ⎡−cos(el₁)sin(az₁)  −cos(el₁)cos(az₁)  sin(el₁)  1⎤</div>
+        <div class="formula">    ⎢−cos(el₂)sin(az₂)  −cos(el₂)cos(az₂)  sin(el₂)  1⎥</div>
+        <div class="formula">    ⎢       ⋮                    ⋮                ⋮      ⋮⎥</div>
+        <div class="formula">    ⎣−cos(elₙ)sin(azₙ)  −cos(elₙ)cos(azₙ)  sin(elₙ)  1⎦</div>
+        <div class="formula-desc">
+          where el = satellite elevation angle, az = satellite azimuth angle (clockwise from north).
+          Each row is a unit vector pointing from receiver to satellite in ENU coordinates,
+          plus a 1 for the clock column.
+        </div>
+      </div>
+
+      <p>
+        The DOP values are extracted from the covariance matrix Q = (HᵀH)⁻¹:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">Q = (HᵀH)⁻¹ = ⎡Q_EE  Q_EN  Q_EU  Q_Et⎤</div>
+        <div class="formula">              ⎢Q_NE  Q_NN  Q_NU  Q_Nt⎥</div>
+        <div class="formula">              ⎢Q_UE  Q_UN  Q_UU  Q_Ut⎥</div>
+        <div class="formula">              ⎣Q_tE  Q_tN  Q_tU  Q_tt⎦</div>
+        <div class="formula-desc">
+          Then: HDOP = √(Q_EE + Q_NN) · VDOP = √(Q_UU) · PDOP = √(Q_EE + Q_NN + Q_UU) · TDOP = √(Q_tt) · GDOP = √(trace(Q))
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔢</div>
+        <div>
+          <strong>Worked example:</strong> With 4 satellites at elevations 20°, 45°, 70°, 15° and
+          azimuths 10°, 110°, 220°, 300° (well spread), a typical result is HDOP ≈ 1.1,
+          VDOP ≈ 1.8, PDOP ≈ 2.1. With the same 4 satellites all clustered in the northeast
+          quadrant, HDOP might rise to 3.5 and PDOP to 6.0 — three times worse positioning from
+          identical ranging accuracy.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="values">What DOP values mean in practice</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>DOP value</th>
+              <th>Rating</th>
+              <th>Meaning</th>
+              <th>Typical situation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>&lt; 1</strong></td>
+              <td><span class="rating rating-ideal">Ideal</span></td>
+              <td>Highest possible confidence. Geometry amplifies ranging errors by less than 1×.</td>
+              <td>Open sky, many satellites from multiple constellations</td>
+            </tr>
+            <tr>
+              <td><strong>1 – 2</strong></td>
+              <td><span class="rating rating-excellent">Excellent</span></td>
+              <td>Accurate enough for all applications including survey-grade RTK.</td>
+              <td>Typical open-sky multi-constellation condition</td>
+            </tr>
+            <tr>
+              <td><strong>2 – 5</strong></td>
+              <td><span class="rating rating-good">Good</span></td>
+              <td>Suitable for most navigation and mapping. Minor degradation from geometry.</td>
+              <td>Some obstruction, moderate satellite count</td>
+            </tr>
+            <tr>
+              <td><strong>5 – 10</strong></td>
+              <td><span class="rating rating-moderate">Moderate</span></td>
+              <td>Noticeable accuracy reduction. Adequate for coarse navigation, not precision work.</td>
+              <td>Urban canyon, partial sky blockage</td>
+            </tr>
+            <tr>
+              <td><strong>10 – 20</strong></td>
+              <td><span class="rating rating-fair">Fair</span></td>
+              <td>Low confidence. Significant geometric degradation. Position solution unreliable.</td>
+              <td>Heavy obstruction, deep urban canyon, indoors</td>
+            </tr>
+            <tr>
+              <td><strong>&gt; 20</strong></td>
+              <td><span class="rating rating-poor">Poor</span></td>
+              <td>Do not use for positioning. Geometry critically degraded.</td>
+              <td>Near-vertical obstruction, &lt;4 satellites visible</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>PDOP mask in practice:</strong> Survey receivers typically apply a PDOP mask of 6 —
+          measurements are rejected when PDOP exceeds this value. Some applications use stricter masks
+          (PDOP &lt; 3 for precision survey, PDOP &lt; 4 for RTK). Check your receiver's settings
+          and understand that a tight PDOP mask reduces data quantity but improves quality.
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="factors">What affects DOP</h2>
+
+      <h3>Number of satellites</h3>
+      <p>
+        More satellites generally improves DOP — but only if the additional satellites improve the
+        geometry. A fifth satellite directly adjacent to an existing one barely improves PDOP. A fifth
+        satellite in a previously unoccupied part of the sky can halve it. Multi-constellation receivers
+        see 20–40 satellites simultaneously in open sky, producing typical PDOP values of 1.0–1.5.
+      </p>
+
+      <h3>Satellite elevation</h3>
+      <p>
+        Low-elevation satellites contribute more to horizontal geometry (they provide nearly horizontal
+        ranging lines) but introduce more error (ionosphere, troposphere, multipath). High-elevation
+        satellites improve vertical geometry. The ideal constellation has satellites at a range of
+        elevations spread across all azimuths.
+      </p>
+      <p>
+        The <strong>elevation mask angle</strong> (typically 10–15°) excludes very low satellites
+        whose errors outweigh their geometric benefit. Raising the mask improves ranging accuracy
+        but typically worsens DOP by reducing satellite count.
+      </p>
+
+      <h3>Sky obstructions</h3>
+      <p>
+        Buildings, trees and terrain block satellite signals, removing them from the solution.
+        The effect depends critically on which part of the sky is blocked. Obstruction in the south
+        (in the northern hemisphere, where most GNSS satellites are visible) degrades DOP far more
+        than obstruction in the north.
+      </p>
+
+      <h3>Constellation mix</h3>
+      <p>
+        Adding a second constellation dramatically improves DOP in partially obstructed environments.
+        GPS alone in an urban canyon might give PDOP = 8. GPS + Galileo + BeiDou in the same canyon
+        might give PDOP = 2.5 — because the three constellations occupy different orbital planes
+        and their combined sky coverage fills gaps left by individual constellations.
+      </p>
+
+      <!-- DOP vs constellations visual -->
+      <div class="constellation-dop">
+        <div class="const-dop-title">Typical PDOP improvement with multiple constellations (open sky)</div>
+        <div class="dop-bars">
+          <div class="dop-bar-row">
+            <div class="dop-bar-label">GPS only</div>
+            <div class="dop-bar-track">
+              <div class="dop-bar-fill" style="width:55%; background: rgba(251,191,36,0.6);">PDOP ~2.0</div>
+            </div>
+          </div>
+          <div class="dop-bar-row">
+            <div class="dop-bar-label">GPS + Galileo</div>
+            <div class="dop-bar-track">
+              <div class="dop-bar-fill" style="width:35%; background: rgba(0,212,170,0.5);">~1.4</div>
+            </div>
+          </div>
+          <div class="dop-bar-row">
+            <div class="dop-bar-label">GPS + Galileo + BeiDou</div>
+            <div class="dop-bar-track">
+              <div class="dop-bar-fill" style="width:22%; background: rgba(0,212,170,0.7);">~1.1</div>
+            </div>
+          </div>
+          <div class="dop-bar-row">
+            <div class="dop-bar-label">All 4 constellations</div>
+            <div class="dop-bar-track">
+              <div class="dop-bar-fill" style="width:16%; background: var(--accent);">~1.0</div>
+            </div>
+          </div>
+        </div>
+        <div class="dop-bar-note">Values are typical open-sky PDOP. Improvement is greater in obstructed environments.</div>
+      </div>
+
+      <!-- SECTION 6 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📐</div>
+          <div class="summary-title">DOP amplifies ranging errors</div>
+          <div class="summary-body">σ_position = DOP × σ_UERE. A DOP of 2 doubles the effect of ranging errors on position accuracy. Good geometry (low DOP) is as important as low ranging noise.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🌐</div>
+          <div class="summary-title">Spread matters more than count</div>
+          <div class="summary-body">Four satellites spread evenly across the sky outperform eight satellites clustered in one quadrant. DOP quantifies this — low DOP means good spread.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">↕️</div>
+          <div class="summary-title">Vertical is always weaker</div>
+          <div class="summary-body">VDOP is always larger than HDOP because satellites only appear above the horizon. Expect vertical errors 1.5–2× larger than horizontal errors in typical conditions.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🛰️</div>
+          <div class="summary-title">Multi-constellation fixes DOP</div>
+          <div class="summary-body">Adding Galileo, BeiDou and GLONASS to GPS dramatically improves DOP — especially in obstructed environments where individual constellations lose satellites.</div>
+        </div>
+      </div>
+
+      <!-- Completed fundamentals notice -->
+      <div class="section-complete">
+        <div class="complete-icon">✅</div>
+        <div>
+          <div class="complete-title">Fundamentals complete</div>
+          <div class="complete-body">
+            You now have the foundation: signals, ranging, error sources, coordinates and geometry.
+            The next section applies these concepts to real-world positioning methods.
+          </div>
+          <a href="/learn/positioning" class="complete-link">Continue to Positioning →</a>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/fundamentals/coordinate-systems" class="nav-prev">← Coordinate Systems</a>
+        <a href="/learn/positioning" class="nav-next">Positioning →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Kaplan, E. D. & Hegarty, C. J. (2017). <em>Understanding GPS/GNSS: Principles and Applications</em>, 3rd ed. Artech House. Chapter 7.</li>
+          <li>Misra, P. & Enge, P. (2011). <em>Global Positioning System: Signals, Measurements and Performance</em>, 2nd ed. Ganga-Jamuna Press. Chapter 5.</li>
+          <li>IS-GPS-200N. Interface Specification for GPS. <a href="https://www.navcen.uscg.gov/sites/default/files/pdf/gps/IS-GPS-200N.pdf" target="_blank" rel="noopener noreferrer">NAVCEN →</a></li>
+          <li>Langley, R. B. (1999). Dilution of precision. <em>GPS World</em>, 10(5), 52–59.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; white-space: pre; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-top: 8px; }
+
+  .diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 24px 0; }
+  .diagram-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* DOP grid */
+  .dop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+  .dop-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .dop-acronym { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 4px; }
+  .dop-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .dop-desc { font-size: 12px; color: var(--text3); line-height: 1.6; margin-bottom: 10px; }
+  .dop-formula { font-size: 11px; font-family: var(--mono); color: var(--accent2); background: var(--bg3); padding: 6px 8px; border-radius: 4px; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  .rating { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; font-family: var(--mono); white-space: nowrap; }
+  .rating-ideal    { background: rgba(0,212,170,0.15); color: var(--accent); }
+  .rating-excellent{ background: rgba(0,212,170,0.1);  color: var(--accent); }
+  .rating-good     { background: rgba(163,230,53,0.1);  color: #a3e635; }
+  .rating-moderate { background: rgba(251,191,36,0.1);  color: #fbbf24; }
+  .rating-fair     { background: rgba(240,165,0,0.1);   color: #f0a500; }
+  .rating-poor     { background: rgba(255,71,87,0.1);   color: #ff4757; }
+
+  /* DOP bars */
+  .constellation-dop { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 20px 0; }
+  .const-dop-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
+  .dop-bars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+  .dop-bar-row { display: grid; grid-template-columns: 200px 1fr; gap: 12px; align-items: center; }
+  .dop-bar-label { font-size: 12px; color: var(--text2); text-align: right; }
+  .dop-bar-track { background: var(--bg3); border-radius: 4px; height: 28px; overflow: hidden; }
+  .dop-bar-fill { height: 100%; display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: var(--text); font-weight: 500; border-radius: 4px; font-family: var(--mono); }
+  .dop-bar-note { font-size: 11px; color: var(--text3); margin-top: 8px; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Section complete */
+  .section-complete { display: flex; gap: 16px; align-items: flex-start; background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.2); border-radius: 12px; padding: 24px; margin: 32px 0; }
+  .complete-icon { font-size: 28px; flex-shrink: 0; }
+  .complete-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .complete-body { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .complete-link { font-size: 14px; font-weight: 600; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .dop-grid { grid-template-columns: repeat(2, 1fr); }
+    .summary-grid { grid-template-columns: 1fr; }
+    .dop-bar-row { grid-template-columns: 130px 1fr; }
+    h2 { font-size: 20px; }
+  }
+  @media (max-width: 480px) {
+    .dop-grid { grid-template-columns: 1fr; }
+  }
+</style>

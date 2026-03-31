@@ -1,0 +1,504 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="GNSS Signals and Frequencies">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/fundamentals">Fundamentals</a>
+        <span>›</span>
+        <span>GNSS Signals and Frequencies</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Fundamentals · Article 2 of 5</span>
+        <h1>GNSS Signals and Frequencies</h1>
+        <p class="lead">
+          Every GNSS satellite broadcasts carefully engineered radio signals that carry ranging codes,
+          navigation data and timing information. Understanding these signals explains why GNSS works,
+          why it can be jammed, and how dual-frequency receivers achieve centimetre-level accuracy.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#l-band">Why L-band?</a></li>
+          <li><a href="#signal-structure">Signal structure</a></li>
+          <li><a href="#spreading-codes">Spreading codes — the ranging mechanism</a></li>
+          <li><a href="#cdma-fdma">CDMA vs FDMA</a></li>
+          <li><a href="#carrier-phase">Carrier phase — the precision measurement</a></li>
+          <li><a href="#dual-frequency">Why dual-frequency matters</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="l-band">Why L-band?</h2>
+      <p>
+        GNSS signals are transmitted in the <strong>L-band</strong> — the portion of the radio spectrum
+        between approximately 1 and 2 GHz. This frequency range was chosen for several reasons:
+      </p>
+      <ul>
+        <li><strong>Ionospheric penetration</strong> — L-band signals pass through the ionosphere with
+        relatively low attenuation. Lower frequencies (HF, VHF) are reflected; higher frequencies
+        (above ~10 GHz) are absorbed by rain and water vapour.</li>
+        <li><strong>Small antennas</strong> — wavelengths of 19–24 cm allow compact patch antennas
+        that fit on phones, vehicles and survey equipment.</li>
+        <li><strong>Manageable Doppler shifts</strong> — satellite motion causes frequency shifts of
+        ±4.2 kHz on L1, which receivers can track with modest processing power.</li>
+        <li><strong>International allocation</strong> — L-band frequencies used by GNSS are internationally
+        protected under ITU regulations as radionavigation-satellite service (RNSS) bands.</li>
+      </ul>
+
+      <!-- L-band spectrum diagram -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">GNSS L-band frequencies</div>
+        <svg viewBox="0 0 680 200" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <!-- Spectrum bar -->
+          <rect x="40" y="80" width="600" height="24" rx="4" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <!-- Frequency labels at ends -->
+          <text x="40" y="122" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--mono)">1100</text>
+          <text x="640" y="122" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--mono)">1700</text>
+          <text x="340" y="140" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--sans)">MHz</text>
+
+          <!-- B2a/E5a: 1176.45 -->
+          <!-- x = 40 + (1176.45-1100)/(1700-1100)*600 = 40 + 76.45 = ~116 -->
+          <rect x="108" y="80" width="16" height="24" rx="2" fill="var(--accent)" opacity="0.7"/>
+          <line x1="116" y1="80" x2="116" y2="58" stroke="var(--accent)" stroke-width="0.8" opacity="0.6"/>
+          <text x="116" y="52" text-anchor="middle" font-size="10" fill="var(--accent)" font-family="var(--mono)">1176.45</text>
+          <text x="116" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">L5/E5a/B2a</text>
+
+          <!-- GLONASS L2: ~1246 -->
+          <!-- x = 40 + (1246-1100)/600*600 = 40+146 = 186 -->
+          <rect x="178" y="80" width="20" height="24" rx="2" fill="#fbbf24" opacity="0.7"/>
+          <line x1="188" y1="80" x2="188" y2="58" stroke="#fbbf24" stroke-width="0.8" opacity="0.6"/>
+          <text x="188" y="52" text-anchor="middle" font-size="10" fill="#fbbf24" font-family="var(--mono)">~1246</text>
+          <text x="188" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">GLO L2</text>
+
+          <!-- B3I: 1268.52 -->
+          <!-- x = 40 + (1268.52-1100)/600*600 = 40+168.52 = ~209 -->
+          <rect x="202" y="80" width="14" height="24" rx="2" fill="var(--accent2)" opacity="0.7"/>
+          <line x1="209" y1="80" x2="209" y2="34" stroke="var(--accent2)" stroke-width="0.8" opacity="0.6"/>
+          <text x="209" y="28" text-anchor="middle" font-size="10" fill="var(--accent2)" font-family="var(--mono)">1268</text>
+          <text x="209" y="185" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">B3I/E6</text>
+
+          <!-- GLONASS L1: ~1602 -->
+          <!-- x = 40 + (1602-1100)/600*600 = 40+502 = 542 -->
+          <rect x="535" y="80" width="20" height="24" rx="2" fill="#fbbf24" opacity="0.7"/>
+          <line x1="545" y1="80" x2="545" y2="58" stroke="#fbbf24" stroke-width="0.8" opacity="0.6"/>
+          <text x="545" y="52" text-anchor="middle" font-size="10" fill="#fbbf24" font-family="var(--mono)">~1602</text>
+          <text x="545" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">GLO L1</text>
+
+          <!-- L1/E1/B1C: 1575.42 -->
+          <!-- x = 40 + (1575.42-1100)/600*600 = 40+475.42 = ~515 -->
+          <rect x="508" y="80" width="16" height="24" rx="2" fill="var(--accent)" opacity="0.9"/>
+          <line x1="516" y1="80" x2="516" y2="34" stroke="var(--accent)" stroke-width="0.8" opacity="0.7"/>
+          <text x="516" y="28" text-anchor="middle" font-size="10" fill="var(--accent)" font-family="var(--mono)">1575.42</text>
+          <text x="516" y="185" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">L1/E1/B1C</text>
+
+          <!-- E5b/B2b: 1207.14 -->
+          <!-- x = 40 + (1207.14-1100)/600*600 = 40+107.14 = ~147 -->
+          <rect x="140" y="80" width="14" height="24" rx="2" fill="var(--accent2)" opacity="0.7"/>
+          <line x1="147" y1="80" x2="147" y2="58" stroke="var(--accent2)" stroke-width="0.8" opacity="0.6"/>
+          <text x="147" y="52" text-anchor="middle" font-size="10" fill="var(--accent2)" font-family="var(--mono)">1207</text>
+          <text x="147" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--sans)">E5b/B2b</text>
+        </svg>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="signal-structure">Signal structure</h2>
+      <p>
+        A GNSS signal is not a simple sine wave — it is a carefully composed combination of three components
+        modulated together onto a carrier frequency:
+      </p>
+
+      <div class="signal-layers">
+        <div class="signal-layer layer-carrier">
+          <div class="layer-name">Carrier wave</div>
+          <div class="layer-freq">e.g. 1575.42 MHz (GPS L1)</div>
+          <div class="layer-desc">The radio frequency sine wave that carries everything else. Not directly useful for ranging — used for carrier phase measurements.</div>
+        </div>
+        <div class="signal-layer layer-code">
+          <div class="layer-name">Ranging code (PRN code)</div>
+          <div class="layer-freq">1.023 Mcps (GPS C/A) — 10.23 Mcps (P code)</div>
+          <div class="layer-desc">A pseudo-random noise sequence modulated onto the carrier. Used by the receiver to measure signal travel time and compute the pseudorange.</div>
+        </div>
+        <div class="signal-layer layer-nav">
+          <div class="layer-name">Navigation message</div>
+          <div class="layer-freq">25–500 bps depending on signal type</div>
+          <div class="layer-desc">Low-rate data broadcast containing satellite ephemeris (orbital parameters), clock corrections, ionospheric model and health status.</div>
+        </div>
+      </div>
+
+      <p>
+        The modulation technique used is <strong>Binary Phase Shift Keying (BPSK)</strong> — the carrier
+        phase is shifted by 180° to represent a 0 or 1 in the ranging code. More modern signals (GPS L1C,
+        Galileo E1, BeiDou B1C) use <strong>Binary Offset Carrier (BOC)</strong> modulation which provides
+        a sharper correlation peak and better multipath rejection.
+      </p>
+
+      <!-- SECTION 3 -->
+      <h2 id="spreading-codes">Spreading codes — the ranging mechanism</h2>
+      <p>
+        The ranging code is the key to how GNSS measures distance. Each satellite broadcasts a unique
+        <strong>Pseudo-Random Noise (PRN) code</strong> — a sequence that looks random but is completely
+        deterministic and known to the receiver in advance.
+      </p>
+      <p>
+        The GPS C/A (Coarse/Acquisition) code is 1,023 chips long at a rate of 1.023 million chips per
+        second (Mcps), giving a period of exactly <strong>1 millisecond</strong>. The receiver generates
+        an identical copy of the code and shifts it in time until it aligns with the received signal
+        (maximum cross-correlation). The required time shift equals the signal propagation delay.
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">chip length = c / chip_rate = 299,792,458 / 1,023,000 ≈ 293 m</div>
+        <div class="formula-desc">
+          Each chip in the GPS C/A code corresponds to ~293 m of range. A receiver can measure the
+          code phase to ~1% of a chip, giving code-based ranging accuracy of approximately <strong>3 m</strong>.
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div>
+          <strong>Why pseudo-random?</strong> PRN codes have near-zero cross-correlation between different
+          satellites' codes. This means a receiver can separate signals from 30+ satellites all broadcasting
+          on the same frequency simultaneously — each satellite is identified by its unique code. This is
+          the fundamental trick that makes GNSS work.
+        </div>
+      </div>
+
+      <h3>GPS ranging codes</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Rate</th>
+              <th>Length</th>
+              <th>Period</th>
+              <th>Range noise (1σ)</th>
+              <th>Access</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>C/A code</strong></td>
+              <td>1.023 Mcps</td>
+              <td>1,023 chips</td>
+              <td>1 ms</td>
+              <td>~3 m</td>
+              <td>Open (all users)</td>
+            </tr>
+            <tr>
+              <td><strong>P(Y) code</strong></td>
+              <td>10.23 Mcps</td>
+              <td>6.19 × 10¹² chips</td>
+              <td>7 days</td>
+              <td>~0.3 m</td>
+              <td>Encrypted (military)</td>
+            </tr>
+            <tr>
+              <td><strong>L1C</strong></td>
+              <td>1.023 Mcps</td>
+              <td>10,230 chips</td>
+              <td>10 ms</td>
+              <td>~1 m</td>
+              <td>Open (Block III+)</td>
+            </tr>
+            <tr>
+              <td><strong>L2C</strong></td>
+              <td>511.5 kcps</td>
+              <td>767,250 chips</td>
+              <td>1.5 s</td>
+              <td>~3 m</td>
+              <td>Open (Block IIR-M+)</td>
+            </tr>
+            <tr>
+              <td><strong>L5</strong></td>
+              <td>10.23 Mcps</td>
+              <td>10,230 chips</td>
+              <td>1 ms</td>
+              <td>~0.3 m</td>
+              <td>Open (Block IIF+)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="cdma-fdma">CDMA vs FDMA</h2>
+      <p>
+        There are two fundamentally different approaches to distinguishing satellite signals:
+      </p>
+
+      <div class="compare-grid">
+        <div class="compare-card">
+          <div class="compare-header cdma-header">CDMA — Code Division Multiple Access</div>
+          <div class="compare-body">
+            <p>All satellites transmit on the <strong>same frequency</strong>. Each satellite is identified
+            by its unique PRN code. The receiver uses code correlation to separate signals.</p>
+            <p><strong>Used by:</strong> GPS, Galileo, BeiDou, and the new GLONASS CDMA signals (L3)</p>
+            <div class="compare-pros">
+              <div class="compare-pro">✓ Simpler receiver hardware</div>
+              <div class="compare-pro">✓ Enables interoperability (GPS L1 = Galileo E1 = BeiDou B1C at 1575.42 MHz)</div>
+              <div class="compare-pro">✓ More robust to interference</div>
+            </div>
+          </div>
+        </div>
+        <div class="compare-card">
+          <div class="compare-header fdma-header">FDMA — Frequency Division Multiple Access</div>
+          <div class="compare-body">
+            <p>Each satellite transmits on a <strong>slightly different frequency</strong>. Signals are
+            separated by filtering in the frequency domain.</p>
+            <p><strong>Used by:</strong> Legacy GLONASS (L1, L2). Each satellite occupies a channel
+            spaced 562.5 kHz apart.</p>
+            <div class="compare-pros">
+              <div class="compare-pro">✓ Natural resistance to broadband jamming</div>
+              <div class="compare-pro">✓ No near-far problem (code orthogonality not required)</div>
+              <div class="compare-con">✗ Requires wider receiver bandwidth</div>
+              <div class="compare-con">✗ Inter-channel biases complicate RTK processing</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔧</div>
+        <div>
+          <strong>For RTK engineers:</strong> GLONASS FDMA signals introduce inter-channel biases (ICBs)
+          in the carrier phase that are receiver-type dependent. An RTK baseline between two different
+          receiver types (e.g. Trimble and NovAtel) will have residual GLONASS phase biases that must
+          be calibrated or the GLONASS satellites excluded from the ambiguity resolution process.
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="carrier-phase">Carrier phase — the precision measurement</h2>
+      <p>
+        Code-based ranging gives ~3 m accuracy. Carrier phase measurement gives ~3 mm accuracy.
+        The difference is enormous — and it comes from measuring the phase of the carrier wave itself,
+        not just the code.
+      </p>
+      <p>
+        The GPS L1 carrier has a wavelength of:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">λ = c / f = 299,792,458 / 1,575,420,000 ≈ 0.1903 m (19.03 cm)</div>
+        <div class="formula-desc">
+          A receiver can measure the phase of this 19 cm wave to about 1% — roughly <strong>2 mm</strong>.
+          This is the source of RTK accuracy.
+        </div>
+      </div>
+
+      <p>
+        The carrier phase observation Φ from satellite <em>i</em> to receiver <em>r</em> is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">Φ<sub>r</sub><sup>i</sup> = ρ<sub>r</sub><sup>i</sup>/λ + N<sub>r</sub><sup>i</sup> − f·δt<sub>r</sub> + f·δt<sup>i</sup> − I<sub>r</sub><sup>i</sup>/λ + T<sub>r</sub><sup>i</sup>/λ + ε</div>
+        <div class="formula-desc">
+          where ρ = geometric range, N = integer ambiguity (unknown number of whole cycles),
+          δt<sub>r</sub> = receiver clock error, δt<sup>i</sup> = satellite clock error,
+          I = ionospheric delay, T = tropospheric delay, ε = noise.
+          The critical unknown is <strong>N — the integer ambiguity</strong>.
+        </div>
+      </div>
+
+      <p>
+        The problem with carrier phase is the <strong>integer ambiguity N</strong>. When the receiver
+        first locks onto the signal, it can measure the fractional phase (less than one cycle) but does
+        not know how many complete wavelengths lie between satellite and receiver. Resolving N to its
+        correct integer value is the central challenge of RTK — covered in depth in the
+        <a href="/learn/positioning/rtk">RTK article</a>.
+      </p>
+
+      <!-- SECTION 6 -->
+      <h2 id="dual-frequency">Why dual-frequency matters</h2>
+      <p>
+        The ionosphere — a layer of plasma 50–1000 km above Earth — delays GNSS signals by an amount
+        that depends on the signal frequency. Specifically, the ionospheric delay is proportional to
+        1/f²:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">I = 40.3 × TEC / f²</div>
+        <div class="formula-desc">
+          where TEC is Total Electron Content in TECU (electrons/m²) and f is frequency in Hz.
+          A typical TEC of 10 TECU causes ~0.16 m delay on L1 (1575.42 MHz) and ~0.27 m on L2 (1227.60 MHz).
+        </div>
+      </div>
+
+      <p>
+        Because the delay is frequency-dependent, a receiver measuring on <em>two</em> frequencies can
+        form the <strong>ionosphere-free linear combination</strong> that eliminates the first-order
+        ionospheric effect entirely:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">ρ<sub>IF</sub> = (f₁² · ρ₁ − f₂² · ρ₂) / (f₁² − f₂²)</div>
+        <div class="formula-desc">
+          For GPS L1/L2: f₁ = 1575.42 MHz, f₂ = 1227.60 MHz.
+          The ionosphere-free pseudorange ρ<sub>IF</sub> has the first-order ionospheric delay removed.
+          This is why dual-frequency receivers achieve significantly better accuracy in high-ionosphere conditions.
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">📡</div>
+        <div>
+          <strong>Galileo advantage:</strong> Galileo E1 (1575.42 MHz) and E5a (1176.45 MHz) are
+          fully interoperable with GPS L1 and L5. A dual-frequency GPS+Galileo receiver can form
+          the ionosphere-free combination using signals from <em>both</em> constellations,
+          giving significantly more satellites to work with and better geometry.
+        </div>
+      </div>
+
+      <!-- SECTION 7 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📻</div>
+          <div class="summary-title">L-band choice</div>
+          <div class="summary-body">1–2 GHz passes through the ionosphere, allows compact antennas and is internationally protected for satellite navigation.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔢</div>
+          <div class="summary-title">PRN codes enable ranging</div>
+          <div class="summary-body">Each satellite's unique pseudo-random code allows simultaneous multi-satellite tracking on the same frequency (CDMA). Code correlation gives ~3 m ranging accuracy.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">〰️</div>
+          <div class="summary-title">Carrier phase for precision</div>
+          <div class="summary-body">The 19 cm carrier wavelength can be measured to ~2 mm — but only after solving the integer ambiguity N. This is the basis of RTK and PPP.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">2️⃣</div>
+          <div class="summary-title">Dual-frequency eliminates iono</div>
+          <div class="summary-body">Ionospheric delay is proportional to 1/f². Two frequencies allow the delay to be computed and removed — no correction service needed.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/fundamentals/how-gnss-works" class="nav-prev">← How GNSS Works</a>
+        <a href="/learn/fundamentals/error-sources" class="nav-next">Error Sources →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>IS-GPS-200N — GPS Interface Specification. <a href="https://www.navcen.uscg.gov/sites/default/files/pdf/gps/IS-GPS-200N.pdf" target="_blank" rel="noopener noreferrer">NAVCEN →</a></li>
+          <li>Kaplan, E. D. & Hegarty, C. J. (2017). <em>Understanding GPS/GNSS: Principles and Applications</em>, 3rd ed. Artech House. Chapter 4.</li>
+          <li>Galileo OS SIS ICD. <a href="https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo-OS-SIS-ICD.pdf" target="_blank" rel="noopener noreferrer">GSC Europa →</a></li>
+          <li>Betz, J. W. (2016). <em>Engineering Satellite-Based Navigation and Timing</em>. Wiley-IEEE Press.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; color: var(--text); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  sub { font-size: 0.75em; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; padding-top: 1px; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; }
+  .formula { font-family: var(--mono); font-size: 15px; color: var(--text); margin-bottom: 8px; line-height: 1.6; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 24px 0; }
+  .diagram-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* Signal layers */
+  .signal-layers { display: flex; flex-direction: column; gap: 2px; margin: 20px 0; }
+  .signal-layer { padding: 16px 20px; border-radius: 8px; border: 1px solid var(--border); }
+  .layer-carrier { background: rgba(0,212,170,0.05); border-color: rgba(0,212,170,0.2); }
+  .layer-code { background: rgba(0,153,255,0.05); border-color: rgba(0,153,255,0.2); }
+  .layer-nav { background: rgba(251,191,36,0.05); border-color: rgba(251,191,36,0.2); }
+  .layer-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .layer-freq { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-bottom: 6px; }
+  .layer-desc { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+
+  /* Compare grid */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  .compare-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .compare-header { padding: 12px 16px; font-size: 13px; font-weight: 600; }
+  .cdma-header { background: rgba(0,212,170,0.08); color: var(--accent); border-bottom: 1px solid rgba(0,212,170,0.15); }
+  .fdma-header { background: rgba(251,191,36,0.08); color: #fbbf24; border-bottom: 1px solid rgba(251,191,36,0.15); }
+  .compare-body { padding: 16px; font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .compare-body p { font-size: 13px; margin-bottom: 10px; }
+  .compare-pros { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .compare-pro { font-size: 12px; color: var(--accent); }
+  .compare-con { font-size: 12px; color: var(--text3); }
+
+  /* Summary grid */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Nav footer */
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* References */
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 640px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    h2 { font-size: 20px; }
+  }
+</style>

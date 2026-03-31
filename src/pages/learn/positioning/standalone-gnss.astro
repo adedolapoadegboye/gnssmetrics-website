@@ -1,0 +1,504 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Standalone GNSS">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/positioning">Positioning</a>
+        <span>›</span>
+        <span>Standalone GNSS</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Positioning · Article 1 of 5</span>
+        <h1>Standalone GNSS</h1>
+        <p class="lead">
+          Standalone GNSS — also called single-point positioning or autonomous positioning — is what
+          every phone, car and handheld GPS does by default. One receiver, no corrections, no reference
+          station. Understanding its accuracy and limitations sets the baseline for every other
+          positioning method.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#navigation-solution">The navigation solution</a></li>
+          <li><a href="#accuracy">Accuracy and error budget</a></li>
+          <li><a href="#sps">GPS Standard Positioning Service</a></li>
+          <li><a href="#dual-frequency-benefit">The dual-frequency benefit</a></li>
+          <li><a href="#when-to-use">When standalone is sufficient</a></li>
+          <li><a href="#limitations">Fundamental limitations</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="how-it-works">How it works</h2>
+      <p>
+        A standalone receiver does everything itself. It acquires signals from visible satellites,
+        measures pseudoranges, decodes navigation messages, computes satellite positions from
+        ephemeris, and solves for its own position and clock offset — all with no external input.
+      </p>
+      <p>
+        The only data entering the system are the satellite signals themselves. The receiver has no
+        knowledge of nearby reference stations, no correction data stream and no prior position
+        information (in cold-start mode). This self-contained nature is both standalone's greatest
+        strength (works anywhere with sky view) and its greatest weakness (all errors must be
+        modelled or tolerated).
+      </p>
+
+      <!-- SECTION 2 -->
+      <h2 id="navigation-solution">The navigation solution</h2>
+      <p>
+        With n ≥ 4 satellites, the receiver solves the following system of pseudorange equations
+        simultaneously for position (x, y, z) and receiver clock offset δt:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">ρ_i = √[(x − x_i)² + (y − y_i)² + (z − z_i)²] + c·δt + ε_i</div>
+        <div class="formula-desc">
+          For each satellite i: ρ_i = measured pseudorange (m), (x_i, y_i, z_i) = satellite position
+          from ephemeris (m), c = speed of light (m/s), δt = receiver clock offset (s),
+          ε_i = residual error from all sources (m).
+          The system has 4 unknowns: x, y, z, δt.
+        </div>
+      </div>
+
+      <p>
+        This system is non-linear — the unknowns appear inside square roots. The standard approach
+        is to linearise around an approximate position (x₀, y₀, z₀) and solve iteratively
+        using the least squares method:
+      </p>
+
+      <ol class="steps">
+        <li><strong>Initial guess:</strong> Start with an approximate position — typically the last known position or the centre of the Earth for a cold start.</li>
+        <li><strong>Linearise:</strong> Compute the Jacobian (design matrix H) of partial derivatives at the current estimate.</li>
+        <li><strong>Least squares update:</strong> Δx = (HᵀH)⁻¹Hᵀ·Δρ, where Δρ is the vector of pseudorange residuals.</li>
+        <li><strong>Update estimate:</strong> Add Δx to the current position estimate.</li>
+        <li><strong>Repeat:</strong> Continue until convergence — typically 3–5 iterations from a reasonable starting point.</li>
+      </ol>
+
+      <p>
+        With more than 4 satellites (the usual case — modern receivers track 10–40 simultaneously),
+        the system is <strong>overdetermined</strong>. Least squares finds the position that minimises
+        the sum of squared pseudorange residuals, giving better accuracy and enabling integrity checks.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">📊</div>
+        <div>
+          <strong>Weighted least squares:</strong> In practice, pseudoranges from different satellites
+          are not equally reliable. Low-elevation satellites have higher noise and more tropospheric
+          delay. Quality receivers use <strong>weighted least squares</strong>, assigning lower weight
+          to low-elevation and low-SNR observations. The weight matrix W is typically diagonal with
+          elements proportional to sin²(elevation).
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="accuracy">Accuracy and error budget</h2>
+      <p>
+        Standalone accuracy is the product of two independent factors:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">σ_position = DOP × σ_UERE</div>
+        <div class="formula-desc">
+          DOP depends on satellite geometry (see the <a href="/learn/fundamentals/dilution-of-precision">DOP article</a>).
+          σ_UERE is the combined 1σ ranging error from all sources. For GPS SPS (single-frequency L1),
+          the broadcast specification guarantees σ_UERE ≤ 4 m (SIS URE).
+        </div>
+      </div>
+
+      <p>
+        The major contributors to σ_UERE in a standalone receiver are:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Error source</th>
+              <th>Single-freq (1σ)</th>
+              <th>Dual-freq (1σ)</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Ionospheric delay</td>
+              <td>~3.0 m</td>
+              <td>&lt;0.1 m</td>
+              <td>Largest single-frequency error. Klobuchar model reduces by ~50%.</td>
+            </tr>
+            <tr>
+              <td>Tropospheric delay</td>
+              <td>~0.5 m</td>
+              <td>~0.5 m</td>
+              <td>Not frequency-dependent. Saastamoinen model gives ~0.1 m residual.</td>
+            </tr>
+            <tr>
+              <td>Satellite clock</td>
+              <td>~0.5 m</td>
+              <td>~0.5 m</td>
+              <td>After applying broadcast clock correction. Spec is ≤1 m (SIS URE).</td>
+            </tr>
+            <tr>
+              <td>Ephemeris error</td>
+              <td>~0.5 m</td>
+              <td>~0.5 m</td>
+              <td>Radial component after applying broadcast ephemeris correction.</td>
+            </tr>
+            <tr>
+              <td>Multipath</td>
+              <td>~1.0 m</td>
+              <td>~0.5 m</td>
+              <td>Environment-dependent. Open-sky typically &lt;0.5 m. Urban up to 10 m.</td>
+            </tr>
+            <tr>
+              <td>Receiver noise</td>
+              <td>~0.3 m</td>
+              <td>~0.3 m</td>
+              <td>Depends on receiver quality. Consumer: 0.3–0.5 m. Survey: 0.1–0.3 m.</td>
+            </tr>
+            <tr style="font-weight:600;">
+              <td><strong>Total σ_UERE</strong></td>
+              <td><strong>~3.5 m</strong></td>
+              <td><strong>~1.0 m</strong></td>
+              <td>RSS combination of above. With DOP = 1.5: 5 m / 1.5 m position error.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="sps">GPS Standard Positioning Service</h2>
+      <p>
+        The GPS Standard Positioning Service (SPS) is the freely available civil positioning service.
+        It is defined in the <strong>GPS SPS Performance Standard</strong>, which specifies guaranteed
+        accuracy levels for L1 C/A code receivers anywhere in the world:
+      </p>
+
+      <div class="spec-grid">
+        <div class="spec-card">
+          <div class="spec-value">≤ 9 m</div>
+          <div class="spec-label">Horizontal (95%)</div>
+          <div class="spec-note">Global average. Includes all error sources.</div>
+        </div>
+        <div class="spec-card">
+          <div class="spec-value">≤ 15 m</div>
+          <div class="spec-label">Vertical (95%)</div>
+          <div class="spec-note">Vertical is always weaker — higher VDOP.</div>
+        </div>
+        <div class="spec-card">
+          <div class="spec-value">≤ 40 ns</div>
+          <div class="spec-label">UTC timing (95%)</div>
+          <div class="spec-note">After applying broadcast corrections.</div>
+        </div>
+        <div class="spec-card">
+          <div class="spec-value">≥ 95%</div>
+          <div class="spec-label">Availability</div>
+          <div class="spec-note">Probability of 4+ satellites with PDOP ≤ 6.</div>
+        </div>
+      </div>
+
+      <p>
+        In practice, modern multi-constellation receivers significantly outperform these GPS-only
+        specifications. A typical smartphone with GPS+Galileo+BeiDou in open sky achieves
+        2–4 m horizontal (95%) — well below the GPS SPS guarantee.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">📜</div>
+        <div>
+          <strong>Selective Availability:</strong> Until May 2000, the US intentionally degraded
+          GPS accuracy for civilian users (Selective Availability, SA) to ~100 m horizontal.
+          SA was permanently discontinued by presidential order. The GPS SPS Performance Standard
+          now guarantees no intentional degradation for civil use.
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="dual-frequency-benefit">The dual-frequency benefit</h2>
+      <p>
+        The biggest single improvement available to a standalone receiver is moving from
+        single-frequency to dual-frequency. The ionosphere — the dominant error source —
+        is eliminated by the ionosphere-free combination:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">ρ_IF = (f₁² · ρ₁ − f₂² · ρ₂) / (f₁² − f₂²)</div>
+        <div class="formula-desc">
+          For GPS L1/L5: f₁ = 1575.42 MHz, f₂ = 1176.45 MHz. The combined pseudorange ρ_IF
+          has ionospheric delay removed to first order (~99.9%). Residual second-order
+          ionospheric effects are typically &lt;1 cm.
+        </div>
+      </div>
+
+      <p>
+        The trade-off is amplified noise. The ionosphere-free combination amplifies measurement noise
+        by a factor of:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">noise_IF = √(f₁⁴ + f₂⁴) / |f₁² − f₂²| × noise_single</div>
+        <div class="formula-desc">
+          For GPS L1/L5: amplification factor ≈ 2.6×. So if individual pseudorange noise is 0.3 m,
+          the ionosphere-free combination noise is ~0.8 m. This is still much better than the 3+ m
+          ionospheric error it removes.
+        </div>
+      </div>
+
+      <div class="before-after">
+        <div class="ba-col">
+          <div class="ba-title">Single-frequency L1</div>
+          <div class="ba-items">
+            <div class="ba-item bad">Ionosphere: 3–10 m</div>
+            <div class="ba-item neutral">Troposphere: ~0.5 m</div>
+            <div class="ba-item neutral">Clocks + ephemeris: ~1 m</div>
+            <div class="ba-item neutral">Multipath: ~1 m</div>
+            <div class="ba-item neutral">Noise: ~0.3 m</div>
+          </div>
+          <div class="ba-result">Typical accuracy: 3–5 m</div>
+        </div>
+        <div class="ba-arrow">→</div>
+        <div class="ba-col">
+          <div class="ba-title">Dual-frequency L1+L5</div>
+          <div class="ba-items">
+            <div class="ba-item good">Ionosphere: &lt;0.1 m ✓</div>
+            <div class="ba-item neutral">Troposphere: ~0.5 m</div>
+            <div class="ba-item neutral">Clocks + ephemeris: ~1 m</div>
+            <div class="ba-item neutral">Multipath: ~0.5 m</div>
+            <div class="ba-item bad">IF noise: ~0.8 m (amplified)</div>
+          </div>
+          <div class="ba-result">Typical accuracy: 1–2 m</div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="when-to-use">When standalone is sufficient</h2>
+      <p>
+        Standalone GNSS at 2–5 m accuracy is appropriate for a wide range of applications:
+      </p>
+
+      <div class="use-case-grid">
+        <div class="use-case use-yes">
+          <div class="use-icon">✅</div>
+          <div class="use-title">Good fit</div>
+          <ul>
+            <li>Turn-by-turn navigation (cars, phones)</li>
+            <li>Fleet tracking and logistics</li>
+            <li>Asset tracking (&gt;5 m accuracy adequate)</li>
+            <li>Outdoor recreation (hiking, cycling)</li>
+            <li>General mapping and GIS data collection</li>
+            <li>Emergency response dispatch</li>
+            <li>Precision agriculture (field-level, not in-row)</li>
+          </ul>
+        </div>
+        <div class="use-case use-no">
+          <div class="use-icon">❌</div>
+          <div class="use-title">Needs better accuracy</div>
+          <ul>
+            <li>Lane-level autonomous driving (&lt;0.5 m needed)</li>
+            <li>Land survey and cadastral mapping (&lt;0.1 m)</li>
+            <li>Machine control — grading, paving, drilling</li>
+            <li>Structural deformation monitoring</li>
+            <li>UAV precision landing and inspection</li>
+            <li>RTK agriculture — in-row guidance</li>
+            <li>Hydrographic survey</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="limitations">Fundamental limitations</h2>
+      <p>
+        Even with ideal hardware, perfect satellite geometry and a clear sky, standalone GNSS has
+        hard accuracy limits that cannot be overcome without external corrections:
+      </p>
+
+      <ul>
+        <li>
+          <strong>Broadcast ephemeris accuracy:</strong> ~0.5–1 m radial orbit error is inherent in
+          the broadcast navigation message. Overcoming this requires precise ephemeris from IGS or
+          a real-time correction service — impossible standalone.
+        </li>
+        <li>
+          <strong>Broadcast clock accuracy:</strong> ~0.5 m equivalent range error. Again, requires
+          precise clock corrections to improve.
+        </li>
+        <li>
+          <strong>Tropospheric wet component:</strong> The unpredictable wet troposphere contributes
+          ~0.1–0.3 m residual after modelling. Cannot be eliminated without external water vapour
+          measurements.
+        </li>
+        <li>
+          <strong>Code measurement noise:</strong> Code phase measurement noise (~0.1–0.5 m) sets a
+          floor on standalone accuracy. Carrier phase is 100× more precise but requires ambiguity
+          resolution — which needs either a base station (RTK) or precise products (PPP).
+        </li>
+      </ul>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔑</div>
+        <div>
+          <strong>The key insight:</strong> Going from standalone (~3 m) to RTK (~2 cm) is not an
+          incremental improvement — it requires a fundamentally different measurement type (carrier
+          phase instead of code) and a completely different processing approach (differential, with
+          integer ambiguity resolution). The next articles in this section explain how.
+        </div>
+      </div>
+
+      <!-- SECTION 8 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📍</div>
+          <div class="summary-title">Code-based positioning</div>
+          <div class="summary-body">Standalone uses pseudorange (code) measurements. Noise ~0.3 m per satellite, but systematic errors (iono, tropo, clocks) dominate — total UERE ~3.5 m.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🛰️</div>
+          <div class="summary-title">4 unknowns, 4 equations</div>
+          <div class="summary-body">Solve for (x, y, z, δt) simultaneously. Overdetermined with ≥5 satellites — use weighted least squares for better accuracy and integrity.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📶</div>
+          <div class="summary-title">Dual-frequency improves standalone</div>
+          <div class="summary-body">Eliminating the ionospheric delay cuts standalone UERE from ~3.5 m to ~1 m. Most modern smartphones are dual-frequency.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🚧</div>
+          <div class="summary-title">Hard accuracy floor</div>
+          <div class="summary-body">Broadcast clock/ephemeris errors (~1 m combined) and tropospheric wet component (~0.2 m) set a practical floor of ~1–2 m for standalone dual-frequency.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/positioning" class="nav-prev">← Positioning</a>
+        <a href="/learn/positioning/dgnss-and-sbas" class="nav-next">DGNSS and SBAS →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>GPS SPS Performance Standard, 5th Edition (2020). <a href="https://www.gps.gov/technical/ps/2020-SPS-performance-standard.pdf" target="_blank" rel="noopener noreferrer">GPS.gov →</a></li>
+          <li>Kaplan, E. D. & Hegarty, C. J. (2017). <em>Understanding GPS/GNSS: Principles and Applications</em>, 3rd ed. Artech House. Chapter 7.</li>
+          <li>Misra, P. & Enge, P. (2011). <em>Global Positioning System: Signals, Measurements and Performance</em>, 2nd ed. Ganga-Jamuna Press. Chapter 5.</li>
+          <li>IS-GPS-200N. <a href="https://www.navcen.uscg.gov/sites/default/files/pdf/gps/IS-GPS-200N.pdf" target="_blank" rel="noopener noreferrer">NAVCEN →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 8px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 14px; color: var(--text); margin-bottom: 4px; line-height: 1.7; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-top: 8px; }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+  .steps li { counter-increment: step; padding: 12px 12px 12px 48px; position: relative; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text2); line-height: 1.7; }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before { content: counter(step); position: absolute; left: 12px; top: 14px; width: 22px; height: 22px; background: rgba(0,212,170,0.12); color: var(--accent); border-radius: 50%; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; font-family: var(--mono); }
+
+  .table-wrap { overflow-x: auto; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+
+  /* Spec grid */
+  .spec-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+  .spec-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+  .spec-value { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .spec-label { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .spec-note { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+  /* Before/after */
+  .before-after { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin: 20px 0; }
+  .ba-col { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .ba-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  .ba-items { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .ba-item { font-size: 12px; padding: 4px 8px; border-radius: 4px; font-family: var(--mono); }
+  .ba-item.bad { background: rgba(255,71,87,0.1); color: #ff4757; }
+  .ba-item.good { background: rgba(0,212,170,0.1); color: var(--accent); }
+  .ba-item.neutral { background: var(--bg3); color: var(--text3); }
+  .ba-result { font-size: 13px; font-weight: 600; color: var(--text); padding-top: 8px; border-top: 1px solid var(--border); }
+  .ba-arrow { font-size: 24px; color: var(--accent); text-align: center; }
+
+  /* Use case grid */
+  .use-case-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .use-case { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .use-icon { font-size: 20px; margin-bottom: 8px; }
+  .use-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  .use-case ul { font-size: 13px; color: var(--text3); padding-left: 18px; margin: 0; }
+  .use-case li { margin-bottom: 4px; }
+  .use-yes { border-color: rgba(0,212,170,0.2); }
+  .use-no { border-color: rgba(255,71,87,0.2); }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .spec-grid { grid-template-columns: repeat(2, 1fr); }
+    .before-after { grid-template-columns: 1fr; }
+    .ba-arrow { transform: rotate(90deg); }
+    .use-case-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+  }
+</style>
