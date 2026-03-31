@@ -1,0 +1,630 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="RTCM">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/protocols">Protocols</a>
+        <span>›</span>
+        <span>RTCM</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Protocols · Article 3 of 5</span>
+        <h1>RTCM</h1>
+        <p class="lead">
+          RTCM SC-104 is the standard for transmitting GNSS correction data between reference
+          stations and rovers. It carries everything from simple pseudorange corrections for
+          DGNSS to full carrier-phase observations for RTK and State Space Representation
+          corrections for PPP-RTK. If your receiver uses network corrections, it is almost
+          certainly receiving RTCM.
+        </p>
+        <div class="article-meta">
+          <span>12 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#frame-structure">Frame structure</a></li>
+          <li><a href="#legacy">Legacy messages (RTCM 2.x)</a></li>
+          <li><a href="#rtcm3">RTCM 3.x — the modern standard</a></li>
+          <li><a href="#msm">MSM — Multiple Signal Messages</a></li>
+          <li><a href="#ssr">SSR — State Space Representation</a></li>
+          <li><a href="#common-messages">Common message reference</a></li>
+          <li><a href="#choosing">Choosing which messages to output</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="overview">Overview</h2>
+      <p>
+        RTCM stands for <strong>Radio Technical Commission for Maritime Services</strong> —
+        the standards body that originally developed these protocols for maritime DGNSS in the
+        early 1990s. The standard has evolved far beyond its maritime origins and is now the
+        universal correction format used by virtually every GNSS correction service in the world.
+      </p>
+      <p>
+        Unlike NMEA (ASCII text) and RINEX (plain text files), RTCM is a <strong>compact binary
+        protocol</strong>. This makes it efficient for real-time transmission over low-bandwidth
+        links — a complete RTK observation set for 10 satellites can fit in a few hundred bytes
+        per second.
+      </p>
+
+      <div class="overview-cards">
+        <div class="ov-card">
+          <div class="ov-icon">📡</div>
+          <div class="ov-title">What it carries</div>
+          <div class="ov-desc">Reference station observations, pseudorange corrections, RTK carrier phase data, precise orbit/clock corrections (SSR), antenna information.</div>
+        </div>
+        <div class="ov-card">
+          <div class="ov-icon">🔢</div>
+          <div class="ov-title">Format</div>
+          <div class="ov-desc">Binary, variable-length frames. Not human-readable. Compact — suitable for 9600 bps radio modems, cellular data, NTRIP streams.</div>
+        </div>
+        <div class="ov-card">
+          <div class="ov-icon">🌐</div>
+          <div class="ov-title">Transport</div>
+          <div class="ov-desc">Serial cable, UHF/VHF radio modem, internet via NTRIP, satellite L-band broadcast. The data is the same regardless of transport layer.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="frame-structure">Frame structure</h2>
+      <p>
+        Every RTCM 3.x message uses the same framing regardless of message type:
+      </p>
+
+      <div class="frame-diagram">
+        <div class="frame-byte preamble">
+          <div class="fb-label">Preamble</div>
+          <div class="fb-bits">8 bits</div>
+          <div class="fb-val">0xD3</div>
+          <div class="fb-desc">Always 0xD3. Used for synchronisation.</div>
+        </div>
+        <div class="frame-byte reserved">
+          <div class="fb-label">Reserved</div>
+          <div class="fb-bits">6 bits</div>
+          <div class="fb-val">000000</div>
+          <div class="fb-desc">Reserved, set to zero.</div>
+        </div>
+        <div class="frame-byte length">
+          <div class="fb-label">Message length</div>
+          <div class="fb-bits">10 bits</div>
+          <div class="fb-val">0–1023</div>
+          <div class="fb-desc">Number of bytes in the data payload. Max 1023 bytes.</div>
+        </div>
+        <div class="frame-byte data">
+          <div class="fb-label">Data payload</div>
+          <div class="fb-bits">variable</div>
+          <div class="fb-val">message type + data</div>
+          <div class="fb-desc">First 12 bits = message type number (1–4095). Followed by message-specific fields.</div>
+        </div>
+        <div class="frame-byte crc">
+          <div class="fb-label">CRC-24Q</div>
+          <div class="fb-bits">24 bits</div>
+          <div class="fb-val">3 bytes</div>
+          <div class="fb-desc">Qualcomm CRC-24 over preamble + reserved + length + data. Always verify before processing.</div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔒</div>
+        <div>
+          <strong>CRC-24Q:</strong> The CRC polynomial is 0x1864CFB (25 bits). In a receiver parsing
+          RTCM, always compute and verify the CRC before processing the payload.
+          On noisy radio links, corrupt frames are common — a bad CRC means discard the frame.
+          Do not process RTCM frames without CRC validation.
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="legacy">Legacy messages (RTCM 2.x)</h2>
+      <p>
+        RTCM 2.x messages were designed in the early 1990s for GPS-only DGNSS over low-bandwidth
+        radio links. They are largely obsolete but you may encounter them with older equipment:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Message</th><th>Content</th><th>Use</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Type 1</strong></td><td>Differential GPS corrections (PRC, RRC)</td><td>Code DGNSS — the original RTCM message</td></tr>
+            <tr><td><strong>Type 2</strong></td><td>Delta differential corrections</td><td>Update to type 1 corrections</td></tr>
+            <tr><td><strong>Type 3</strong></td><td>Reference station parameters (ECEF position)</td><td>Base station location</td></tr>
+            <tr><td><strong>Type 9</strong></td><td>High-rate GPS corrections (subset of SVs)</td><td>Partial update at higher rate</td></tr>
+            <tr><td><strong>Type 18</strong></td><td>RTK uncorrected carrier phases</td><td>Legacy RTK</td></tr>
+            <tr><td><strong>Type 19</strong></td><td>RTK uncorrected pseudoranges</td><td>Legacy RTK</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="rtcm3">RTCM 3.x — the modern standard</h2>
+      <p>
+        RTCM 3.0 was introduced in 2004 with a completely redesigned binary format. RTCM 3.3
+        (2016) added multi-constellation support. RTCM 3.3 Amendment 1 (2018) added SSR messages
+        for PPP-RTK. This is the version in active use today.
+      </p>
+      <p>
+        RTCM 3.x message types fall into several families:
+      </p>
+
+      <div class="msg-families">
+        <div class="family">
+          <div class="family-range">1001–1004</div>
+          <div class="family-name">GPS RTK observables (legacy format)</div>
+          <div class="family-desc">GPS L1/L2 code and phase for RTK. Still widely supported but being replaced by MSM.</div>
+        </div>
+        <div class="family">
+          <div class="family-range">1005–1006</div>
+          <div class="family-name">Reference station coordinates</div>
+          <div class="family-desc">ECEF position of the base station. Essential — rover needs this to compute the baseline. MT 1006 adds antenna height.</div>
+        </div>
+        <div class="family">
+          <div class="family-range">1007–1008</div>
+          <div class="family-name">Antenna descriptor</div>
+          <div class="family-desc">Antenna type and serial number. Required for precise work — different antennas have different phase centre offsets.</div>
+        </div>
+        <div class="family">
+          <div class="family-range">1013</div>
+          <div class="family-name">System parameters</div>
+          <div class="family-desc">Message transmission timing, network ID.</div>
+        </div>
+        <div class="family">
+          <div class="family-range">1071–1077</div>
+          <div class="family-name">GPS MSM1–MSM7</div>
+          <div class="family-desc">GPS Multiple Signal Messages. MSM4 and MSM7 are the recommended types for modern RTK.</div>
+        </div>
+        <div class="family">
+          <div class="family-range">1081–1087</div>
+          <div class="family-name">GLONASS MSM1–MSM7</div>
+          <div class="family-desc">GLONASS Multiple Signal Messages.</div>
+        </div>
+        <div class="family">
+          <div class="family-range">1091–1097</div>
+          <div class="family-name">Galileo MSM1–MSM7</div>
+          <div class="family-desc">Galileo Multiple Signal Messages.</div>
+        </div>
+        <div class="family">
+          <div class="family-range">1121–1127</div>
+          <div class="family-name">BeiDou MSM1–MSM7</div>
+          <div class="family-desc">BeiDou Multiple Signal Messages.</div>
+        </div>
+        <div class="family">
+          <div class="family-range">1057–1068</div>
+          <div class="family-name">GPS SSR messages</div>
+          <div class="family-desc">GPS orbit, clock, phase bias, VTEC corrections for PPP-RTK.</div>
+        </div>
+        <div class="family">
+          <div class="family-range">1240–1270</div>
+          <div class="family-name">Galileo/GLONASS/BeiDou SSR</div>
+          <div class="family-desc">SSR corrections for non-GPS constellations.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="msm">MSM — Multiple Signal Messages</h2>
+      <p>
+        MSM (Multiple Signal Messages) are the modern RTCM observation format, introduced in
+        RTCM 3.2. They replace the older constellation-specific messages (1001–1004 for GPS,
+        etc.) with a unified structure that works for any constellation and any signal combination.
+      </p>
+      <p>
+        Each constellation has seven MSM subtypes numbered 1–7, with increasing data content:
+      </p>
+
+      <div class="msm-grid">
+        <div class="msm-card msm-basic">
+          <div class="msm-type">MSM1–3</div>
+          <div class="msm-name">Basic</div>
+          <div class="msm-content">
+            <div class="msm-item">Rough pseudorange only (MSM1)</div>
+            <div class="msm-item">Rough pseudorange + phase (MSM2)</div>
+            <div class="msm-item">Rough pseudorange + phase + Doppler (MSM3)</div>
+          </div>
+          <div class="msm-use">Rarely used. Low bandwidth but insufficient for RTK.</div>
+        </div>
+        <div class="msm-card msm-full">
+          <div class="msm-type">MSM4</div>
+          <div class="msm-name">Full pseudorange + phase</div>
+          <div class="msm-content">
+            <div class="msm-item">Full-resolution pseudorange</div>
+            <div class="msm-item">Full-resolution carrier phase</div>
+            <div class="msm-item">Lock time indicator</div>
+            <div class="msm-item">Half-cycle ambiguity indicator</div>
+            <div class="msm-item">Signal-to-noise ratio (GNSS SNR)</div>
+          </div>
+          <div class="msm-use">Standard for most RTK applications. Good balance of data content and bandwidth.</div>
+        </div>
+        <div class="msm-card msm-extended">
+          <div class="msm-type">MSM5–6</div>
+          <div class="msm-name">Full + Doppler</div>
+          <div class="msm-content">
+            <div class="msm-item">All MSM4 fields</div>
+            <div class="msm-item">Doppler (MSM5)</div>
+            <div class="msm-item">Extended resolution fields (MSM6)</div>
+          </div>
+          <div class="msm-use">MSM5 when Doppler velocity data is needed. MSM6 for extended precision.</div>
+        </div>
+        <div class="msm-card msm-max">
+          <div class="msm-type">MSM7</div>
+          <div class="msm-name">Full + Doppler + extended</div>
+          <div class="msm-content">
+            <div class="msm-item">All MSM5 fields</div>
+            <div class="msm-item">Extended resolution pseudorange</div>
+            <div class="msm-item">Extended resolution phase</div>
+            <div class="msm-item">Extended resolution SNR</div>
+          </div>
+          <div class="msm-use">Maximum data content. Required for high-precision PPP post-processing. Higher bandwidth.</div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">⚡</div>
+        <div>
+          <strong>Recommended configuration for RTK:</strong> Output MSM4 for GPS, Galileo and
+          BeiDou (message types 1074, 1094, 1124) plus MT 1005 (base station coordinates) and
+          MT 1230 (GLONASS code-phase biases if using GLONASS). MSM4 is ~50% smaller than MSM7
+          while providing all data needed for RTK ambiguity resolution.
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="ssr">SSR — State Space Representation</h2>
+      <p>
+        SSR messages broadcast individual physical error corrections rather than lumped
+        pseudorange corrections. They are the basis for PPP-RTK correction services.
+        Unlike MSM (which carries observations), SSR carries <em>corrections to apply to your own observations</em>.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Message</th>
+              <th>Content</th>
+              <th>Update rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>MT 1057 (GPS)</strong><br><small>1240 Galileo, 1258 GLONASS</small></td>
+              <td>Orbit corrections — radial, along-track and cross-track corrections to broadcast ephemeris</td>
+              <td>5 – 60 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 1058 (GPS)</strong><br><small>1241 Galileo, 1259 GLONASS</small></td>
+              <td>Clock corrections — c0, c1, c2 polynomial coefficients correcting broadcast clock</td>
+              <td>1 – 10 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 1059 (GPS)</strong><br><small>1243 Galileo</small></td>
+              <td>Code biases — signal-specific code bias corrections (m)</td>
+              <td>60 – 120 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 1265 (GPS)</strong><br><small>1266 Galileo</small></td>
+              <td>Phase biases — uncalibrated phase delay corrections enabling integer ambiguity resolution</td>
+              <td>30 – 60 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 1264</strong></td>
+              <td>VTEC (Vertical Total Electron Content) ionospheric grid corrections</td>
+              <td>30 – 300 s</td>
+            </tr>
+            <tr>
+              <td><strong>MT 4076</strong></td>
+              <td>IGS SSR (extended precision orbit, clock and bias corrections)</td>
+              <td>1 – 5 s</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="common-messages">Common message reference</h2>
+      <p>
+        The messages you will most commonly configure, receive or diagnose in an RTK system:
+      </p>
+
+      <div class="msg-reference">
+        <div class="mr-row mr-header">
+          <span>MT</span>
+          <span>Name</span>
+          <span>Required for</span>
+          <span>Typical rate</span>
+        </div>
+        <div class="mr-row mr-essential">
+          <span>1005</span>
+          <span>Reference station coordinates (no height)</span>
+          <span>All RTK — rover needs base position</span>
+          <span>0.1 Hz</span>
+        </div>
+        <div class="mr-row mr-essential">
+          <span>1006</span>
+          <span>Reference station coordinates + antenna height</span>
+          <span>All RTK when antenna ARP matters</span>
+          <span>0.1 Hz</span>
+        </div>
+        <div class="mr-row">
+          <span>1007</span>
+          <span>Antenna descriptor</span>
+          <span>Precise survey (phase centre correction)</span>
+          <span>0.1 Hz</span>
+        </div>
+        <div class="mr-row mr-essential">
+          <span>1074</span>
+          <span>GPS MSM4</span>
+          <span>GPS RTK observations</span>
+          <span>1 Hz</span>
+        </div>
+        <div class="mr-row mr-essential">
+          <span>1094</span>
+          <span>Galileo MSM4</span>
+          <span>Galileo RTK observations</span>
+          <span>1 Hz</span>
+        </div>
+        <div class="mr-row mr-essential">
+          <span>1124</span>
+          <span>BeiDou MSM4</span>
+          <span>BeiDou RTK observations</span>
+          <span>1 Hz</span>
+        </div>
+        <div class="mr-row">
+          <span>1084</span>
+          <span>GLONASS MSM4</span>
+          <span>GLONASS RTK (if using GLONASS)</span>
+          <span>1 Hz</span>
+        </div>
+        <div class="mr-row">
+          <span>1230</span>
+          <span>GLONASS code-phase biases</span>
+          <span>Required for GLONASS RTK accuracy</span>
+          <span>0.1 Hz</span>
+        </div>
+        <div class="mr-row">
+          <span>1077</span>
+          <span>GPS MSM7</span>
+          <span>High-precision PPP post-processing</span>
+          <span>1 Hz</span>
+        </div>
+        <div class="mr-row">
+          <span>1033</span>
+          <span>Receiver and antenna descriptor</span>
+          <span>Network logging, quality control</span>
+          <span>0.1 Hz</span>
+        </div>
+      </div>
+
+      <!-- SECTION 8 -->
+      <h2 id="choosing">Choosing which messages to output</h2>
+      <p>
+        When configuring a base station, the choice of RTCM messages depends on your application:
+      </p>
+
+      <div class="config-grid">
+        <div class="config-card">
+          <div class="config-title">Minimum RTK (GPS+Galileo)</div>
+          <div class="config-msgs">
+            <span class="msg-badge essential">MT 1005</span>
+            <span class="msg-badge essential">MT 1074</span>
+            <span class="msg-badge essential">MT 1094</span>
+          </div>
+          <div class="config-bw">~500 bytes/s at 1 Hz</div>
+          <div class="config-desc">Sufficient for single-baseline RTK with GPS and Galileo. Works on 9600 bps radio modem.</div>
+        </div>
+        <div class="config-card">
+          <div class="config-title">Full multi-constellation RTK</div>
+          <div class="config-msgs">
+            <span class="msg-badge essential">MT 1006</span>
+            <span class="msg-badge essential">MT 1074</span>
+            <span class="msg-badge essential">MT 1084</span>
+            <span class="msg-badge essential">MT 1094</span>
+            <span class="msg-badge essential">MT 1124</span>
+            <span class="msg-badge">MT 1230</span>
+          </div>
+          <div class="config-bw">~1200 bytes/s at 1 Hz</div>
+          <div class="config-desc">GPS + GLONASS + Galileo + BeiDou. Maximum satellite count, fastest TTFF. Needs cellular or high-rate radio.</div>
+        </div>
+        <div class="config-card">
+          <div class="config-title">PPP post-processing quality</div>
+          <div class="config-msgs">
+            <span class="msg-badge essential">MT 1006</span>
+            <span class="msg-badge essential">MT 1007</span>
+            <span class="msg-badge essential">MT 1077</span>
+            <span class="msg-badge essential">MT 1097</span>
+            <span class="msg-badge essential">MT 1127</span>
+          </div>
+          <div class="config-bw">~2000 bytes/s at 1 Hz</div>
+          <div class="config-desc">MSM7 for extended resolution. Required for submitting to CORS networks and PPP post-processing services.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 9 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📦</div>
+          <div class="summary-title">Binary and compact</div>
+          <div class="summary-body">RTCM is binary — not human-readable. Designed for bandwidth-constrained links. A complete MSM4 epoch for 10 satellites is ~150 bytes vs ~800 bytes for equivalent NMEA.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📡</div>
+          <div class="summary-title">MSM4 for RTK</div>
+          <div class="summary-body">MSM4 (MT 1074/1084/1094/1124) is the standard for modern multi-constellation RTK. Always pair with MT 1005/1006 for base station coordinates.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🌐</div>
+          <div class="summary-title">SSR for PPP-RTK</div>
+          <div class="summary-body">SSR messages (MT 1057–1068, 1240–1270) broadcast individual error corrections for PPP-RTK. Different concept from MSM — corrections to apply, not observations to difference.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">✅</div>
+          <div class="summary-title">Always validate CRC</div>
+          <div class="summary-body">CRC-24Q is mandatory. Never process RTCM frames without checking the CRC. Radio links, particularly UHF, produce corrupt frames regularly.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/protocols/rinex" class="nav-prev">← RINEX</a>
+        <a href="/learn/protocols/ntrip" class="nav-next">NTRIP →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>RTCM 10403.3 — Differential GNSS (Global Navigation Satellite Systems) Services – Version 3. <a href="https://www.rtcm.org/differential-gnss-standards" target="_blank" rel="noopener noreferrer">rtcm.org →</a></li>
+          <li>RTCM 10410.1 — RTCM Standard for Networked Transport of RTCM via Internet Protocol (Ntrip), Version 2.0.</li>
+          <li>Wübbena, G., Schmitz, M. & Bagge, A. (2005). PPP-RTK: Precise point positioning using state-space representation in RTK networks. <em>ION GNSS 2005</em>.</li>
+          <li>u-blox Application Note: RTCM 3 Configuration. <a href="https://www.u-blox.com" target="_blank" rel="noopener noreferrer">u-blox.com →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  code { font-family: var(--mono); font-size: 13px; background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: var(--accent2); }
+  em { font-style: italic; }
+  small { font-size: 11px; color: var(--text3); display: block; margin-top: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  /* Overview cards */
+  .overview-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+  .ov-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .ov-icon { font-size: 20px; margin-bottom: 8px; }
+  .ov-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .ov-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+  /* Frame diagram */
+  .frame-diagram { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0; }
+  .frame-byte { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; flex: 1; min-width: 100px; }
+  .preamble { border-top: 2px solid var(--accent2); }
+  .reserved { border-top: 2px solid var(--text3); }
+  .length { border-top: 2px solid #fbbf24; }
+  .data { border-top: 2px solid var(--accent); flex: 3; }
+  .crc { border-top: 2px solid #a3e635; }
+  .fb-label { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .fb-bits { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-bottom: 3px; }
+  .fb-val { font-size: 12px; font-family: var(--mono); color: var(--accent2); margin-bottom: 6px; }
+  .fb-desc { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+
+  /* Message families */
+  .msg-families { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .family { display: grid; grid-template-columns: 100px 200px 1fr; gap: 12px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: baseline; }
+  .family-range { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+  .family-name { font-weight: 600; color: var(--text); }
+  .family-desc { font-size: 12px; color: var(--text3); line-height: 1.5; }
+
+  /* MSM grid */
+  .msm-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+  .msm-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .msm-basic { border-top: 2px solid var(--text3); }
+  .msm-full { border-top: 2px solid var(--accent); }
+  .msm-extended { border-top: 2px solid #fbbf24; }
+  .msm-max { border-top: 2px solid var(--accent2); }
+  .msm-type { font-size: 16px; font-weight: 700; font-family: var(--mono); color: var(--text); margin-bottom: 4px; }
+  .msm-name { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+  .msm-content { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  .msm-item { font-size: 11px; color: var(--text3); padding-left: 8px; border-left: 2px solid var(--border); }
+  .msm-use { font-size: 11px; color: var(--accent2); line-height: 1.5; font-style: italic; }
+
+  /* Message reference */
+  .msg-reference { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .mr-row { display: grid; grid-template-columns: 60px 1fr 1fr 80px; gap: 10px; padding: 9px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; align-items: center; }
+  .mr-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .mr-essential { border-left: 2px solid rgba(0,212,170,0.4); }
+  .mr-row span:first-child { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+  .mr-row span:nth-child(2) { color: var(--text); font-weight: 500; }
+  .mr-row span:nth-child(3) { color: var(--text3); }
+  .mr-row span:last-child { color: var(--text3); font-family: var(--mono); text-align: right; }
+
+  /* Config grid */
+  .config-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .config-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .config-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  .config-msgs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .msg-badge { font-size: 10px; font-family: var(--mono); padding: 2px 6px; border-radius: 4px; background: var(--bg3); color: var(--text3); }
+  .msg-badge.essential { background: rgba(0,212,170,0.1); color: var(--accent); }
+  .config-bw { font-size: 11px; font-family: var(--mono); color: var(--accent2); margin-bottom: 8px; }
+  .config-desc { font-size: 12px; color: var(--text3); line-height: 1.5; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 900px) {
+    .msm-grid { grid-template-columns: repeat(2, 1fr); }
+    .config-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .overview-cards { grid-template-columns: 1fr; }
+    .frame-diagram { flex-direction: column; }
+    .msm-grid { grid-template-columns: 1fr; }
+    .family { grid-template-columns: 1fr; gap: 4px; }
+    .mr-row { grid-template-columns: 50px 1fr; }
+    .mr-row span:nth-child(3), .mr-row span:last-child { display: none; }
+    .summary-grid { grid-template-columns: 1fr; }
+    h2 { font-size: 20px; }
+  }
+</style>

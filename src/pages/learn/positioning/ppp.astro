@@ -1,0 +1,635 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="PPP — Precise Point Positioning">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/positioning">Positioning</a>
+        <span>›</span>
+        <span>PPP</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Positioning · Article 4 of 5</span>
+        <h1>PPP — Precise Point Positioning</h1>
+        <p class="lead">
+          Precise Point Positioning achieves decimetre to centimetre accuracy using a single receiver
+          anywhere in the world — no local base station required. Instead of differencing with a nearby
+          reference, PPP models every error source explicitly using precise satellite orbit and clock
+          products computed from a global network of tracking stations.
+        </p>
+        <div class="article-meta">
+          <span>12 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#concept">The PPP concept</a></li>
+          <li><a href="#observation-model">PPP observation model</a></li>
+          <li><a href="#products">Precise orbit and clock products</a></li>
+          <li><a href="#convergence">Convergence — the main limitation</a></li>
+          <li><a href="#ppp-ar">PPP with ambiguity resolution</a></li>
+          <li><a href="#services">Free PPP services</a></li>
+          <li><a href="#rtk-vs-ppp">RTK vs PPP — when to use which</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="concept">The PPP concept</h2>
+      <p>
+        RTK works by differencing observations between a rover and a nearby base station —
+        spatially correlated errors cancel. PPP takes the opposite approach: rather than cancelling
+        errors by differencing, it <strong>models and corrects every error individually</strong>
+        using the most accurate information available.
+      </p>
+
+      <div class="concept-compare">
+        <div class="concept-col">
+          <div class="concept-title">RTK approach</div>
+          <div class="concept-method">Error cancellation</div>
+          <div class="concept-how">
+            Reference station nearby → difference observations → shared errors cancel automatically.
+            Fast convergence. Requires local infrastructure.
+          </div>
+        </div>
+        <div class="concept-divider">vs</div>
+        <div class="concept-col">
+          <div class="concept-title">PPP approach</div>
+          <div class="concept-method">Error modelling</div>
+          <div class="concept-how">
+            Precise satellite products from global network → model every error term explicitly.
+            Slow convergence. Works anywhere on Earth with no local infrastructure.
+          </div>
+        </div>
+      </div>
+
+      <p>
+        For PPP to work, the errors that RTK cancels by differencing must instead be modelled
+        with sufficient accuracy. The dominant contributors are:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Error source</th>
+              <th>Broadcast accuracy</th>
+              <th>Precise product accuracy</th>
+              <th>PPP requirement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Satellite orbit (radial)</td>
+              <td>~1 m</td>
+              <td>~2.5 cm (IGS final)</td>
+              <td>≤ 5 cm to achieve dm accuracy</td>
+            </tr>
+            <tr>
+              <td>Satellite clock</td>
+              <td>~1 m (0.5–2 m)</td>
+              <td>~75 ps (~2 cm)</td>
+              <td>≤ 1 ns (~30 cm) for dm; ≤ 0.1 ns (~3 cm) for cm</td>
+            </tr>
+            <tr>
+              <td>Ionospheric delay</td>
+              <td>~3 m (Klobuchar ~50%)</td>
+              <td>Eliminated by dual-freq</td>
+              <td>Dual-frequency mandatory for cm PPP</td>
+            </tr>
+            <tr>
+              <td>Tropospheric delay (wet)</td>
+              <td>~0.2 m residual</td>
+              <td>Estimated in filter</td>
+              <td>Estimated simultaneously with position</td>
+            </tr>
+            <tr>
+              <td>Phase wind-up</td>
+              <td>Not modelled</td>
+              <td>Corrected analytically</td>
+              <td>Must correct for sub-cm PPP</td>
+            </tr>
+            <tr>
+              <td>Solid Earth tides</td>
+              <td>Not modelled</td>
+              <td>Corrected (IERS conventions)</td>
+              <td>Up to 0.3 m vertical — must correct</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="observation-model">PPP observation model</h2>
+      <p>
+        PPP uses undifferenced carrier phase and pseudorange observations from a single receiver.
+        After applying precise orbit, clock and deterministic model corrections, the linearised
+        observation equations are:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">P_IF = ρ + c·δt_r − c·δt^s + T + ε_P</div>
+        <div class="formula">Φ_IF = ρ + c·δt_r − c·δt^s + T + λ_IF·N_IF + ε_Φ</div>
+        <div class="formula-desc">
+          P_IF = ionosphere-free code pseudorange (m), Φ_IF = ionosphere-free carrier phase (m),
+          ρ = geometric range corrected for satellite orbit, phase wind-up, solid Earth tides,
+          relativistic effects (m), c·δt_r = receiver clock error (m), c·δt^s = satellite clock
+          error from precise products (m), T = tropospheric delay (estimated in filter),
+          N_IF = ionosphere-free float ambiguity (m), ε = observation noise.
+        </div>
+      </div>
+
+      <p>
+        The unknowns estimated in the PPP filter are:
+      </p>
+
+      <div class="unknowns-ppp">
+        <div class="unk-card">
+          <div class="unk-sym">Δx, Δy, Δz</div>
+          <div class="unk-name">Position increment</div>
+          <div class="unk-note">3D position correction from a priori</div>
+        </div>
+        <div class="unk-card">
+          <div class="unk-sym">c·δt_r</div>
+          <div class="unk-name">Receiver clock</div>
+          <div class="unk-note">Usually modelled as white noise — reset each epoch</div>
+        </div>
+        <div class="unk-card">
+          <div class="unk-sym">ZWD</div>
+          <div class="unk-name">Zenith wet delay</div>
+          <div class="unk-note">Tropospheric wet component — estimated as random walk</div>
+        </div>
+        <div class="unk-card unk-ambiguity">
+          <div class="unk-sym">N_IF^i</div>
+          <div class="unk-name">Float ambiguity</div>
+          <div class="unk-note">One per satellite — converges slowly as a real-valued parameter</div>
+        </div>
+      </div>
+
+      <p>
+        The ambiguities in standard PPP are <strong>real-valued</strong> (float), not integers.
+        Because there is no differencing, the integer property of the ambiguity is absorbed into
+        satellite and receiver hardware biases (uncalibrated phase delays). This is why standard
+        PPP requires a long convergence period — it must estimate many parameters simultaneously
+        from scratch.
+      </p>
+
+      <!-- SECTION 3 -->
+      <h2 id="products">Precise orbit and clock products</h2>
+      <p>
+        PPP accuracy is directly limited by the accuracy of the satellite orbit and clock products
+        it uses. The <strong>International GNSS Service (IGS)</strong> — a voluntary federation of
+        more than 400 GNSS tracking stations — produces the world's most accurate publicly available
+        products:
+      </p>
+
+      <div class="products-table">
+        <div class="prod-row prod-header">
+          <span>Product</span>
+          <span>Orbit accuracy</span>
+          <span>Clock accuracy</span>
+          <span>Latency</span>
+          <span>Use case</span>
+        </div>
+        <div class="prod-row">
+          <span><strong>Broadcast</strong></span>
+          <span class="bad">~1 m</span>
+          <span class="bad">~1 m</span>
+          <span class="good">Real-time</span>
+          <span>Standalone GNSS</span>
+        </div>
+        <div class="prod-row">
+          <span><strong>IGS Ultra-rapid</strong></span>
+          <span class="warn">~5 cm</span>
+          <span class="warn">~150 ps</span>
+          <span class="good">Real-time (predicted half)</span>
+          <span>Real-time PPP</span>
+        </div>
+        <div class="prod-row">
+          <span><strong>IGS Rapid</strong></span>
+          <span class="ok">~2.5 cm</span>
+          <span class="ok">~75 ps</span>
+          <span class="warn">17 – 41 hours</span>
+          <span>Near-real-time PPP</span>
+        </div>
+        <div class="prod-row">
+          <span><strong>IGS Final</strong></span>
+          <span class="good">~2.5 cm</span>
+          <span class="good">~75 ps</span>
+          <span class="bad">12 – 18 days</span>
+          <span>Post-processing</span>
+        </div>
+        <div class="prod-row">
+          <span><strong>CNES/CLS (RT)</strong></span>
+          <span class="ok">~3 cm</span>
+          <span class="ok">~100 ps</span>
+          <span class="good">Real-time</span>
+          <span>PPP-AR, PPP-RTK</span>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🌐</div>
+        <div>
+          <strong>Real-time precise products:</strong> For real-time PPP, precise orbit and clock
+          corrections are broadcast via the <strong>IGS State Space Representation (SSR)</strong>
+          service over the internet (NTRIP) or satellite (L-band correction services).
+          Commercial services — Trimble RTX, Galileo HAS, TerraStar — use the same principle
+          but with proprietary correction streams tuned for fast convergence and high reliability.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="convergence">Convergence — the main limitation</h2>
+      <p>
+        The most significant practical limitation of PPP is <strong>convergence time</strong> —
+        the period after initialisation before the solution reaches its full accuracy. Unlike RTK,
+        which can achieve centimetre accuracy in seconds after a fixed ambiguity, PPP typically
+        requires <strong>20–40 minutes</strong> to converge to decimetre accuracy and
+        <strong>1–3 hours</strong> for centimetre accuracy.
+      </p>
+
+      <!-- Convergence chart -->
+      <div class="convergence-chart">
+        <div class="conv-title">Typical PPP convergence behaviour</div>
+        <div class="conv-y-label">Horizontal error</div>
+        <svg viewBox="0 0 580 200" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <!-- Grid lines -->
+          <line x1="60" y1="20" x2="560" y2="20" stroke="var(--border)" stroke-width="0.5"/>
+          <line x1="60" y1="60" x2="560" y2="60" stroke="var(--border)" stroke-width="0.5"/>
+          <line x1="60" y1="100" x2="560" y2="100" stroke="var(--border)" stroke-width="0.5"/>
+          <line x1="60" y1="140" x2="560" y2="140" stroke="var(--border)" stroke-width="0.5"/>
+          <line x1="60" y1="170" x2="560" y2="170" stroke="var(--border)" stroke-width="0.5"/>
+          <!-- Y axis labels -->
+          <text x="52" y="24" text-anchor="end" font-size="10" fill="var(--text3)" font-family="var(--mono)">1 m</text>
+          <text x="52" y="64" text-anchor="end" font-size="10" fill="var(--text3)" font-family="var(--mono)">50 cm</text>
+          <text x="52" y="104" text-anchor="end" font-size="10" fill="var(--text3)" font-family="var(--mono)">20 cm</text>
+          <text x="52" y="144" text-anchor="end" font-size="10" fill="var(--text3)" font-family="var(--mono)">10 cm</text>
+          <text x="52" y="174" text-anchor="end" font-size="10" fill="var(--text3)" font-family="var(--mono)">5 cm</text>
+          <!-- X axis labels -->
+          <text x="60"  y="188" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">0</text>
+          <text x="160" y="188" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">10 min</text>
+          <text x="260" y="188" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">20 min</text>
+          <text x="360" y="188" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">40 min</text>
+          <text x="460" y="188" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">60 min</text>
+          <text x="560" y="188" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">90 min</text>
+          <!-- PPP float convergence curve -->
+          <path d="M60,22 C80,22 100,28 130,50 C160,72 180,90 220,110 C260,128 300,142 360,158 C420,166 480,170 560,172"
+            fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.8"/>
+          <!-- PPP-AR convergence curve -->
+          <path d="M60,22 C80,22 100,30 130,55 C160,78 190,100 230,115 C280,128 360,155 440,165 C500,170 540,172 560,173"
+            fill="none" stroke="var(--accent)" stroke-width="2" opacity="0.8"/>
+          <!-- RTK reference line -->
+          <line x1="60" y1="172" x2="560" y2="172" stroke="var(--accent2)" stroke-width="1.5" stroke-dasharray="6 3"/>
+          <!-- Legend -->
+          <rect x="380" y="28" width="12" height="3" fill="#fbbf24" opacity="0.8"/>
+          <text x="396" y="34" font-size="10" fill="var(--text2)" font-family="var(--sans)">PPP float</text>
+          <rect x="380" y="46" width="12" height="3" fill="var(--accent)" opacity="0.8"/>
+          <text x="396" y="52" font-size="10" fill="var(--text2)" font-family="var(--sans)">PPP-AR</text>
+          <line x1="380" y1="65" x2="392" y2="65" stroke="var(--accent2)" stroke-width="1.5" stroke-dasharray="4 2"/>
+          <text x="396" y="68" font-size="10" fill="var(--text2)" font-family="var(--sans)">RTK (reference)</text>
+        </svg>
+      </div>
+
+      <p>
+        Convergence is slow because the PPP filter must simultaneously estimate position,
+        receiver clock, wet tropospheric delay and one float ambiguity per satellite — all
+        from scratch. As observations accumulate, the ambiguity estimates improve and the
+        position converges.
+      </p>
+
+      <p>
+        Convergence is faster when:
+      </p>
+      <ul>
+        <li>More satellites are tracked (multi-constellation)</li>
+        <li>More frequencies are available (dual or triple-frequency)</li>
+        <li>Precise real-time clock corrections are available with low latency</li>
+        <li>Ionospheric conditions are stable (low Kp, no scintillation)</li>
+        <li>A good a priori tropospheric model is used</li>
+      </ul>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Re-convergence after outage:</strong> If the receiver loses satellite lock
+          (tunnel, building), the ambiguities must be re-estimated from scratch. A 10-second
+          outage causes a re-convergence period of several minutes. This is PPP's most
+          significant practical disadvantage for kinematic applications compared to RTK.
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="ppp-ar">PPP with ambiguity resolution</h2>
+      <p>
+        Standard PPP estimates ambiguities as real numbers (float). The improvement from
+        <strong>PPP-AR</strong> (PPP with Ambiguity Resolution) comes from fixing these to
+        integers — just as RTK does — which tightens the position solution and accelerates
+        convergence.
+      </p>
+      <p>
+        The challenge is that in undifferenced PPP, the integer property of the ambiguity is
+        corrupted by satellite and receiver hardware phase biases (uncalibrated phase delays,
+        UPDs). To recover integer ambiguities, the correction service must also estimate and
+        broadcast satellite UPDs (also called phase biases or clock biases in narrow-lane form).
+      </p>
+
+      <p>
+        With satellite UPD corrections applied, the ambiguities recover their integer nature
+        and can be fixed using standard LAMBDA. PPP-AR benefits:
+      </p>
+
+      <div class="benefit-grid">
+        <div class="benefit-card">
+          <div class="ben-val">2–3×</div>
+          <div class="ben-label">Faster convergence</div>
+          <div class="ben-desc">Fixing ambiguities accelerates position convergence from 30+ min to 10–20 min.</div>
+        </div>
+        <div class="benefit-card">
+          <div class="ben-val">1–3 cm</div>
+          <div class="ben-label">Horizontal accuracy</div>
+          <div class="ben-desc">After convergence with fixed ambiguities. Comparable to RTK in steady-state.</div>
+        </div>
+        <div class="benefit-card">
+          <div class="ben-val">Global</div>
+          <div class="ben-label">Coverage</div>
+          <div class="ben-desc">No local base station. Works anywhere with a clear sky view and internet/satellite connection for corrections.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="services">Free PPP services</h2>
+      <p>
+        Several free PPP correction services are available, the most significant being
+        <strong>Galileo High Accuracy Service (HAS)</strong>:
+      </p>
+
+      <div class="service-cards">
+        <div class="service-card service-flagship">
+          <div class="svc-name">Galileo HAS</div>
+          <div class="svc-badge">Free · Global</div>
+          <div class="svc-desc">
+            Broadcast free of charge via Galileo E6-B signal. No internet connection required —
+            corrections are in the satellite signal itself. Covers GPS and Galileo satellites.
+            Horizontal accuracy ~20 cm after convergence. Available globally to any receiver
+            with an E6-capable antenna.
+          </div>
+          <div class="svc-specs">
+            <span>Signal: Galileo E6-B (1278.75 MHz)</span>
+            <span>Format: HAS ICD</span>
+            <span>Accuracy: ~20 cm H (95%)</span>
+          </div>
+        </div>
+        <div class="service-card">
+          <div class="svc-name">CNES PPP-Wizard</div>
+          <div class="svc-badge">Free · Research</div>
+          <div class="svc-desc">
+            Open-source PPP-AR software from CNES. Uses IGS real-time clock and phase bias products.
+            Centimetre accuracy after convergence. Primarily used for research and validation.
+          </div>
+          <div class="svc-specs">
+            <span>Delivery: NTRIP</span>
+            <span>Format: RTCM SSR</span>
+          </div>
+        </div>
+        <div class="service-card">
+          <div class="svc-name">NRCan CSRS-PPP</div>
+          <div class="svc-badge">Free · Post-processing</div>
+          <div class="svc-desc">
+            Natural Resources Canada online post-processing service. Submit a RINEX file,
+            receive a PPP solution with centimetre accuracy using IGS final products.
+            No hardware cost. Ideal for geodetic control surveys.
+          </div>
+          <div class="svc-specs">
+            <span>Delivery: Web upload</span>
+            <span>Latency: Minutes</span>
+            <span>Accuracy: ~2 cm H</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="rtk-vs-ppp">RTK vs PPP — when to use which</h2>
+
+      <div class="comparison-table">
+        <div class="comp-row comp-header">
+          <span></span>
+          <span>RTK</span>
+          <span>PPP</span>
+        </div>
+        <div class="comp-row">
+          <span class="comp-factor">Accuracy (converged)</span>
+          <span class="good">1 – 3 cm</span>
+          <span class="ok">5 – 20 cm (float) · 1–3 cm (AR)</span>
+        </div>
+        <div class="comp-row">
+          <span class="comp-factor">Time to accuracy</span>
+          <span class="good">Seconds (fixed)</span>
+          <span class="bad">20 – 60 min (float) · 10 – 20 min (AR)</span>
+        </div>
+        <div class="comp-row">
+          <span class="comp-factor">Infrastructure</span>
+          <span class="warn">Base station or CORS network</span>
+          <span class="good">None (or internet/satellite for RT)</span>
+        </div>
+        <div class="comp-row">
+          <span class="comp-factor">Coverage</span>
+          <span class="warn">Regional (CORS dependent)</span>
+          <span class="good">Global</span>
+        </div>
+        <div class="comp-row">
+          <span class="comp-factor">After signal outage</span>
+          <span class="good">Re-initialises quickly</span>
+          <span class="bad">Full re-convergence</span>
+        </div>
+        <div class="comp-row">
+          <span class="comp-factor">Cost</span>
+          <span class="warn">CORS subscription or own base</span>
+          <span class="good">Free (Galileo HAS, CSRS-PPP)</span>
+        </div>
+        <div class="comp-row">
+          <span class="comp-factor">Best for</span>
+          <span>Survey, machine control, RTK agriculture</span>
+          <span>Remote areas, offshore, airborne</span>
+        </div>
+      </div>
+
+      <!-- SECTION 8 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">🌍</div>
+          <div class="summary-title">No base station needed</div>
+          <div class="summary-body">PPP uses precise global satellite products instead of a local reference. Works anywhere on Earth — offshore, airborne, remote wilderness.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">⏳</div>
+          <div class="summary-title">Convergence is the cost</div>
+          <div class="summary-body">20–60 minutes to decimetres, 1–3 hours to centimetres for float PPP. Re-convergence after outages. This is the fundamental trade-off vs RTK.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🎯</div>
+          <div class="summary-title">PPP-AR accelerates convergence</div>
+          <div class="summary-body">Satellite phase bias corrections allow integer ambiguity fixing. Cuts convergence to 10–20 minutes. Galileo HAS delivers this free globally via E6.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📡</div>
+          <div class="summary-title">Precise products are key</div>
+          <div class="summary-body">IGS orbit and clock products (2.5 cm / 75 ps) are what separate PPP from standalone. Real-time products enable real-time PPP via NTRIP or L-band.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/positioning/rtk" class="nav-prev">← RTK</a>
+        <a href="/learn/positioning/ppp-rtk" class="nav-next">PPP-RTK →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Zumberge, J. F., Heflin, M. B., Jefferson, D. C., Watkins, M. M. & Webb, F. H. (1997). Precise point positioning for the efficient and robust analysis of GPS data from large networks. <em>Journal of Geophysical Research</em>, 102(B3), 5005–5017.</li>
+          <li>Ge, M., Gendt, G., Rothacher, M., Shi, C. & Liu, J. (2008). Resolution of GPS carrier-phase ambiguities in precise point positioning (PPP) with daily observations. <em>Journal of Geodesy</em>, 82, 389–399.</li>
+          <li>Galileo HAS ICD. <a href="https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo-HAS-SIS-ICD_v1.0.pdf" target="_blank" rel="noopener noreferrer">GSC Europa →</a></li>
+          <li>IGS Products. <a href="https://igs.org/products/" target="_blank" rel="noopener noreferrer">igs.org/products →</a></li>
+          <li>NRCan CSRS-PPP. <a href="https://webapp.csrs-scrs.nrcan-rncan.gc.ca/geod/tools-outils/ppp.php" target="_blank" rel="noopener noreferrer">NRCan →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-top: 8px; }
+
+  /* Concept compare */
+  .concept-compare { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; margin: 20px 0; }
+  .concept-col { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .concept-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .concept-method { font-size: 12px; font-family: var(--mono); color: var(--accent); margin-bottom: 10px; }
+  .concept-how { font-size: 13px; color: var(--text3); line-height: 1.6; }
+  .concept-divider { font-size: 18px; font-weight: 700; color: var(--text3); text-align: center; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+
+  /* PPP unknowns */
+  .unknowns-ppp { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+  .unk-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; text-align: center; }
+  .unk-ambiguity { border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.04); }
+  .unk-sym { font-size: 18px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .unk-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .unk-note { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+  /* Products table */
+  .products-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .prod-row { display: grid; grid-template-columns: 160px 90px 90px 140px 1fr; gap: 10px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .prod-header { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .good { color: var(--accent); font-family: var(--mono); font-size: 12px; }
+  .ok { color: #a3e635; font-family: var(--mono); font-size: 12px; }
+  .warn { color: #fbbf24; font-family: var(--mono); font-size: 12px; }
+  .bad { color: #ff4757; font-family: var(--mono); font-size: 12px; }
+
+  /* Convergence chart */
+  .convergence-chart { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 20px 0; }
+  .conv-title { font-size: 12px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--mono); margin-bottom: 8px; }
+  .conv-y-label { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-bottom: 4px; }
+
+  /* Benefit grid */
+  .benefit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .benefit-card { background: var(--bg2); border: 1px solid rgba(0,212,170,0.2); border-radius: 10px; padding: 18px; text-align: center; }
+  .ben-val { font-size: 28px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .ben-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .ben-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+  /* Service cards */
+  .service-cards { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+  .service-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .service-flagship { border-color: rgba(0,212,170,0.3); }
+  .svc-name { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .svc-badge { font-size: 11px; font-family: var(--mono); color: var(--accent); margin-bottom: 10px; }
+  .svc-desc { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 10px; }
+  .svc-specs { display: flex; flex-wrap: wrap; gap: 10px; }
+  .svc-specs span { font-size: 11px; font-family: var(--mono); color: var(--text3); background: var(--bg3); padding: 2px 8px; border-radius: 4px; }
+
+  /* Comparison table */
+  .comparison-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .comp-row { display: grid; grid-template-columns: 160px 1fr 1fr; gap: 12px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .comp-header { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .comp-factor { color: var(--text); font-weight: 500; font-size: 13px; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .concept-compare { grid-template-columns: 1fr; }
+    .concept-divider { display: none; }
+    .unknowns-ppp { grid-template-columns: repeat(2, 1fr); }
+    .benefit-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .prod-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+    .prod-header { display: none; }
+    .comp-row { grid-template-columns: 1fr; gap: 4px; }
+    .comp-header { display: none; }
+    h2 { font-size: 20px; }
+  }
+</style>

@@ -1,0 +1,601 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="RTK — Real-Time Kinematic">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/positioning">Positioning</a>
+        <span>›</span>
+        <span>RTK</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Positioning · Article 3 of 5</span>
+        <h1>RTK — Real-Time Kinematic</h1>
+        <p class="lead">
+          RTK delivers centimetre-level positioning by measuring the carrier phase of GNSS signals
+          rather than just the code. The challenge is that carrier phase has an unknown number of
+          whole cycles — the integer ambiguity — which must be resolved correctly before centimetre
+          accuracy is possible. Resolving this ambiguity is the central problem of RTK.
+        </p>
+        <div class="article-meta">
+          <span>14 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#why-carrier-phase">Why carrier phase?</a></li>
+          <li><a href="#double-difference">Double-differencing</a></li>
+          <li><a href="#ambiguity">The integer ambiguity problem</a></li>
+          <li><a href="#float-fixed">Float vs fixed solution</a></li>
+          <li><a href="#resolution">Ambiguity resolution — LAMBDA</a></li>
+          <li><a href="#ttff">Time to first fix</a></li>
+          <li><a href="#network-rtk">Network RTK</a></li>
+          <li><a href="#limitations">Limitations and failure modes</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="why-carrier-phase">Why carrier phase?</h2>
+      <p>
+        Code pseudorange measurements have noise of ~0.3 m and systematic errors of several metres.
+        The carrier wave — the underlying sine wave onto which the code is modulated — can be
+        measured with far greater precision. The GPS L1 carrier has a wavelength of 19.03 cm,
+        and a receiver can measure its phase to about 1% of a cycle — roughly <strong>2 mm</strong>.
+      </p>
+      <p>
+        The carrier phase observation from receiver r to satellite i is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">Φ_r^i = (1/λ)·ρ_r^i + N_r^i − f·δt_r + f·δt^i − (1/λ)·I_r^i + (1/λ)·T_r^i + ε</div>
+        <div class="formula-desc">
+          Φ = carrier phase (cycles), λ = wavelength (m), ρ = geometric range (m),
+          N = integer ambiguity (whole cycles — unknown), δt_r = receiver clock offset (s),
+          δt^i = satellite clock offset (s), I = ionospheric delay (m), T = tropospheric delay (m),
+          ε = measurement noise (~0.002 m).
+        </div>
+      </div>
+
+      <p>
+        The problem is the <strong>integer ambiguity N</strong>. When the receiver first locks
+        onto a satellite, it can measure the fractional phase (less than one cycle) very precisely,
+        but it has no way to count how many complete wavelengths lie between satellite and receiver.
+        N could be 100,000 or 100,001 — both are geometrically consistent with the measurement.
+      </p>
+
+      <!-- Phase ambiguity illustration -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">The integer ambiguity — receiver sees fractional phase, not the whole count</div>
+        <svg viewBox="0 0 680 160" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <!-- Satellite -->
+          <circle cx="60" cy="40" r="10" fill="var(--accent)" opacity="0.8"/>
+          <text x="60" y="26" text-anchor="middle" font-size="11" fill="var(--accent)" font-family="var(--sans)">Satellite</text>
+          <!-- Receiver -->
+          <rect x="580" y="28" width="50" height="28" rx="4" fill="none" stroke="var(--accent2)" stroke-width="1"/>
+          <text x="605" y="46" text-anchor="middle" font-size="11" fill="var(--accent2)" font-family="var(--sans)">Rx</text>
+          <!-- Wave -->
+          <path d="M70,42 Q100,18 130,42 Q160,66 190,42 Q220,18 250,42 Q280,66 310,42 Q340,18 370,42 Q400,66 430,42 Q460,18 490,42 Q520,66 550,42 Q565,30 575,34"
+            fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.7"/>
+          <!-- N cycles brace -->
+          <line x1="70" y1="90" x2="550" y2="90" stroke="var(--text3)" stroke-width="0.8"/>
+          <line x1="70" y1="84" x2="70" y2="96" stroke="var(--text3)" stroke-width="0.8"/>
+          <line x1="550" y1="84" x2="550" y2="96" stroke="var(--text3)" stroke-width="0.8"/>
+          <text x="310" y="108" text-anchor="middle" font-size="12" fill="var(--text2)" font-family="var(--mono)">N whole cycles (unknown integer)</text>
+          <!-- Fractional part brace -->
+          <line x1="550" y1="118" x2="580" y2="118" stroke="var(--accent2)" stroke-width="1"/>
+          <line x1="550" y1="112" x2="550" y2="124" stroke="var(--accent2)" stroke-width="0.8"/>
+          <line x1="580" y1="112" x2="580" y2="124" stroke="var(--accent2)" stroke-width="0.8"/>
+          <text x="565" y="140" text-anchor="middle" font-size="11" fill="var(--accent2)" font-family="var(--mono)">φ (measured)</text>
+          <text x="310" y="150" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--sans)">Total range = (N + φ) × λ — must solve for N</text>
+        </svg>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="double-difference">Double-differencing</h2>
+      <p>
+        The raw carrier phase observation contains multiple nuisance terms — receiver clock error,
+        satellite clock error, ionospheric delay, tropospheric delay. RTK removes these by forming
+        <strong>double differences</strong> between measurements.
+      </p>
+
+      <h3>Step 1 — Single difference (between receivers)</h3>
+      <p>
+        Subtract the reference station's phase observation from the rover's for the same satellite.
+        This cancels the satellite clock error (identical for both receivers at the same epoch):
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">ΔΦ^i = Φ_rover^i − Φ_ref^i = (1/λ)·Δρ^i + ΔN^i − f·Δδt_r − (1/λ)·ΔI^i + (1/λ)·ΔT^i</div>
+        <div class="formula-desc">
+          Δ denotes between-receiver difference. Satellite clock δt^i cancels exactly.
+          Ionospheric and tropospheric delays become small residuals (proportional to baseline length).
+          ΔN^i = N_rover^i − N_ref^i — still an integer, still unknown.
+        </div>
+      </div>
+
+      <h3>Step 2 — Double difference (between receivers and satellites)</h3>
+      <p>
+        Now subtract the single-difference for a reference satellite j from the single-difference
+        for satellite i. This cancels the receiver clock error:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">∇ΔΦ^ij = ΔΦ^i − ΔΦ^j = (1/λ)·∇Δρ^ij + ∇ΔN^ij − (1/λ)·∇ΔI^ij + (1/λ)·∇ΔT^ij + ε</div>
+        <div class="formula-desc">
+          ∇Δ denotes double difference. Receiver clock error Δδt_r cancels exactly.
+          ∇ΔN^ij = (N_rover^i − N_ref^i) − (N_rover^j − N_ref^j) — an integer combination.
+          With n satellites, there are n−1 independent double differences.
+          Residual ionosphere and troposphere are small for short baselines (&lt;20 km).
+        </div>
+      </div>
+
+      <div class="differencing-visual">
+        <div class="diff-row">
+          <div class="diff-label">Raw phase</div>
+          <div class="diff-terms">
+            <span class="term-keep">range</span>
+            <span class="term-keep">N (unknown)</span>
+            <span class="term-cancel">rx clock</span>
+            <span class="term-cancel">sv clock</span>
+            <span class="term-keep">iono</span>
+            <span class="term-keep">tropo</span>
+            <span class="term-keep">noise</span>
+          </div>
+        </div>
+        <div class="diff-row">
+          <div class="diff-label">Single diff</div>
+          <div class="diff-terms">
+            <span class="term-keep">Δrange</span>
+            <span class="term-keep">ΔN</span>
+            <span class="term-keep">rx clock</span>
+            <span class="term-gone">sv clock ✓</span>
+            <span class="term-small">ΔI (small)</span>
+            <span class="term-small">ΔT (small)</span>
+            <span class="term-keep">noise</span>
+          </div>
+        </div>
+        <div class="diff-row">
+          <div class="diff-label">Double diff</div>
+          <div class="diff-terms">
+            <span class="term-keep">∇Δrange</span>
+            <span class="term-keep">∇ΔN (integer!)</span>
+            <span class="term-gone">rx clock ✓</span>
+            <span class="term-gone">sv clock ✓</span>
+            <span class="term-small">∇ΔI (tiny)</span>
+            <span class="term-small">∇ΔT (tiny)</span>
+            <span class="term-keep">noise</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="ambiguity">The integer ambiguity problem</h2>
+      <p>
+        After double-differencing, the unknowns are the <strong>baseline components</strong>
+        (Δx, Δy, Δz — the vector from reference to rover) and the <strong>integer ambiguities</strong>
+        ∇ΔN^ij for each satellite pair. The double-differenced observation equation is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">∇ΔΦ^ij = (1/λ)·∇Δρ^ij(Δx,Δy,Δz) + ∇ΔN^ij + ε</div>
+        <div class="formula-desc">
+          The geometric term ∇Δρ^ij depends on the baseline and the known satellite positions.
+          With n satellites, there are n−1 double-difference equations and n−1 integer unknowns
+          plus 3 baseline components = (n+2) unknowns total. With enough epochs and satellites,
+          the system is overdetermined.
+        </div>
+      </div>
+
+      <p>
+        The difficulty is that N must be an <em>integer</em> — not just any real number. Finding
+        the correct integers from real-valued least squares estimates is the core computational
+        challenge of RTK, known as <strong>integer least squares</strong>.
+      </p>
+
+      <!-- SECTION 4 -->
+      <h2 id="float-fixed">Float vs fixed solution</h2>
+      <p>
+        RTK processing proceeds through distinct stages, each with different accuracy:
+      </p>
+
+      <div class="solution-stages">
+        <div class="stage stage-code">
+          <div class="stage-name">Code solution</div>
+          <div class="stage-acc">~0.3 – 1.0 m</div>
+          <div class="stage-desc">
+            Differential code (pseudorange) solution. Fast — available immediately.
+            Used as starting point for float solution initialisation.
+          </div>
+        </div>
+        <div class="stage-arrow">→</div>
+        <div class="stage stage-float">
+          <div class="stage-name">Float solution</div>
+          <div class="stage-acc">~0.05 – 0.3 m</div>
+          <div class="stage-desc">
+            Carrier phase included but ambiguities treated as real numbers (not constrained to integers).
+            Kalman filter accumulates measurements. Accuracy improves over time as filter converges.
+          </div>
+        </div>
+        <div class="stage-arrow">→</div>
+        <div class="stage stage-fixed">
+          <div class="stage-name">Fixed solution</div>
+          <div class="stage-acc">~0.01 – 0.03 m</div>
+          <div class="stage-desc">
+            Integer ambiguities resolved and fixed to correct integers. Position computed from
+            carrier phase with known integers — centimetre accuracy. The goal state.
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Wrong fix is worse than float:</strong> If ambiguities are fixed to the wrong
+          integers — a <em>wrong fix</em> — the position error is a multiple of the wavelength
+          (~19 cm on L1) and can be metres. A float solution with 0.2 m accuracy is safer than
+          a wrong fix with 0.5 m error. Quality RTK engines implement validation tests (ratio test,
+          ADOP, success rate) to ensure fixes are accepted only when they are very likely correct.
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="resolution">Ambiguity resolution — LAMBDA</h2>
+      <p>
+        The standard algorithm for integer ambiguity resolution is <strong>LAMBDA</strong>
+        (Least-squares AMBiguity Decorrelation Adjustment), developed by Peter Teunissen at
+        Delft University of Technology in 1993. It remains the industry standard.
+      </p>
+      <p>
+        LAMBDA operates in three steps:
+      </p>
+
+      <ol class="steps">
+        <li>
+          <strong>Float solution:</strong> Estimate ambiguities as real numbers â with covariance
+          matrix Q_â using least squares or Kalman filter. The ambiguities are highly correlated —
+          directly searching the integer space would be computationally prohibitive.
+        </li>
+        <li>
+          <strong>Decorrelation (Z-transformation):</strong> Apply an integer transformation
+          Z to decorrelate the ambiguities: ẑ = Z·â. The transformed ambiguities have much
+          smaller, more nearly equal variances, reducing the search space from an elongated
+          ellipsoid to a near-sphere. This is the key innovation of LAMBDA.
+        </li>
+        <li>
+          <strong>Integer search:</strong> Search for the integer vector ž that minimises the
+          weighted sum of squares (J = (ž − ẑ)ᵀ Q_ẑ⁻¹ (ž − ẑ)) within an ellipsoidal
+          search region. Return the best candidate ž₁ and second-best ž₂.
+          Transform back: N̂ = Z⁻ᵀ·ž₁.
+        </li>
+      </ol>
+
+      <div class="formula-block">
+        <div class="formula">ratio = J(ž₂) / J(ž₁)</div>
+        <div class="formula-desc">
+          The <strong>ratio test</strong> validates the fix. If the second-best solution is much
+          worse than the best (ratio &gt; threshold, typically 2.0–3.0), the fix is accepted.
+          A low ratio means two competing integer solutions are close — the fix is uncertain.
+          Never accept a fix with ratio &lt; 1.5 for precision applications.
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="ttff">Time to first fix</h2>
+      <p>
+        <strong>TTFF</strong> (Time to First Fix) is how long RTK takes to resolve the integer
+        ambiguities and deliver a fixed solution after initialisation. It depends on several factors:
+      </p>
+
+      <div class="ttff-grid">
+        <div class="ttff-card">
+          <div class="ttff-factor">Baseline length</div>
+          <div class="ttff-detail">Short baselines (&lt;5 km) have negligible differential ionosphere — ambiguities resolve in seconds. Long baselines need ionospheric modelling or dual-frequency to decorrelate.</div>
+        </div>
+        <div class="ttff-card">
+          <div class="ttff-factor">Number of frequencies</div>
+          <div class="ttff-detail">Dual and triple frequency receivers form widelane (86.2 cm wavelength for L1/L2) and narrowlane combinations that greatly accelerate ambiguity resolution. Single-frequency RTK can take 1–5 minutes.</div>
+        </div>
+        <div class="ttff-card">
+          <div class="ttff-factor">Number of satellites</div>
+          <div class="ttff-detail">More satellites = more independent observations = faster convergence. Multi-constellation (GPS+Galileo+BeiDou) can reduce TTFF from minutes to seconds.</div>
+        </div>
+        <div class="ttff-card">
+          <div class="ttff-factor">Ionospheric activity</div>
+          <div class="ttff-detail">High Kp or scintillation introduces rapidly changing biases that prevent stable ambiguity resolution. Single-frequency RTK may fail entirely during G3+ geomagnetic storms.</div>
+        </div>
+      </div>
+
+      <div class="ttff-comparison">
+        <div class="ttff-title">Typical TTFF by configuration</div>
+        <div class="ttff-row">
+          <div class="ttff-config">Single-freq, GPS only, 10 km baseline</div>
+          <div class="ttff-time bad">2 – 10 min</div>
+        </div>
+        <div class="ttff-row">
+          <div class="ttff-config">Dual-freq, GPS only, 10 km baseline</div>
+          <div class="ttff-time warn">30 – 120 s</div>
+        </div>
+        <div class="ttff-row">
+          <div class="ttff-config">Dual-freq, GPS+Galileo, 10 km baseline</div>
+          <div class="ttff-time ok">10 – 30 s</div>
+        </div>
+        <div class="ttff-row">
+          <div class="ttff-config">Triple-freq, GPS+Galileo+BeiDou, &lt;5 km</div>
+          <div class="ttff-time good">3 – 10 s</div>
+        </div>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="network-rtk">Network RTK</h2>
+      <p>
+        Traditional RTK requires a single base station within ~20 km of the rover. Network RTK
+        (also called VRS — Virtual Reference Station) extends this to regional scale using a
+        network of reference stations.
+      </p>
+      <p>
+        The network processes observations from all reference stations simultaneously to model
+        spatially correlated errors — ionosphere, troposphere, orbit and clock — across the
+        network. When a rover connects (typically via NTRIP), the network generates a
+        <strong>Virtual Reference Station</strong> with synthetic observations as if a base
+        station were located just a few kilometres from the rover. The rover then runs standard
+        RTK against this virtual base.
+      </p>
+
+      <div class="network-benefits">
+        <div class="net-benefit">
+          <div class="net-icon">📍</div>
+          <div class="net-title">Single receiver operation</div>
+          <div class="net-desc">No need to own or maintain a base station. Connect to an NTRIP caster via cellular data.</div>
+        </div>
+        <div class="net-benefit">
+          <div class="net-icon">🗺️</div>
+          <div class="net-title">Consistent accuracy continent-wide</div>
+          <div class="net-desc">Ionospheric and tropospheric modelling keeps accuracy consistent regardless of distance from any individual station.</div>
+        </div>
+        <div class="net-benefit">
+          <div class="net-icon">⚡</div>
+          <div class="net-title">Faster TTFF</div>
+          <div class="net-desc">Better error modelling means ambiguities resolve faster — typically &lt;10 s with good multi-constellation coverage.</div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🌐</div>
+        <div>
+          <strong>CORS networks:</strong> Continuously Operating Reference Station (CORS) networks
+          provide network RTK corrections. Examples include NOAA CORS (USA), OS Net (UK),
+          SAPOS (Germany) and AUSPOS (Australia). Most require a subscription fee of
+          $50–$300/month. Commercial networks (Trimble RTX, Leica SmartNet, TopNET) offer
+          similar services with guaranteed SLAs.
+        </div>
+      </div>
+
+      <!-- SECTION 8 -->
+      <h2 id="limitations">Limitations and failure modes</h2>
+
+      <div class="limitation-list">
+        <div class="limitation">
+          <div class="lim-title">Cycle slips</div>
+          <div class="lim-desc">
+            When a satellite signal is briefly lost (tree canopy, bridge, building), the receiver
+            loses track of the carrier phase — a <strong>cycle slip</strong> occurs. The integer
+            ambiguity counter resets. The receiver must re-initialise ambiguities for that satellite,
+            degrading to float until new ambiguities are resolved. Frequent cycle slips prevent
+            fixed solution in difficult environments.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">Multipath</div>
+          <div class="lim-desc">
+            Carrier phase multipath (max ~9.5 cm, typically ~1–2 cm) introduces slowly varying
+            biases that cannot be differenced away. In severe multipath environments (urban canyons,
+            reflective surfaces), multipath becomes the dominant RTK error source even with a
+            perfect fixed solution.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">Baseline length limit</div>
+          <div class="lim-desc">
+            Single-base RTK accuracy degrades beyond 20–30 km due to differential ionosphere.
+            For L1-only: practical limit ~10 km. For L1+L2 dual-frequency: ~30–50 km.
+            Network RTK removes this constraint by modelling the ionosphere spatially.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">Ionospheric scintillation</div>
+          <div class="lim-desc">
+            Rapid signal amplitude and phase fluctuations (S4 index &gt; 0.3, σφ &gt; 0.1 rad)
+            cause frequent cycle slips and prevent ambiguity resolution. Particularly severe
+            at equatorial latitudes after local sunset. See the
+            <a href="/dashboards/environment">GNSS Environment Watch</a>.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">Data link latency</div>
+          <div class="lim-desc">
+            RTK requires real-time corrections from the base station or network.
+            Correction latency &gt;1–2 s degrades performance due to rapid satellite motion.
+            Cellular NTRIP with &lt;500 ms latency is generally adequate. Satellite uplink
+            or radio modem systems must be carefully designed for low latency.
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 9 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">〰️</div>
+          <div class="summary-title">Carrier phase precision</div>
+          <div class="summary-body">The 19 cm GPS L1 carrier can be measured to ~2 mm — 100× better than code. This is the source of RTK accuracy.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">➖</div>
+          <div class="summary-title">Double-differencing</div>
+          <div class="summary-body">Differencing between receivers removes satellite clock error. Differencing between satellites removes receiver clock error. Residuals are small differential iono, tropo and noise.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔢</div>
+          <div class="summary-title">Integer ambiguity</div>
+          <div class="summary-body">The unknown whole-cycle count N must be resolved to a correct integer before centimetre accuracy is achievable. LAMBDA is the standard algorithm. A wrong fix is worse than float.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🌐</div>
+          <div class="summary-title">Network RTK</div>
+          <div class="summary-body">VRS/network RTK extends coverage to regional scale without owning a base station. Better error modelling improves TTFF and extends baseline range to 100+ km.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/positioning/dgnss-and-sbas" class="nav-prev">← DGNSS and SBAS</a>
+        <a href="/learn/positioning/ppp" class="nav-next">PPP →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Teunissen, P. J. G. (1993). Least-squares estimation of the integer GPS ambiguities. <em>Invited lecture, Section IV Theory and Methodology, IAG General Meeting</em>, Beijing, China.</li>
+          <li>Teunissen, P. J. G. & Montenbruck, O. (eds.) (2017). <em>Springer Handbook of Global Navigation Satellite Systems</em>. Springer. Chapter 23.</li>
+          <li>Kaplan, E. D. & Hegarty, C. J. (2017). <em>Understanding GPS/GNSS: Principles and Applications</em>, 3rd ed. Artech House. Chapter 9.</li>
+          <li>Verhagen, S. & Teunissen, P. J. G. (2013). The ratio test for future GNSS ambiguity resolution. <em>GPS Solutions</em>, 17, 535–548.</li>
+          <li>RTCM 10403.3 Standard for Differential GNSS Services. <a href="https://www.rtcm.org" target="_blank" rel="noopener noreferrer">rtcm.org →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul, ol { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 8px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  em { font-style: italic; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-top: 8px; }
+
+  .diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 24px 0; }
+  .diagram-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* Differencing visual */
+  .differencing-visual { display: flex; flex-direction: column; gap: 2px; margin: 20px 0; }
+  .diff-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .diff-row:last-child { border-bottom: none; }
+  .diff-label { font-size: 12px; font-weight: 600; font-family: var(--mono); color: var(--text3); }
+  .diff-terms { display: flex; flex-wrap: wrap; gap: 6px; }
+  .term-keep, .term-cancel, .term-gone, .term-small { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-family: var(--mono); }
+  .term-keep { background: var(--bg3); color: var(--text2); }
+  .term-cancel { background: rgba(255,71,87,0.1); color: #ff4757; }
+  .term-gone { background: rgba(0,212,170,0.1); color: var(--accent); text-decoration: line-through; }
+  .term-small { background: rgba(251,191,36,0.1); color: #fbbf24; }
+
+  /* Solution stages */
+  .solution-stages { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; align-items: center; margin: 20px 0; }
+  .stage { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .stage-arrow { font-size: 20px; color: var(--accent); text-align: center; }
+  .stage-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .stage-acc { font-size: 18px; font-weight: 700; font-family: var(--mono); margin-bottom: 8px; }
+  .stage-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+  .stage-code .stage-acc { color: #ff4757; }
+  .stage-float .stage-acc { color: #fbbf24; }
+  .stage-fixed .stage-acc { color: var(--accent); }
+  .stage-fixed { border-color: rgba(0,212,170,0.3); }
+
+  /* Steps */
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+  .steps li { counter-increment: step; padding: 12px 12px 12px 48px; position: relative; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text2); line-height: 1.7; }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before { content: counter(step); position: absolute; left: 12px; top: 14px; width: 22px; height: 22px; background: rgba(0,212,170,0.12); color: var(--accent); border-radius: 50%; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; font-family: var(--mono); }
+
+  /* TTFF */
+  .ttff-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0 24px; }
+  .ttff-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .ttff-factor { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .ttff-detail { font-size: 13px; color: var(--text3); line-height: 1.6; }
+  .ttff-comparison { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
+  .ttff-title { font-size: 12px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--mono); margin-bottom: 12px; }
+  .ttff-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+  .ttff-row:last-child { border-bottom: none; }
+  .ttff-config { font-size: 13px; color: var(--text2); }
+  .ttff-time { font-size: 13px; font-weight: 600; font-family: var(--mono); white-space: nowrap; }
+  .ttff-time.bad  { color: #ff4757; }
+  .ttff-time.warn { color: #fbbf24; }
+  .ttff-time.ok   { color: #a3e635; }
+  .ttff-time.good { color: var(--accent); }
+
+  /* Network benefits */
+  .network-benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .net-benefit { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .net-icon { font-size: 22px; margin-bottom: 8px; }
+  .net-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .net-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+  /* Limitations */
+  .limitation-list { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .limitation { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; }
+  .lim-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .lim-desc { font-size: 13px; color: var(--text3); line-height: 1.7; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .solution-stages { grid-template-columns: 1fr; }
+    .stage-arrow { transform: rotate(90deg); text-align: center; }
+    .ttff-grid { grid-template-columns: 1fr; }
+    .network-benefits { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    h2 { font-size: 20px; }
+  }
+</style>

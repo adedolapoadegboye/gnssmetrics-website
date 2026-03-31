@@ -1,0 +1,169 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+const articles = [
+  {
+    href: '/learn/protocols/nmea-0183',
+    title: 'NMEA 0183',
+    desc: 'The universal GNSS output format. Sentence structure, talker IDs, the most important message types (GGA, RMC, GSA, GSV, VTG) with field-level detail and examples.',
+    time: '12 min',
+  },
+  {
+    href: '/learn/protocols/rinex',
+    title: 'RINEX',
+    desc: 'The standard format for storing and exchanging GNSS observation data. File types, versions, header structure and observation codes.',
+    time: '10 min',
+  },
+  {
+    href: '/learn/protocols/rtcm',
+    title: 'RTCM',
+    desc: 'The correction data standard used by RTK and DGNSS. Message types, MSM observations, SSR corrections and the NTRIP transport layer.',
+    time: '12 min',
+  },
+  {
+    href: '/learn/protocols/ntrip',
+    title: 'NTRIP',
+    desc: 'Networked Transport of RTCM via Internet Protocol. How GNSS corrections reach rovers over the internet — casters, mountpoints and the NTRIP client.',
+    time: '8 min',
+  },
+  {
+    href: '/learn/protocols/binary-protocols',
+    title: 'Binary Protocols',
+    desc: 'Receiver-native binary formats — UBX (u-blox), SBF (Septentrio) and BINEX. Why binary outperforms NMEA for high-rate and raw measurement logging.',
+    time: '10 min',
+  },
+];
+---
+<Layout title="GNSS Protocols">
+  <section class="section">
+    <div class="container">
+
+      <a href="/learn" class="back">← Learn</a>
+
+      <div class="section-header">
+        <span class="badge">Protocols</span>
+        <h1>GNSS Protocols</h1>
+        <p class="sub">
+          GNSS data moves between receivers, computers and correction services in defined formats.
+          This section explains the most important protocols — from the NMEA sentences on your
+          serial port to the RTCM correction streams powering RTK.
+        </p>
+        <a href="/learn/positioning" class="prereq">
+          Prerequisites: Positioning Methods →
+        </a>
+      </div>
+
+      <!-- Protocol map -->
+      <div class="proto-map">
+        <div class="proto-map-title">Where each protocol fits</div>
+        <div class="proto-flow">
+          <div class="proto-node node-sv">
+            <div class="node-icon">🛰️</div>
+            <div class="node-label">Satellite</div>
+          </div>
+          <div class="proto-arrow">→</div>
+          <div class="proto-node node-rx">
+            <div class="node-icon">📡</div>
+            <div class="node-label">Receiver</div>
+          </div>
+          <div class="proto-split">
+            <div class="split-branch">
+              <div class="proto-arrow">→</div>
+              <div class="proto-node node-nmea">
+                <div class="node-label">NMEA 0183</div>
+                <div class="node-sub">Position output</div>
+              </div>
+              <div class="proto-arrow">→</div>
+              <div class="proto-node node-app">
+                <div class="node-icon">💻</div>
+                <div class="node-label">Application</div>
+              </div>
+            </div>
+            <div class="split-branch">
+              <div class="proto-arrow">→</div>
+              <div class="proto-node node-bin">
+                <div class="node-label">Binary (UBX/SBF)</div>
+                <div class="node-sub">Raw measurements</div>
+              </div>
+              <div class="proto-arrow">→</div>
+              <div class="proto-node node-rinex">
+                <div class="node-label">RINEX</div>
+                <div class="node-sub">Post-processing</div>
+              </div>
+            </div>
+            <div class="split-branch">
+              <div class="proto-arrow">←</div>
+              <div class="proto-node node-rtcm">
+                <div class="node-label">RTCM</div>
+                <div class="node-sub">Corrections in</div>
+              </div>
+              <div class="proto-arrow">←</div>
+              <div class="proto-node node-ntrip">
+                <div class="node-label">NTRIP</div>
+                <div class="node-sub">Via internet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="article-list">
+        {articles.map((a, i) => (
+          <a href={a.href} class="article-card">
+            <div class="article-num">{String(i + 1).padStart(2, '0')}</div>
+            <div class="article-body">
+              <div class="article-title">{a.title}</div>
+              <div class="article-desc">{a.desc}</div>
+            </div>
+            <div class="article-meta">
+              <span class="read-time">{a.time} read</span>
+              <span class="arrow">→</span>
+            </div>
+          </a>
+        ))}
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; transition: color 0.2s; }
+  .back:hover { color: var(--accent); }
+  .section-header { margin-bottom: 32px; }
+  h1 { font-size: clamp(24px, 4vw, 36px); font-weight: 700; margin: 10px 0 14px; }
+  .sub { color: var(--text2); max-width: 600px; font-size: 15px; line-height: 1.7; margin-bottom: 10px; }
+  .prereq { font-size: 13px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Protocol map */
+  .proto-map { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 28px; }
+  .proto-map-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--mono); margin-bottom: 16px; }
+  .proto-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .proto-node { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 80px; }
+  .node-icon { font-size: 16px; margin-bottom: 2px; }
+  .node-label { font-size: 11px; font-weight: 600; color: var(--text); font-family: var(--mono); }
+  .node-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .node-nmea { border-color: rgba(0,212,170,0.3); }
+  .node-bin { border-color: rgba(0,153,255,0.3); }
+  .node-rtcm { border-color: rgba(251,191,36,0.3); }
+  .node-ntrip { border-color: rgba(251,191,36,0.2); }
+  .node-rinex { border-color: rgba(0,153,255,0.2); }
+  .proto-arrow { font-size: 14px; color: var(--text3); padding: 0 2px; }
+  .proto-split { display: flex; flex-direction: column; gap: 8px; }
+  .split-branch { display: flex; align-items: center; gap: 8px; }
+
+  /* Article list */
+  .article-list { display: flex; flex-direction: column; gap: 2px; }
+  .article-card { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 20px; padding: 20px 24px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; transition: border-color 0.2s, background 0.2s; }
+  .article-card:hover { border-color: rgba(0,212,170,0.3); background: var(--bg3); }
+  .article-num { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--accent); opacity: 0.4; }
+  .article-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .article-desc { font-size: 13px; color: var(--text2); line-height: 1.5; }
+  .article-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .read-time { font-size: 11px; color: var(--text3); font-family: var(--mono); white-space: nowrap; }
+  .arrow { font-size: 16px; color: var(--accent); }
+  @media (max-width: 600px) {
+    .article-card { grid-template-columns: 36px 1fr; }
+    .article-meta { display: none; }
+    .proto-flow { flex-direction: column; align-items: flex-start; }
+  }
+</style>

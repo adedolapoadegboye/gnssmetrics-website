@@ -1,0 +1,658 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="NMEA 0183">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/protocols">Protocols</a>
+        <span>›</span>
+        <span>NMEA 0183</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Protocols · Article 1 of 5</span>
+        <h1>NMEA 0183</h1>
+        <p class="lead">
+          Open any GNSS receiver's serial port and you will almost certainly see NMEA 0183
+          sentences scrolling by. Developed by the National Marine Electronics Association,
+          NMEA 0183 has been the de facto standard for GNSS output since the 1980s — and despite
+          its age, it remains the most universally supported format in the world.
+        </p>
+        <div class="article-meta">
+          <span>12 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#structure">Sentence structure</a></li>
+          <li><a href="#talker-ids">Talker IDs</a></li>
+          <li><a href="#checksum">Checksum</a></li>
+          <li><a href="#gga">GGA — Fix data</a></li>
+          <li><a href="#rmc">RMC — Recommended minimum</a></li>
+          <li><a href="#gsa">GSA — DOP and active satellites</a></li>
+          <li><a href="#gsv">GSV — Satellites in view</a></li>
+          <li><a href="#vtg">VTG — Course and speed</a></li>
+          <li><a href="#limitations">Limitations</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="structure">Sentence structure</h2>
+      <p>
+        Every NMEA 0183 sentence follows a strict structure. Sentences are ASCII text,
+        human-readable, and terminated with a carriage return and line feed (CR+LF):
+      </p>
+
+      <div class="sentence-anatomy">
+        <div class="sentence-display">$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47</div>
+        <div class="sentence-parts">
+          <div class="part">
+            <div class="part-val">$</div>
+            <div class="part-name">Start delimiter</div>
+          </div>
+          <div class="part">
+            <div class="part-val">GP</div>
+            <div class="part-name">Talker ID</div>
+          </div>
+          <div class="part">
+            <div class="part-val">GGA</div>
+            <div class="part-name">Sentence type</div>
+          </div>
+          <div class="part">
+            <div class="part-val">,fields,</div>
+            <div class="part-name">Comma-separated data fields</div>
+          </div>
+          <div class="part">
+            <div class="part-val">*</div>
+            <div class="part-name">Checksum delimiter</div>
+          </div>
+          <div class="part">
+            <div class="part-val">47</div>
+            <div class="part-name">XOR checksum (hex)</div>
+          </div>
+          <div class="part">
+            <div class="part-val">CR LF</div>
+            <div class="part-name">Terminator</div>
+          </div>
+        </div>
+      </div>
+
+      <p>
+        Key rules:
+      </p>
+      <ul>
+        <li>Maximum sentence length is <strong>82 characters</strong> (including $ and CR+LF)</li>
+        <li>Fields are separated by commas. An empty field is represented by two consecutive commas (,,)</li>
+        <li>All data is ASCII text — no binary values</li>
+        <li>The standard baud rate is <strong>4800 bps</strong>, though modern receivers support 9600, 38400 and higher</li>
+        <li>At 4800 bps, a 1 Hz update rate limits the number of sentences per cycle</li>
+      </ul>
+
+      <!-- SECTION 2 -->
+      <h2 id="talker-ids">Talker IDs</h2>
+      <p>
+        The two-character talker ID identifies which constellation or device produced the sentence.
+        Multi-constellation receivers may output sentences for each constellation separately,
+        or use the generic <code>GN</code> talker for combined solutions:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Talker ID</th><th>Source</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>GP</code></td><td>GPS (USA)</td></tr>
+            <tr><td><code>GL</code></td><td>GLONASS (Russia)</td></tr>
+            <tr><td><code>GA</code></td><td>Galileo (EU)</td></tr>
+            <tr><td><code>GB</code></td><td>BeiDou (China)</td></tr>
+            <tr><td><code>GQ</code></td><td>QZSS (Japan)</td></tr>
+            <tr><td><code>GN</code></td><td>Combined / multi-constellation (recommended for mixed solutions)</td></tr>
+            <tr><td><code>II</code></td><td>Integrated Instrumentation (autopilot systems)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div>
+          <strong>Practical note:</strong> A modern receiver tracking GPS, Galileo and BeiDou
+          simultaneously outputs a single position fix combining all constellations. This fix
+          uses the <code>GN</code> talker. Parsing software should accept both <code>GP</code>
+          and <code>GN</code> talkers for all standard sentence types.
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="checksum">Checksum</h2>
+      <p>
+        The two-character hex checksum after the <code>*</code> is computed as the XOR of all
+        bytes between (but not including) <code>$</code> and <code>*</code>:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">checksum = byte[1] XOR byte[2] XOR ... XOR byte[n]</div>
+        <div class="formula-desc">
+          Example: For $GPGGA,...*47 — XOR all bytes from 'G' through the last field character.
+          Result must equal 0x47. Always validate the checksum before using data — corrupt
+          sentences are common on noisy serial links.
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-title">Checksum validation in Python</div>
+        <pre><code>def validate_nmea(sentence):
+    # Strip $ and split on *
+    if not sentence.startswith('$'):
+        return False
+    data, checksum = sentence[1:].split('*')
+    computed = 0
+    for char in data:
+        computed ^= ord(char)
+    return computed == int(checksum, 16)</code></pre>
+      </div>
+
+      <!-- SECTION 4 - GGA -->
+      <h2 id="gga">GGA — Fix data</h2>
+      <p>
+        GGA (Global Positioning System Fix Data) is the most important NMEA sentence —
+        it contains position, fix quality, satellite count, HDOP and altitude.
+        Parse GGA first for any positioning application.
+      </p>
+
+      <div class="sentence-breakdown">
+        <div class="sb-sentence">$GNGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47</div>
+        <div class="sb-table">
+          <div class="sb-row sb-header">
+            <span>Field</span>
+            <span>Value</span>
+            <span>Description</span>
+          </div>
+          <div class="sb-row">
+            <span>0</span>
+            <span><code>$GNGGA</code></span>
+            <span>Talker ID (GN = combined) + sentence type (GGA)</span>
+          </div>
+          <div class="sb-row">
+            <span>1</span>
+            <span><code>123519</code></span>
+            <span>UTC time — hhmmss.ss → 12:35:19 UTC</span>
+          </div>
+          <div class="sb-row">
+            <span>2–3</span>
+            <span><code>4807.038,N</code></span>
+            <span>Latitude — ddmm.mmm,N/S → 48°07.038' N = 48.11730° N</span>
+          </div>
+          <div class="sb-row">
+            <span>4–5</span>
+            <span><code>01131.000,E</code></span>
+            <span>Longitude — dddmm.mmm,E/W → 11°31.000' E = 11.51667° E</span>
+          </div>
+          <div class="sb-row sb-important">
+            <span>6</span>
+            <span><code>1</code></span>
+            <span>Fix quality: 0=no fix, 1=GPS, 2=DGPS, 4=RTK fixed, 5=RTK float, 6=estimated</span>
+          </div>
+          <div class="sb-row">
+            <span>7</span>
+            <span><code>08</code></span>
+            <span>Number of satellites used in fix</span>
+          </div>
+          <div class="sb-row">
+            <span>8</span>
+            <span><code>0.9</code></span>
+            <span>HDOP — horizontal dilution of precision</span>
+          </div>
+          <div class="sb-row">
+            <span>9–10</span>
+            <span><code>545.4,M</code></span>
+            <span>Altitude above mean sea level in metres</span>
+          </div>
+          <div class="sb-row">
+            <span>11–12</span>
+            <span><code>46.9,M</code></span>
+            <span>Geoid separation — difference between WGS84 ellipsoid and mean sea level (N)</span>
+          </div>
+          <div class="sb-row">
+            <span>13</span>
+            <span><code></code></span>
+            <span>Age of differential corrections in seconds (empty = not using DGPS)</span>
+          </div>
+          <div class="sb-row">
+            <span>14</span>
+            <span><code></code></span>
+            <span>DGPS reference station ID</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Latitude/longitude format warning:</strong> GGA encodes coordinates as
+          <code>ddmm.mmmm</code> (degrees and decimal minutes), <em>not</em> decimal degrees.
+          <code>4807.038</code> = 48 degrees + 07.038 minutes = 48 + 7.038/60 = <strong>48.1173°</strong>.
+          This is one of the most common parsing mistakes — treating it as 48.07038° gives
+          a position error of several kilometres.
+        </div>
+      </div>
+
+      <!-- SECTION 5 - RMC -->
+      <h2 id="rmc">RMC — Recommended minimum</h2>
+      <p>
+        RMC (Recommended Minimum Specific GNSS Data) is the minimal sentence for navigation —
+        it combines position, speed over ground, course and date in a single sentence.
+        Many applications parse only RMC and GGA together.
+      </p>
+
+      <div class="sentence-breakdown">
+        <div class="sb-sentence">$GNRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A</div>
+        <div class="sb-table">
+          <div class="sb-row sb-header">
+            <span>Field</span>
+            <span>Value</span>
+            <span>Description</span>
+          </div>
+          <div class="sb-row">
+            <span>1</span>
+            <span><code>123519</code></span>
+            <span>UTC time hhmmss</span>
+          </div>
+          <div class="sb-row sb-important">
+            <span>2</span>
+            <span><code>A</code></span>
+            <span>Status: A=valid, V=warning (data may be unreliable)</span>
+          </div>
+          <div class="sb-row">
+            <span>3–4</span>
+            <span><code>4807.038,N</code></span>
+            <span>Latitude ddmm.mmm,N/S</span>
+          </div>
+          <div class="sb-row">
+            <span>5–6</span>
+            <span><code>01131.000,E</code></span>
+            <span>Longitude dddmm.mmm,E/W</span>
+          </div>
+          <div class="sb-row">
+            <span>7</span>
+            <span><code>022.4</code></span>
+            <span>Speed over ground in knots</span>
+          </div>
+          <div class="sb-row">
+            <span>8</span>
+            <span><code>084.4</code></span>
+            <span>Course over ground, degrees true (clockwise from north)</span>
+          </div>
+          <div class="sb-row">
+            <span>9</span>
+            <span><code>230394</code></span>
+            <span>Date — DDMMYY → 23 March 1994</span>
+          </div>
+          <div class="sb-row">
+            <span>10–11</span>
+            <span><code>003.1,W</code></span>
+            <span>Magnetic variation in degrees (W = westward)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 - GSA -->
+      <h2 id="gsa">GSA — DOP and active satellites</h2>
+      <p>
+        GSA (GNSS DOP and Active Satellites) reports which satellites are being used in the fix
+        and the dilution of precision values. One GSA sentence per constellation in multi-constellation receivers.
+      </p>
+
+      <div class="sentence-breakdown">
+        <div class="sb-sentence">$GNGSA,A,3,04,05,09,12,24,36,,,,,,,1.8,1.0,1.5*20</div>
+        <div class="sb-table">
+          <div class="sb-row sb-header">
+            <span>Field</span>
+            <span>Value</span>
+            <span>Description</span>
+          </div>
+          <div class="sb-row">
+            <span>1</span>
+            <span><code>A</code></span>
+            <span>Mode: A=automatic (2D/3D auto-select), M=manual</span>
+          </div>
+          <div class="sb-row sb-important">
+            <span>2</span>
+            <span><code>3</code></span>
+            <span>Fix type: 1=no fix, 2=2D fix, 3=3D fix</span>
+          </div>
+          <div class="sb-row">
+            <span>3–14</span>
+            <span><code>04,05,09,12,24,36,...</code></span>
+            <span>PRN numbers of up to 12 satellites used in the fix (empty fields = unused slots)</span>
+          </div>
+          <div class="sb-row">
+            <span>15</span>
+            <span><code>1.8</code></span>
+            <span>PDOP — position dilution of precision</span>
+          </div>
+          <div class="sb-row">
+            <span>16</span>
+            <span><code>1.0</code></span>
+            <span>HDOP — horizontal dilution of precision</span>
+          </div>
+          <div class="sb-row">
+            <span>17</span>
+            <span><code>1.5</code></span>
+            <span>VDOP — vertical dilution of precision</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 7 - GSV -->
+      <h2 id="gsv">GSV — Satellites in view</h2>
+      <p>
+        GSV (GNSS Satellites in View) provides a sky view — elevation, azimuth and signal-to-noise
+        ratio for every visible satellite. Because it can carry only 4 satellites per sentence,
+        multiple GSV sentences are needed when more than 4 are visible.
+      </p>
+
+      <div class="sentence-breakdown">
+        <div class="sb-sentence">$GPGSV,3,1,11,03,03,111,00,04,15,270,00,06,01,010,00,13,06,292,00*74</div>
+        <div class="sb-table">
+          <div class="sb-row sb-header">
+            <span>Field</span>
+            <span>Value</span>
+            <span>Description</span>
+          </div>
+          <div class="sb-row">
+            <span>1</span>
+            <span><code>3</code></span>
+            <span>Total number of GSV sentences in this cycle</span>
+          </div>
+          <div class="sb-row">
+            <span>2</span>
+            <span><code>1</code></span>
+            <span>This sentence number (1 of 3)</span>
+          </div>
+          <div class="sb-row">
+            <span>3</span>
+            <span><code>11</code></span>
+            <span>Total satellites in view</span>
+          </div>
+          <div class="sb-row">
+            <span>4–7</span>
+            <span><code>03,03,111,00</code></span>
+            <span>Satellite 1: PRN=03, elevation=03°, azimuth=111°, SNR=00 dB-Hz (not tracked)</span>
+          </div>
+          <div class="sb-row">
+            <span>8–11</span>
+            <span><code>04,15,270,00</code></span>
+            <span>Satellite 2: PRN=04, elevation=15°, azimuth=270°, SNR=00 dB-Hz</span>
+          </div>
+          <div class="sb-row">
+            <span>12–15</span>
+            <span><code>06,01,010,00</code></span>
+            <span>Satellite 3: PRN=06, elevation=01°, azimuth=010°, SNR=00 dB-Hz</span>
+          </div>
+          <div class="sb-row">
+            <span>16–19</span>
+            <span><code>13,06,292,00</code></span>
+            <span>Satellite 4: PRN=13, elevation=06°, azimuth=292°, SNR=00 dB-Hz</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">📶</div>
+        <div>
+          <strong>SNR interpretation:</strong> SNR (Signal-to-Noise Ratio) in GSV is measured
+          in dB-Hz. A value of 0 means the satellite is visible but not tracked.
+          Values of 30–40 dB-Hz indicate moderate signal strength.
+          Above 40 dB-Hz is excellent. Below 25 dB-Hz the signal is marginal.
+          Track 35+ dB-Hz satellites for reliable positioning.
+        </div>
+      </div>
+
+      <!-- SECTION 8 - VTG -->
+      <h2 id="vtg">VTG — Course and speed</h2>
+      <p>
+        VTG (Course Over Ground and Ground Speed) provides velocity information.
+        Less commonly parsed than GGA/RMC since RMC already includes speed and course,
+        but VTG adds magnetic course and supports both knots and km/h simultaneously.
+      </p>
+
+      <div class="sentence-breakdown">
+        <div class="sb-sentence">$GNVTG,054.7,T,034.4,M,005.5,N,010.2,K,A*27</div>
+        <div class="sb-table">
+          <div class="sb-row sb-header">
+            <span>Field</span>
+            <span>Value</span>
+            <span>Description</span>
+          </div>
+          <div class="sb-row">
+            <span>1–2</span>
+            <span><code>054.7,T</code></span>
+            <span>Course over ground — 054.7° True (clockwise from true north)</span>
+          </div>
+          <div class="sb-row">
+            <span>3–4</span>
+            <span><code>034.4,M</code></span>
+            <span>Course over ground — 034.4° Magnetic</span>
+          </div>
+          <div class="sb-row">
+            <span>5–6</span>
+            <span><code>005.5,N</code></span>
+            <span>Speed over ground — 5.5 knots</span>
+          </div>
+          <div class="sb-row">
+            <span>7–8</span>
+            <span><code>010.2,K</code></span>
+            <span>Speed over ground — 10.2 km/h</span>
+          </div>
+          <div class="sb-row sb-important">
+            <span>9</span>
+            <span><code>A</code></span>
+            <span>Mode: A=autonomous, D=differential, E=estimated, N=not valid</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 9 - LIMITATIONS -->
+      <h2 id="limitations">Limitations</h2>
+      <p>
+        NMEA 0183 was designed in 1983 for single-channel GPS receivers at 4800 baud.
+        It shows its age in several ways:
+      </p>
+
+      <div class="limitation-list">
+        <div class="limitation">
+          <div class="lim-title">Bandwidth</div>
+          <div class="lim-desc">
+            At 4800 bps, a single GGA sentence takes ~50 ms to transmit. Outputting GGA, RMC,
+            GSA and GSV at 1 Hz consumes nearly the entire available bandwidth. At 10 Hz update
+            rates, 4800 bps is completely inadequate — modern high-rate applications use 115200 bps
+            or higher, or switch to binary protocols entirely.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">No raw measurements</div>
+          <div class="lim-desc">
+            NMEA carries only computed position, velocity and DOP — not pseudoranges, carrier
+            phase or Doppler. Post-processing, PPP and RTK software cannot use NMEA. Raw
+            measurements require binary protocols (UBX, SBF) or RINEX logging.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">82-character limit</div>
+          <div class="lim-desc">
+            The 82-character sentence limit was designed for single-constellation, single-frequency
+            receivers. Modern multi-constellation receivers produce longer data fields (more satellite
+            PRNs in GSA, more GSV sentences) that strain the original format.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">No integrity information</div>
+          <div class="lim-desc">
+            NMEA provides DOP values but no integrity bounds — no guaranteed worst-case error.
+            Safety-critical applications (aviation, autonomous driving) need integrity information
+            that NMEA cannot provide. SBAS-aware sentences (GBS) partially address this.
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔄</div>
+        <div>
+          <strong>NMEA 2000:</strong> A newer standard (ISO 11783) using CAN bus rather than
+          serial UART. Designed for marine systems. Higher bandwidth, binary encoding, network
+          topology with multiple devices. Common on modern marine chart plotters and autopilots
+          but not universal in general GNSS applications.
+        </div>
+      </div>
+
+      <!-- SECTION 10 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📋</div>
+          <div class="summary-title">Universal but old</div>
+          <div class="summary-body">NMEA 0183 is supported by virtually every GNSS receiver. ASCII, human-readable, easy to parse. Designed in 1983 — the bandwidth and raw data limitations show.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📍</div>
+          <div class="summary-title">GGA is the key sentence</div>
+          <div class="summary-body">GGA carries position, fix quality, satellite count, HDOP and geoid separation. Parse GGA first. Check field 6 (fix quality) before using the position.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">⚠️</div>
+          <div class="summary-title">ddmm.mmmm ≠ decimal degrees</div>
+          <div class="summary-body">NMEA coordinates are degrees + decimal minutes, not decimal degrees. Convert with: degrees = dd + mm.mmmm / 60. This is the most common parsing mistake.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔢</div>
+          <div class="summary-title">Always validate the checksum</div>
+          <div class="summary-body">XOR all bytes between $ and *. Match the two-hex-digit checksum. Discard sentences that fail. Serial links are noisy — corrupt sentences are common.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/protocols" class="nav-prev">← Protocols</a>
+        <a href="/learn/protocols/rinex" class="nav-next">RINEX →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>NMEA 0183 Standard — Version 4.11. National Marine Electronics Association. <a href="https://www.nmea.org/content/STANDARDS/NMEA_0183_Standard" target="_blank" rel="noopener noreferrer">nmea.org →</a></li>
+          <li>u-blox NMEA Protocol Specification. <a href="https://www.u-blox.com/sites/default/files/products/documents/u-blox8-M8_ReceiverDescrProtSpec_%28UBX-13003221%29_Public.pdf" target="_blank" rel="noopener noreferrer">u-blox →</a></li>
+          <li>Trimble NMEA Reference Manual. <a href="https://www.trimble.com" target="_blank" rel="noopener noreferrer">trimble.com →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  code { font-family: var(--mono); font-size: 13px; background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: var(--accent2); }
+  em { font-style: italic; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; }
+  .formula { font-family: var(--mono); font-size: 14px; color: var(--text); margin-bottom: 8px; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Sentence anatomy */
+  .sentence-anatomy { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 20px 0; }
+  .sentence-display { font-family: var(--mono); font-size: 13px; color: var(--accent); background: var(--bg3); padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; overflow-x: auto; white-space: nowrap; }
+  .sentence-parts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .part { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; text-align: center; }
+  .part-val { font-family: var(--mono); font-size: 13px; color: var(--accent); margin-bottom: 4px; }
+  .part-name { font-size: 10px; color: var(--text3); }
+
+  /* Sentence breakdown */
+  .sentence-breakdown { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 0; }
+  .sb-sentence { font-family: var(--mono); font-size: 12px; color: var(--accent); background: var(--bg3); padding: 10px 16px; overflow-x: auto; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  .sb-table { display: flex; flex-direction: column; }
+  .sb-row { display: grid; grid-template-columns: 50px 140px 1fr; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--border); font-size: 13px; align-items: baseline; }
+  .sb-row:last-child { border-bottom: none; }
+  .sb-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .sb-row span:first-child { color: var(--text3); font-family: var(--mono); }
+  .sb-row span:nth-child(2) { color: var(--accent2); font-family: var(--mono); }
+  .sb-row span:last-child { color: var(--text2); }
+  .sb-important { background: rgba(0,212,170,0.04); border-left: 2px solid rgba(0,212,170,0.3); }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+
+  /* Code block */
+  .code-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 0; }
+  .code-title { font-size: 11px; font-weight: 600; color: var(--text3); font-family: var(--mono); padding: 8px 14px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  pre { margin: 0; padding: 14px 16px; overflow-x: auto; }
+  pre code { font-size: 13px; color: var(--text2); background: none; padding: 0; border-radius: 0; line-height: 1.7; }
+
+  /* Limitations */
+  .limitation-list { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .limitation { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; }
+  .lim-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .lim-desc { font-size: 13px; color: var(--text3); line-height: 1.7; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 640px) {
+    .summary-grid { grid-template-columns: 1fr; }
+    .sb-row { grid-template-columns: 40px 100px 1fr; gap: 8px; }
+    h2 { font-size: 20px; }
+  }
+</style>

@@ -1,0 +1,583 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="PPP-RTK">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/positioning">Positioning</a>
+        <span>›</span>
+        <span>PPP-RTK</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Positioning · Article 5 of 5</span>
+        <h1>PPP-RTK</h1>
+        <p class="lead">
+          PPP-RTK is the convergence of two worlds: the global reach of PPP and the fast
+          ambiguity resolution of RTK. By combining precise satellite products with regional
+          atmospheric corrections, PPP-RTK achieves centimetre accuracy in seconds to minutes —
+          anywhere within a correction network's coverage — without a dedicated base station.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#why-ppp-rtk">Why PPP-RTK?</a></li>
+          <li><a href="#concept">The PPP-RTK concept</a></li>
+          <li><a href="#ssr">State Space Representation (SSR)</a></li>
+          <li><a href="#convergence">Convergence vs RTK and PPP</a></li>
+          <li><a href="#services">Commercial and open services</a></li>
+          <li><a href="#limitations">Limitations</a></li>
+          <li><a href="#positioning-landscape">The full positioning landscape</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="why-ppp-rtk">Why PPP-RTK?</h2>
+      <p>
+        RTK and PPP each have a fundamental limitation that the other solves:
+      </p>
+
+      <div class="gap-cards">
+        <div class="gap-card">
+          <div class="gap-method">RTK</div>
+          <div class="gap-strength">✅ Fast — centimetres in seconds</div>
+          <div class="gap-weakness">❌ Requires local base station or CORS network. Coverage limited to network footprint.</div>
+        </div>
+        <div class="gap-arrow">+</div>
+        <div class="gap-card">
+          <div class="gap-method">PPP</div>
+          <div class="gap-strength">✅ Global — works anywhere</div>
+          <div class="gap-weakness">❌ Slow — 20–60 minutes to converge. Re-convergence after any outage.</div>
+        </div>
+        <div class="gap-arrow">=</div>
+        <div class="gap-card gap-result">
+          <div class="gap-method">PPP-RTK</div>
+          <div class="gap-strength">✅ Fast AND wide-area</div>
+          <div class="gap-strength">✅ Centimetres in seconds to minutes</div>
+          <div class="gap-strength">✅ No dedicated base station</div>
+        </div>
+      </div>
+
+      <p>
+        The key insight is that PPP's slow convergence is caused by needing to estimate the
+        ionospheric and tropospheric delays from scratch using only the receiver's own observations.
+        If a regional network can estimate these atmospheric delays and broadcast them as
+        corrections to the rover, the rover no longer needs to wait — it can resolve ambiguities
+        almost immediately, just as RTK does.
+      </p>
+
+      <!-- SECTION 2 -->
+      <h2 id="concept">The PPP-RTK concept</h2>
+      <p>
+        PPP-RTK augments the standard PPP correction stream with additional parameters:
+      </p>
+
+      <div class="correction-layers">
+        <div class="layer layer-global">
+          <div class="layer-title">Global layer — precise products</div>
+          <div class="layer-items">
+            <div class="layer-item">Satellite orbit corrections (δO)</div>
+            <div class="layer-item">Satellite clock corrections (δC)</div>
+            <div class="layer-item">Satellite phase biases / UPDs (δB)</div>
+          </div>
+          <div class="layer-source">Source: Global tracking network (IGS, commercial)</div>
+        </div>
+        <div class="layer layer-regional">
+          <div class="layer-title">Regional layer — atmospheric corrections</div>
+          <div class="layer-items">
+            <div class="layer-item">Ionospheric delay at each grid point (VTEC or STEC)</div>
+            <div class="layer-item">Tropospheric zenith wet delay (ZWD)</div>
+          </div>
+          <div class="layer-source">Source: Regional CORS network (50–500 km station spacing)</div>
+        </div>
+        <div class="layer layer-rover">
+          <div class="layer-title">Rover — what it gains</div>
+          <div class="layer-items">
+            <div class="layer-item">Ionospheric delay already known → integer ambiguities decorrelated</div>
+            <div class="layer-item">Tropospheric delay modelled → fewer filter unknowns</div>
+            <div class="layer-item">Phase biases removed → integer ambiguity resolution possible</div>
+          </div>
+          <div class="layer-source">Result: Fast integer ambiguity resolution → centimetre accuracy</div>
+        </div>
+      </div>
+
+      <p>
+        The critical difference from network RTK (VRS): in PPP-RTK the corrections are expressed
+        in <strong>State Space Representation (SSR)</strong> — individual physical components
+        broadcast separately — rather than as a single lumped pseudorange correction at a virtual
+        station. This allows the rover to use each correction at its correct spatial resolution
+        and combine global and regional products optimally.
+      </p>
+
+      <!-- SECTION 3 -->
+      <h2 id="ssr">State Space Representation (SSR)</h2>
+      <p>
+        Traditional DGNSS and network RTK corrections use <strong>Observation Space
+        Representation (OSR)</strong> — a single combined correction per satellite at a specific
+        location. The rover cannot separate individual error contributions.
+      </p>
+      <p>
+        PPP-RTK uses <strong>SSR</strong> — each error source is estimated and broadcast
+        independently. The rover applies each correction at the correct level of spatial detail:
+      </p>
+
+      <div class="ssr-table">
+        <div class="ssr-row ssr-header">
+          <span>Correction</span>
+          <span>Spatial scale</span>
+          <span>Update rate</span>
+          <span>Accuracy</span>
+        </div>
+        <div class="ssr-row">
+          <span><strong>Orbit correction</strong></span>
+          <span>Global (same for all users)</span>
+          <span>5 – 60 s</span>
+          <span>~2.5 cm</span>
+        </div>
+        <div class="ssr-row">
+          <span><strong>Clock correction</strong></span>
+          <span>Global (same for all users)</span>
+          <span>1 – 5 s</span>
+          <span>~75 ps (~2 cm)</span>
+        </div>
+        <div class="ssr-row">
+          <span><strong>Phase bias (UPD)</strong></span>
+          <span>Global (per satellite)</span>
+          <span>30 – 60 s</span>
+          <span>&lt;0.1 cycles</span>
+        </div>
+        <div class="ssr-row">
+          <span><strong>Ionosphere (VTEC grid)</strong></span>
+          <span>Regional (interpolated to rover)</span>
+          <span>30 – 300 s</span>
+          <span>1 – 5 cm (short baseline)</span>
+        </div>
+        <div class="ssr-row">
+          <span><strong>Troposphere (ZWD grid)</strong></span>
+          <span>Regional (interpolated to rover)</span>
+          <span>60 – 300 s</span>
+          <span>1 – 3 cm</span>
+        </div>
+      </div>
+
+      <p>
+        The rover interpolates the ionospheric and tropospheric grids to its own location using
+        a distance-weighted or kriging interpolation. The correction quality degrades with
+        distance from the nearest network station — PPP-RTK is effectively RTK that scales
+        gracefully rather than cutting off sharply at a maximum baseline distance.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">📡</div>
+        <div>
+          <strong>RTCM SSR standard:</strong> The SSR correction format is standardised in
+          RTCM 10403.3 (messages 1057–1068 for GPS, 1240–1270 for other constellations).
+          This enables interoperability between correction providers and rover receivers.
+          The Galileo HAS service also uses an SSR-like format defined in its own ICD.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="convergence">Convergence vs RTK and PPP</h2>
+      <p>
+        The combination of precise satellite products, atmospheric corrections and integer
+        ambiguity resolution dramatically reduces convergence time compared to standard PPP:
+      </p>
+
+      <div class="convergence-compare">
+        <div class="conv-item">
+          <div class="conv-method">Standalone (dual-freq)</div>
+          <div class="conv-bar">
+            <div class="conv-fill" style="width:100%; background:rgba(255,71,87,0.5);">No convergence</div>
+          </div>
+          <div class="conv-acc">1 – 2 m (floor)</div>
+        </div>
+        <div class="conv-item">
+          <div class="conv-method">PPP float</div>
+          <div class="conv-bar">
+            <div class="conv-fill conv-animated" style="width:90%; background:rgba(240,165,0,0.5);">20 – 60 min</div>
+          </div>
+          <div class="conv-acc">5 – 30 cm</div>
+        </div>
+        <div class="conv-item">
+          <div class="conv-method">PPP-AR (no iono correction)</div>
+          <div class="conv-bar">
+            <div class="conv-fill" style="width:55%; background:rgba(251,191,36,0.5);">10 – 20 min</div>
+          </div>
+          <div class="conv-acc">1 – 5 cm</div>
+        </div>
+        <div class="conv-item">
+          <div class="conv-method">PPP-RTK (with iono/tropo)</div>
+          <div class="conv-bar">
+            <div class="conv-fill" style="width:20%; background:rgba(0,212,170,0.6);">10 – 60 s</div>
+          </div>
+          <div class="conv-acc">1 – 3 cm</div>
+        </div>
+        <div class="conv-item">
+          <div class="conv-method">RTK (fixed, short baseline)</div>
+          <div class="conv-bar">
+            <div class="conv-fill" style="width:8%; background:var(--accent);">3 – 10 s</div>
+          </div>
+          <div class="conv-acc">1 – 2 cm</div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div>
+          <strong>Why so much faster?</strong> In standard PPP, the ionospheric delay is estimated
+          as an unknown — it takes many epochs before the Kalman filter separates it from the
+          ambiguity. With PPP-RTK, the ionosphere is supplied externally, so the ambiguity is
+          directly observable from the first epoch. This is the same reason RTK converges fast:
+          it implicitly cancels the ionosphere by differencing with a nearby station.
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="services">Commercial and open services</h2>
+      <p>
+        Several PPP-RTK correction services are now commercially available or in trial. The
+        correction stream is typically delivered via NTRIP over cellular data, or via L-band
+        satellite for remote areas.
+      </p>
+
+      <div class="service-grid">
+        <div class="svc">
+          <div class="svc-name">Trimble RTX</div>
+          <div class="svc-type">Commercial</div>
+          <div class="svc-detail">Global L-band delivery. Fast convergence (≤1 min claimed). Proprietary correction format. Subscription required. Widely used in precision agriculture and survey.</div>
+        </div>
+        <div class="svc">
+          <div class="svc-name">Leica SmartPPP</div>
+          <div class="svc-type">Commercial</div>
+          <div class="svc-detail">Regional network-based. Rapid initialisation. Delivered via NTRIP. Used in survey and construction machine control.</div>
+        </div>
+        <div class="svc">
+          <div class="svc-name">Swift Navigation Skylark</div>
+          <div class="svc-type">Commercial</div>
+          <div class="svc-detail">Automotive-focused PPP-RTK. Sub-decimetre in &lt;10 s claimed. Available in North America, Europe and Japan. API-based delivery for embedded systems.</div>
+        </div>
+        <div class="svc">
+          <div class="svc-name">u-blox PointPerfect</div>
+          <div class="svc-type">Commercial</div>
+          <div class="svc-detail">SPARTN format via NTRIP or L-band. Designed for IoT and automotive. Sub-metre in seconds, decimetre in &lt;30 s. Coverage: USA, Europe, South Korea.</div>
+        </div>
+        <div class="svc">
+          <div class="svc-name">Galileo HAS (Phase 2)</div>
+          <div class="svc-type">Free · In development</div>
+          <div class="svc-detail">Phase 2 of Galileo HAS will add regional ionospheric corrections on top of the existing global orbit/clock/bias products, enabling full PPP-RTK free of charge globally.</div>
+        </div>
+        <div class="svc">
+          <div class="svc-name">BeiDou PPP-B2b</div>
+          <div class="svc-type">Free · Asia-Pacific</div>
+          <div class="svc-detail">BDS-3 GEO satellites broadcast SSR corrections on B2b signal free of charge. Covers Asia-Pacific region. Decimetre accuracy after convergence. Available on B2b-capable receivers.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="limitations">Limitations</h2>
+
+      <div class="limitation-list">
+        <div class="limitation">
+          <div class="lim-title">Coverage boundary</div>
+          <div class="lim-desc">
+            The regional atmospheric corrections degrade beyond the network's footprint. At the
+            boundary, PPP-RTK behaves like standard PPP-AR — accurate but with longer convergence.
+            True rapid initialisation requires the rover to be within ~200 km of a network station.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">Ionospheric scintillation</div>
+          <div class="lim-desc">
+            The interpolated ionospheric correction assumes a smooth, slowly varying ionosphere.
+            Scintillation — rapid, spatially irregular ionospheric fluctuations — invalidates this
+            assumption. PPP-RTK degrades significantly in equatorial regions after local sunset
+            and at high latitudes during geomagnetic storms. In severe cases, performance reverts
+            to standard PPP float.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">Data link dependency</div>
+          <div class="lim-desc">
+            Real-time atmospheric corrections require a continuous data link — cellular NTRIP or
+            L-band satellite. In areas without cellular coverage, L-band delivery is available
+            from Trimble RTX and Inmarsat. Outages of more than ~60 s degrade to PPP float.
+          </div>
+        </div>
+        <div class="limitation">
+          <div class="lim-title">Receiver compatibility</div>
+          <div class="lim-desc">
+            PPP-RTK requires a receiver capable of processing SSR corrections and performing
+            integer ambiguity resolution in undifferenced mode. Not all survey or mass-market
+            receivers support this. Compatibility depends on both hardware (multi-frequency)
+            and firmware (PPP-RTK engine).
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 7 — Full positioning landscape -->
+      <h2 id="positioning-landscape">The full positioning landscape</h2>
+      <p>
+        Having covered all five positioning methods, here is a complete comparison to help
+        choose the right approach for any application:
+      </p>
+
+      <div class="landscape-table">
+        <div class="land-row land-header">
+          <span>Method</span>
+          <span>Accuracy</span>
+          <span>TTFF</span>
+          <span>Infrastructure</span>
+          <span>Coverage</span>
+          <span>Cost</span>
+        </div>
+        <div class="land-row">
+          <span><strong>Standalone</strong></span>
+          <span>1 – 5 m</span>
+          <span>Instant</span>
+          <span>None</span>
+          <span>Global</span>
+          <span class="good">Free</span>
+        </div>
+        <div class="land-row">
+          <span><strong>SBAS</strong></span>
+          <span>0.5 – 1.5 m</span>
+          <span>Instant</span>
+          <span>None</span>
+          <span>Regional</span>
+          <span class="good">Free</span>
+        </div>
+        <div class="land-row">
+          <span><strong>DGNSS</strong></span>
+          <span>0.3 – 1 m</span>
+          <span>Instant</span>
+          <span>Base / CORS</span>
+          <span>Regional</span>
+          <span class="warn">Low</span>
+        </div>
+        <div class="land-row">
+          <span><strong>PPP float</strong></span>
+          <span>5 – 30 cm</span>
+          <span>20 – 60 min</span>
+          <span>None (RT products)</span>
+          <span>Global</span>
+          <span class="good">Free – Low</span>
+        </div>
+        <div class="land-row">
+          <span><strong>PPP-AR</strong></span>
+          <span>1 – 5 cm</span>
+          <span>10 – 20 min</span>
+          <span>Phase bias corrections</span>
+          <span>Global</span>
+          <span class="good">Free (HAS)</span>
+        </div>
+        <div class="land-row">
+          <span><strong>PPP-RTK</strong></span>
+          <span>1 – 3 cm</span>
+          <span>10 – 60 s</span>
+          <span>SSR + iono network</span>
+          <span>Wide-area</span>
+          <span class="warn">Med – High</span>
+        </div>
+        <div class="land-row land-highlight">
+          <span><strong>RTK</strong></span>
+          <span>1 – 2 cm</span>
+          <span>3 – 30 s</span>
+          <span>Base / CORS</span>
+          <span>Regional</span>
+          <span class="warn">Med – High</span>
+        </div>
+      </div>
+
+      <!-- SECTION 8 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">🔗</div>
+          <div class="summary-title">Best of both worlds</div>
+          <div class="summary-body">PPP-RTK combines PPP's global reach with RTK's fast ambiguity resolution. The key addition over PPP-AR is regional atmospheric corrections that enable near-instant initialisation.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🗺️</div>
+          <div class="summary-title">SSR is the architecture</div>
+          <div class="summary-body">State Space Representation broadcasts each error component separately — orbit, clock, phase biases, ionosphere, troposphere. The rover applies each at the correct spatial resolution.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">⚡</div>
+          <div class="summary-title">Fast initialisation</div>
+          <div class="summary-body">With atmospheric corrections supplied, the ionosphere is no longer an unknown — ambiguities resolve in seconds to minutes rather than tens of minutes. Same mechanism as RTK.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🌍</div>
+          <div class="summary-title">The future of precision GNSS</div>
+          <div class="summary-body">Galileo HAS Phase 2 and BeiDou PPP-B2b will provide free PPP-RTK globally via satellite signal. This will bring centimetre GNSS to any receiver without subscription fees or local infrastructure.</div>
+        </div>
+      </div>
+
+      <!-- Section complete -->
+      <div class="section-complete">
+        <div class="complete-icon">✅</div>
+        <div>
+          <div class="complete-title">Positioning section complete</div>
+          <div class="complete-body">
+            You've covered the full positioning spectrum — from 5 m standalone to 1 cm RTK
+            and the emerging PPP-RTK paradigm. The next sections cover the protocols that
+            carry these measurements and corrections.
+          </div>
+          <a href="/learn/protocols" class="complete-link">Continue to Protocols →</a>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/positioning/ppp" class="nav-prev">← PPP</a>
+        <a href="/learn/protocols" class="nav-next">Protocols →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Teunissen, P. J. G. & Khodabandeh, A. (2015). Review and principles of PPP-RTK methods. <em>Journal of Geodesy</em>, 89, 217–240.</li>
+          <li>Wübbena, G., Schmitz, M. & Bagge, A. (2005). PPP-RTK: Precise point positioning using state-space representation in RTK networks. <em>Proceedings ION GNSS 2005</em>, 2584–2594.</li>
+          <li>Galileo HAS ICD v1.0. <a href="https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo-HAS-SIS-ICD_v1.0.pdf" target="_blank" rel="noopener noreferrer">GSC Europa →</a></li>
+          <li>RTCM 10403.3 — SSR message types 1057–1068. <a href="https://www.rtcm.org" target="_blank" rel="noopener noreferrer">rtcm.org →</a></li>
+          <li>Banville, S. & Langley, R. B. (2011). Defining the ambiguity. <em>GPS World</em>, 22(4), 18–22.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  /* Gap cards */
+  .gap-cards { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: center; margin: 20px 0; }
+  .gap-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .gap-result { border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.04); }
+  .gap-method { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .gap-strength { font-size: 13px; color: var(--accent); margin-bottom: 4px; }
+  .gap-weakness { font-size: 13px; color: var(--text3); }
+  .gap-arrow { font-size: 24px; font-weight: 700; color: var(--accent); text-align: center; }
+
+  /* Correction layers */
+  .correction-layers { display: flex; flex-direction: column; gap: 3px; margin: 20px 0; }
+  .layer { padding: 16px 20px; border-radius: 8px; border: 1px solid var(--border); }
+  .layer-global { background: rgba(0,153,255,0.05); border-color: rgba(0,153,255,0.2); }
+  .layer-regional { background: rgba(251,191,36,0.05); border-color: rgba(251,191,36,0.2); }
+  .layer-rover { background: rgba(0,212,170,0.05); border-color: rgba(0,212,170,0.2); }
+  .layer-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .layer-items { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  .layer-item { font-size: 13px; color: var(--text2); padding-left: 12px; border-left: 2px solid var(--border); }
+  .layer-source { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+  /* SSR table */
+  .ssr-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .ssr-row { display: grid; grid-template-columns: 180px 1fr 100px 100px; gap: 10px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .ssr-header { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+
+  /* Convergence compare */
+  .convergence-compare { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+  .conv-item { display: grid; grid-template-columns: 220px 1fr 80px; gap: 12px; align-items: center; }
+  .conv-method { font-size: 13px; color: var(--text2); }
+  .conv-bar { background: var(--bg3); border-radius: 4px; height: 28px; overflow: hidden; }
+  .conv-fill { height: 100%; display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: var(--text); font-weight: 500; border-radius: 4px; font-family: var(--mono); }
+  .conv-acc { font-size: 12px; font-family: var(--mono); color: var(--text3); white-space: nowrap; }
+
+  /* Service grid */
+  .service-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .svc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .svc-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .svc-type { font-size: 11px; font-family: var(--mono); color: var(--accent2); margin-bottom: 8px; }
+  .svc-detail { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Limitations */
+  .limitation-list { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .limitation { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; }
+  .lim-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .lim-desc { font-size: 13px; color: var(--text3); line-height: 1.7; }
+
+  /* Landscape table */
+  .landscape-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; overflow-x: auto; }
+  .land-row { display: grid; grid-template-columns: 120px 80px 100px 160px 100px 80px; gap: 8px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; align-items: center; }
+  .land-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .land-highlight { border-color: rgba(0,212,170,0.3); }
+  .land-row span { color: var(--text2); }
+  .land-row strong { color: var(--text); }
+  .good { color: var(--accent) !important; }
+  .warn { color: #fbbf24 !important; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Section complete */
+  .section-complete { display: flex; gap: 16px; align-items: flex-start; background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.2); border-radius: 12px; padding: 24px; margin: 32px 0; }
+  .complete-icon { font-size: 28px; flex-shrink: 0; }
+  .complete-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .complete-body { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .complete-link { font-size: 14px; font-weight: 600; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .gap-cards { grid-template-columns: 1fr; }
+    .gap-arrow { display: none; }
+    .service-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .ssr-row { grid-template-columns: 1fr 1fr; }
+    .ssr-header { display: none; }
+    .conv-item { grid-template-columns: 150px 1fr; }
+    .conv-acc { display: none; }
+    .land-row { grid-template-columns: 1fr 1fr 1fr; }
+    h2 { font-size: 20px; }
+  }
+</style>

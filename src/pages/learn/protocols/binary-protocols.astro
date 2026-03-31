@@ -1,0 +1,666 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Binary Protocols">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/protocols">Protocols</a>
+        <span>›</span>
+        <span>Binary Protocols</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Protocols · Article 5 of 5</span>
+        <h1>Binary Protocols</h1>
+        <p class="lead">
+          NMEA gives you a position. Binary protocols give you everything the receiver knows —
+          raw pseudoranges, carrier phases, Doppler, satellite health, internal filter states
+          and hardware diagnostics. When you need raw measurements for RTK post-processing,
+          PPP, or your own navigation algorithm, you need a binary protocol.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#why-binary">Why binary over NMEA?</a></li>
+          <li><a href="#ubx">UBX — u-blox binary protocol</a></li>
+          <li><a href="#sbf">SBF — Septentrio Binary Format</a></li>
+          <li><a href="#binex">BINEX — Binary RINEX</a></li>
+          <li><a href="#comparison">Protocol comparison</a></li>
+          <li><a href="#converting">Converting to RINEX</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="why-binary">Why binary over NMEA?</h2>
+      <p>
+        NMEA 0183 was designed in 1983 for single-channel GPS receivers outputting one position
+        per second at 4800 baud. Modern GNSS receivers track 40+ satellites on multiple
+        frequencies at up to 100 Hz. NMEA cannot carry this data volume efficiently — or at all
+        in the case of raw measurements.
+      </p>
+
+      <div class="compare-table">
+        <div class="ct-row ct-header">
+          <span>Capability</span>
+          <span>NMEA 0183</span>
+          <span>Binary</span>
+        </div>
+        <div class="ct-row">
+          <span>Raw pseudoranges</span>
+          <span class="no">✗ Not available</span>
+          <span class="yes">✓ Full precision</span>
+        </div>
+        <div class="ct-row">
+          <span>Carrier phase measurements</span>
+          <span class="no">✗ Not available</span>
+          <span class="yes">✓ Millimetre resolution</span>
+        </div>
+        <div class="ct-row">
+          <span>Doppler measurements</span>
+          <span class="partial">~ VTG sentence (limited)</span>
+          <span class="yes">✓ Per-satellite, full precision</span>
+        </div>
+        <div class="ct-row">
+          <span>High update rates (&gt;5 Hz)</span>
+          <span class="no">✗ Bandwidth limited</span>
+          <span class="yes">✓ Up to 100 Hz</span>
+        </div>
+        <div class="ct-row">
+          <span>Multi-constellation raw data</span>
+          <span class="partial">~ Position only (GN talker)</span>
+          <span class="yes">✓ Per-satellite, all constellations</span>
+        </div>
+        <div class="ct-row">
+          <span>Internal filter states</span>
+          <span class="no">✗ Not available</span>
+          <span class="yes">✓ Kalman filter, ambiguity status</span>
+        </div>
+        <div class="ct-row">
+          <span>Human readable</span>
+          <span class="yes">✓ ASCII text</span>
+          <span class="no">✗ Binary — needs parser</span>
+        </div>
+        <div class="ct-row">
+          <span>Bandwidth efficiency</span>
+          <span class="no">✗ ~8 bytes/character</span>
+          <span class="yes">✓ ~2–3 bytes/value</span>
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="ubx">UBX — u-blox binary protocol</h2>
+      <p>
+        UBX is the proprietary binary protocol developed by u-blox for their GNSS receiver
+        modules. It is the most widely encountered binary protocol in the industry — u-blox
+        chips are found in the vast majority of consumer devices, drones, IoT trackers and
+        many professional survey receivers.
+      </p>
+
+      <h3>UBX frame structure</h3>
+      <div class="frame-diagram">
+        <div class="frame-byte">
+          <div class="fb-label">Sync 1</div>
+          <div class="fb-bits">1 byte</div>
+          <div class="fb-val">0xB5</div>
+          <div class="fb-desc">Always 0xB5 (µ in Latin-1). Marks start of frame.</div>
+        </div>
+        <div class="frame-byte">
+          <div class="fb-label">Sync 2</div>
+          <div class="fb-bits">1 byte</div>
+          <div class="fb-val">0x62</div>
+          <div class="fb-desc">Always 0x62 ('b'). Together with sync 1 = "µb" for u-blox.</div>
+        </div>
+        <div class="frame-byte frame-class">
+          <div class="fb-label">Class</div>
+          <div class="fb-bits">1 byte</div>
+          <div class="fb-val">0x01–0x0D</div>
+          <div class="fb-desc">Message class — groups related messages (NAV, RXM, CFG, MON, etc.)</div>
+        </div>
+        <div class="frame-byte frame-id">
+          <div class="fb-label">ID</div>
+          <div class="fb-bits">1 byte</div>
+          <div class="fb-val">0x00–0xFF</div>
+          <div class="fb-desc">Message ID within the class. Class+ID uniquely identifies the message type.</div>
+        </div>
+        <div class="frame-byte frame-len">
+          <div class="fb-label">Length</div>
+          <div class="fb-bits">2 bytes LE</div>
+          <div class="fb-val">0–65535</div>
+          <div class="fb-desc">Payload length in bytes, little-endian. Does not include header or checksum.</div>
+        </div>
+        <div class="frame-byte frame-payload">
+          <div class="fb-label">Payload</div>
+          <div class="fb-bits">variable</div>
+          <div class="fb-val">message data</div>
+          <div class="fb-desc">Message-specific data. All multi-byte integers are little-endian.</div>
+        </div>
+        <div class="frame-byte frame-crc">
+          <div class="fb-label">CK_A, CK_B</div>
+          <div class="fb-bits">2 bytes</div>
+          <div class="fb-val">Fletcher-8</div>
+          <div class="fb-desc">8-bit Fletcher checksum over class, ID, length and payload. Always validate.</div>
+        </div>
+      </div>
+
+      <h3>Key UBX message classes</h3>
+      <div class="msg-classes">
+        <div class="mc-card">
+          <div class="mc-class">NAV (0x01)</div>
+          <div class="mc-desc">Navigation solution outputs — position, velocity, DOP, satellite info, time. These mirror NMEA but in binary with more detail.</div>
+          <div class="mc-examples">NAV-PVT · NAV-SAT · NAV-DOP · NAV-STATUS · NAV-TIMEGPS</div>
+        </div>
+        <div class="mc-card mc-raw">
+          <div class="mc-class">RXM (0x02)</div>
+          <div class="mc-desc">Raw receiver measurements — the critical class for post-processing. Contains pseudoranges, carrier phases, Doppler and signal strength per satellite.</div>
+          <div class="mc-examples">RXM-RAWX · RXM-SFRBX · RXM-MEASX</div>
+        </div>
+        <div class="mc-card">
+          <div class="mc-class">CFG (0x06)</div>
+          <div class="mc-desc">Configuration messages — enable/disable outputs, set update rates, configure ports, save settings to flash. Essential for receiver setup.</div>
+          <div class="mc-examples">CFG-MSG · CFG-RATE · CFG-PRT · CFG-GNSS · CFG-SAVE</div>
+        </div>
+        <div class="mc-card">
+          <div class="mc-class">MON (0x0A)</div>
+          <div class="mc-desc">Monitoring — hardware status, communication port load, RF environment, firmware version. Useful for diagnostics and integration.</div>
+          <div class="mc-examples">MON-HW · MON-RF · MON-VER · MON-COMMS</div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔑</div>
+        <div>
+          <strong>RXM-RAWX is the key message:</strong> For any post-processing, PPP or custom
+          navigation application, enable <code>RXM-RAWX</code>. It contains pseudorange
+          (metres), carrier phase (cycles), Doppler (Hz) and C/N₀ (dB-Hz) for every tracked
+          signal at every epoch. This is the raw material for RINEX conversion and PPP processing.
+        </div>
+      </div>
+
+      <h3>UBX checksum — Fletcher-8</h3>
+      <div class="formula-block">
+        <div class="formula">CK_A = 0; CK_B = 0</div>
+        <div class="formula">for each byte b in [class, id, len_lo, len_hi, payload...]:</div>
+        <div class="formula">    CK_A = (CK_A + b) & 0xFF</div>
+        <div class="formula">    CK_B = (CK_B + CK_A) & 0xFF</div>
+        <div class="formula-desc">
+          The two checksum bytes are appended after the payload. Validate on every received frame —
+          UBX on a UART at high baud rates can have framing errors.
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="sbf">SBF — Septentrio Binary Format</h2>
+      <p>
+        SBF is Septentrio's native binary protocol, used across their entire receiver range —
+        from the mosaic-X5 OEM module to the AsteRx survey receivers. Septentrio receivers
+        are common in precision agriculture, surveying and scientific applications. SBF is
+        notable for its completeness — it exposes more internal receiver state than most
+        competing formats.
+      </p>
+
+      <h3>SBF frame structure</h3>
+      <div class="sbf-frame">
+        <div class="sbf-field">
+          <div class="sbf-name">Sync</div>
+          <div class="sbf-size">2 bytes</div>
+          <div class="sbf-val">0x24 0x40 ("$@")</div>
+          <div class="sbf-note">Fixed sync characters</div>
+        </div>
+        <div class="sbf-field">
+          <div class="sbf-name">CRC</div>
+          <div class="sbf-size">2 bytes</div>
+          <div class="sbf-val">CRC-CCITT</div>
+          <div class="sbf-note">Over ID, length and body. Placed before body — enables streaming validation.</div>
+        </div>
+        <div class="sbf-field sbf-key">
+          <div class="sbf-name">ID</div>
+          <div class="sbf-size">2 bytes</div>
+          <div class="sbf-val">Block number + revision</div>
+          <div class="sbf-note">Bits 0–12: block number. Bits 13–15: revision. Together identify message type and version.</div>
+        </div>
+        <div class="sbf-field">
+          <div class="sbf-name">Length</div>
+          <div class="sbf-size">2 bytes</div>
+          <div class="sbf-val">8 – 65532</div>
+          <div class="sbf-note">Total block length in bytes (multiple of 4). Includes header.</div>
+        </div>
+        <div class="sbf-field">
+          <div class="sbf-name">TOW</div>
+          <div class="sbf-size">4 bytes</div>
+          <div class="sbf-val">ms since week</div>
+          <div class="sbf-note">GPS Time of Week in milliseconds. 0xFFFFFFFF = not available.</div>
+        </div>
+        <div class="sbf-field">
+          <div class="sbf-name">WNc</div>
+          <div class="sbf-size">2 bytes</div>
+          <div class="sbf-val">GPS week</div>
+          <div class="sbf-note">GPS week number (continuous, no rollover). 0xFFFF = not available.</div>
+        </div>
+        <div class="sbf-field sbf-body">
+          <div class="sbf-name">Body</div>
+          <div class="sbf-size">variable</div>
+          <div class="sbf-val">block data</div>
+          <div class="sbf-note">Block-specific data fields. Padded to 4-byte boundary.</div>
+        </div>
+      </div>
+
+      <h3>Key SBF blocks</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Block number</th><th>Name</th><th>Content</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>4006</strong></td><td>MeasEpoch</td><td>Raw code and phase measurements — the SBF equivalent of UBX RXM-RAWX. Essential for post-processing.</td></tr>
+            <tr><td><strong>4007</strong></td><td>MeasExtra</td><td>Extended measurement data — multipath estimates, smoothing corrections, channel tracking status.</td></tr>
+            <tr><td><strong>4001</strong></td><td>PVTCartesian</td><td>Position, velocity and time in ECEF. Includes accuracy estimates and solution type.</td></tr>
+            <tr><td><strong>4002</strong></td><td>PVTGeodetic</td><td>Position, velocity and time in geodetic coordinates (lat/lon/height).</td></tr>
+            <tr><td><strong>5902</strong></td><td>BaseVectorCart</td><td>RTK baseline vector in ECEF. Includes ambiguity fix status and baseline accuracy.</td></tr>
+            <tr><td><strong>4012</strong></td><td>AttEuler</td><td>Attitude solution (heading, pitch, roll) for dual-antenna configurations.</td></tr>
+            <tr><td><strong>4095</strong></td><td>ReceiverStatus</td><td>Receiver health, tracking flags, RTC status, error flags. Essential for system monitoring.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔧</div>
+        <div>
+          <strong>SBF advantage — MeasExtra:</strong> The MeasExtra block exposes per-channel
+          multipath estimates, carrier-to-noise smoothing corrections and tracking loop bandwidth
+          settings. This level of diagnostic detail is rarely available in competing formats and
+          makes Septentrio receivers particularly useful for ionospheric research and signal
+          quality analysis.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="binex">BINEX — Binary RINEX</h2>
+      <p>
+        BINEX (Binary RINEX) is an open, receiver-independent binary format developed by UNAVCO
+        and adopted by IGS. Unlike UBX and SBF — which are proprietary to their manufacturers —
+        BINEX is an open standard that any receiver vendor can implement and any software can
+        parse without a licence.
+      </p>
+      <p>
+        BINEX was designed to address RINEX's inefficiency for high-rate data. A 1 Hz RINEX
+        file for a multi-constellation receiver is verbose — BINEX achieves 4–6× compression
+        of the same data while remaining lossless. For 1 Hz CORS data archived over years,
+        this compression matters.
+      </p>
+
+      <h3>BINEX frame structure</h3>
+      <p>
+        BINEX uses a flexible, self-describing format. Each record consists of:
+      </p>
+
+      <div class="binex-structure">
+        <div class="bx-field bx-sync">
+          <div class="bx-label">Sync byte</div>
+          <div class="bx-val">0xC2 (little-endian) or 0xE2 (big-endian)</div>
+          <div class="bx-note">Encodes byte order and CRC type in a single byte.</div>
+        </div>
+        <div class="bx-field">
+          <div class="bx-label">Record ID</div>
+          <div class="bx-val">1–4 bytes (UBNXI encoding)</div>
+          <div class="bx-note">Variable-length unsigned integer. UBNXI uses fewer bytes for small IDs (most common case).</div>
+        </div>
+        <div class="bx-field">
+          <div class="bx-label">Record length</div>
+          <div class="bx-val">1–4 bytes (UBNXI encoding)</div>
+          <div class="bx-note">Length of the record data in bytes.</div>
+        </div>
+        <div class="bx-field bx-key">
+          <div class="bx-label">Record data</div>
+          <div class="bx-val">variable</div>
+          <div class="bx-note">Record-specific content. See BINEX ICD for record definitions.</div>
+        </div>
+        <div class="bx-field">
+          <div class="bx-label">CRC</div>
+          <div class="bx-val">1, 2 or 4 bytes</div>
+          <div class="bx-note">CRC type indicated by sync byte. 1-byte XOR for small records, 4-byte CRC-32 for large.</div>
+        </div>
+      </div>
+
+      <h3>Key BINEX record IDs</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Record ID</th><th>Content</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>0x00</strong></td><td>GNSS navigation records — ephemeris for GPS, GLONASS, Galileo, BeiDou</td></tr>
+            <tr><td><strong>0x01</strong></td><td>GNSS metadata (site information, antenna, receiver)</td></tr>
+            <tr><td><strong>0x7f</strong></td><td>Undifferenced GNSS observables — raw code, phase, Doppler per satellite. The BINEX equivalent of a RINEX observation epoch.</td></tr>
+            <tr><td><strong>0x7e</strong></td><td>Differential GNSS observables (single differences)</td></tr>
+            <tr><td><strong>0x15</strong></td><td>Meteorological data</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🌐</div>
+        <div>
+          <strong>Where you see BINEX:</strong> IGS archives store some real-time data in BINEX.
+          UNAVCO distributes data from their network in BINEX. Several geodetic processing
+          packages (TEQC, RTKLIB) can read BINEX directly. If you encounter a <code>.bnx</code>
+          or <code>.binex</code> file, treat it like a binary RINEX observation file.
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="comparison">Protocol comparison</h2>
+
+      <div class="proto-compare">
+        <div class="pc-row pc-header">
+          <span></span>
+          <span>UBX</span>
+          <span>SBF</span>
+          <span>BINEX</span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-factor">Manufacturer</span>
+          <span>u-blox</span>
+          <span>Septentrio</span>
+          <span>Open (UNAVCO/IGS)</span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-factor">Open standard</span>
+          <span class="no">No (public ICD)</span>
+          <span class="no">No (public ICD)</span>
+          <span class="yes">Yes — open standard</span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-factor">Raw measurements</span>
+          <span class="yes">✓ RXM-RAWX</span>
+          <span class="yes">✓ MeasEpoch</span>
+          <span class="yes">✓ Record 0x7f</span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-factor">Max update rate</span>
+          <span>25 Hz (F9P)</span>
+          <span>100 Hz</span>
+          <span>Receiver-dependent</span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-factor">Byte order</span>
+          <span>Little-endian</span>
+          <span>Little-endian</span>
+          <span>Configurable (sync byte)</span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-factor">Checksum</span>
+          <span>Fletcher-8 (2 bytes)</span>
+          <span>CRC-CCITT (2 bytes)</span>
+          <span>XOR / CRC-16 / CRC-32</span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-factor">RINEX converter</span>
+          <span>RTKLIB, u-center</span>
+          <span>sbf2rin (Septentrio)</span>
+          <span>TEQC, RTKLIB</span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-factor">Primary use</span>
+          <span>Consumer/pro u-blox receivers</span>
+          <span>High-end geodetic/survey</span>
+          <span>CORS archives, IGS RT</span>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="converting">Converting to RINEX</h2>
+      <p>
+        The standard workflow is to log raw binary data from the receiver, then convert to
+        RINEX for post-processing, archiving or submission to correction services:
+      </p>
+
+      <div class="workflow">
+        <div class="wf-step">
+          <div class="wf-num">1</div>
+          <div class="wf-content">
+            <div class="wf-title">Enable raw output on receiver</div>
+            <div class="wf-desc">UBX: enable RXM-RAWX and RXM-SFRBX (navigation data). SBF: enable MeasEpoch and GPSNav/GalNav blocks. Log to file at 1 Hz minimum.</div>
+          </div>
+        </div>
+        <div class="wf-step">
+          <div class="wf-num">2</div>
+          <div class="wf-content">
+            <div class="wf-title">Log binary to file</div>
+            <div class="wf-desc">RTKLIB str2str, u-blox u-center, Septentrio RxControl, or a custom serial logger. File size: ~1 MB/hour for a dual-frequency multi-constellation receiver at 1 Hz.</div>
+          </div>
+        </div>
+        <div class="wf-step">
+          <div class="wf-num">3</div>
+          <div class="wf-content">
+            <div class="wf-title">Convert to RINEX</div>
+            <div class="wf-desc">
+              UBX → RINEX: <code>rtkconv</code> (RTKLIB GUI) or <code>convbin</code> (command line).<br/>
+              SBF → RINEX: <code>sbf2rin</code> (Septentrio free tool).<br/>
+              BINEX → RINEX: <code>teqc</code> or <code>gfzrnx</code>.
+            </div>
+          </div>
+        </div>
+        <div class="wf-step">
+          <div class="wf-num">4</div>
+          <div class="wf-content">
+            <div class="wf-title">Process or submit</div>
+            <div class="wf-desc">Post-process the RINEX file with RTKPOST, submit to NRCan CSRS-PPP, or archive to a CORS data centre. RINEX 3.04 preferred for multi-constellation data.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section complete -->
+      <div class="section-complete">
+        <div class="complete-icon">✅</div>
+        <div>
+          <div class="complete-title">Protocols section complete</div>
+          <div class="complete-body">
+            You now understand how GNSS data is formatted, transmitted and stored — from NMEA
+            sentences on a serial port to binary raw measurements and RTCM correction streams.
+            The next section covers the mathematics underpinning GNSS positioning engines.
+          </div>
+          <a href="/learn/mathematics" class="complete-link">Continue to Mathematics →</a>
+        </div>
+      </div>
+
+      <!-- SECTION 7 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">⚡</div>
+          <div class="summary-title">Binary beats NMEA for raw data</div>
+          <div class="summary-body">NMEA cannot carry pseudoranges, carrier phases or high-rate data. Binary protocols expose everything the receiver measures. No raw measurements = no post-processing or PPP.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📡</div>
+          <div class="summary-title">UBX — ubiquitous u-blox</div>
+          <div class="summary-body">RXM-RAWX is the key message for raw data logging. Fletcher-8 checksum. Little-endian. Supported by RTKLIB and most open-source tools. Found in most drones, IoT and affordable survey receivers.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔬</div>
+          <div class="summary-title">SBF — diagnostic depth</div>
+          <div class="summary-body">MeasEpoch for raw data. MeasExtra exposes multipath estimates unique to Septentrio. CRC-CCITT checksum. sbf2rin for RINEX conversion. Used in precision agriculture and geodetic research.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🌐</div>
+          <div class="summary-title">BINEX — open standard</div>
+          <div class="summary-body">Open format, receiver-independent. 4–6× more compact than RINEX. Used by IGS and UNAVCO for CORS data archiving. Record 0x7f carries raw observables. Parse with TEQC or RTKLIB.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/protocols/ntrip" class="nav-prev">← NTRIP</a>
+        <a href="/learn/mathematics" class="nav-next">Mathematics →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>u-blox. <em>u-blox F9 HPG 1.32 Interface Description</em>. <a href="https://www.u-blox.com/en/docs/UBX-22008968" target="_blank" rel="noopener noreferrer">u-blox →</a></li>
+          <li>Septentrio. <em>SBF Reference Guide v4.7</em>. <a href="https://www.septentrio.com/en/support/support-resources/documents" target="_blank" rel="noopener noreferrer">Septentrio →</a></li>
+          <li>Muellerschoen, R., Diggles, M., Touchtone, M. & MacLeod, L. (2004). BINEX: Binary Exchange Format. UNAVCO. <a href="https://binex.unavco.org" target="_blank" rel="noopener noreferrer">binex.unavco.org →</a></li>
+          <li>RTKLIB v2.4.3 — open source GNSS processing software. <a href="https://rtklib.com" target="_blank" rel="noopener noreferrer">rtklib.com →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  code { font-family: var(--mono); font-size: 13px; background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: var(--accent2); }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-top: 8px; }
+
+  /* Compare table */
+  .compare-table { display: flex; flex-direction: column; gap: 2px; margin: 20px 0; }
+  .ct-row { display: grid; grid-template-columns: 220px 1fr 1fr; gap: 10px; padding: 9px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .ct-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .ct-row span:first-child { color: var(--text); font-weight: 500; }
+  .yes { color: var(--accent); }
+  .no { color: var(--text3); }
+  .partial { color: #fbbf24; }
+
+  /* Frame diagram */
+  .frame-diagram { display: flex; flex-wrap: wrap; gap: 5px; margin: 16px 0 24px; }
+  .frame-byte { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px; flex: 1; min-width: 90px; }
+  .frame-class { border-top: 2px solid var(--accent2); }
+  .frame-id { border-top: 2px solid var(--accent2); }
+  .frame-len { border-top: 2px solid #fbbf24; }
+  .frame-payload { border-top: 2px solid var(--accent); flex: 3; }
+  .frame-crc { border-top: 2px solid #a3e635; }
+  .fb-label { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .fb-bits { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-bottom: 3px; }
+  .fb-val { font-size: 11px; font-family: var(--mono); color: var(--accent2); margin-bottom: 5px; }
+  .fb-desc { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+  /* Message classes */
+  .msg-classes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 16px 0; }
+  .mc-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .mc-raw { border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.03); }
+  .mc-class { font-size: 13px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .mc-desc { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 8px; }
+  .mc-examples { font-size: 11px; font-family: var(--mono); color: var(--text3); }
+
+  /* SBF frame */
+  .sbf-frame { display: flex; flex-direction: column; gap: 2px; margin: 16px 0 24px; }
+  .sbf-field { display: grid; grid-template-columns: 100px 120px 150px 1fr; gap: 10px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; align-items: baseline; }
+  .sbf-key { border-left: 2px solid rgba(0,212,170,0.4); }
+  .sbf-body { border-left: 2px solid rgba(0,212,170,0.4); }
+  .sbf-name { font-weight: 600; color: var(--text); }
+  .sbf-size { font-family: var(--mono); color: var(--accent2); }
+  .sbf-val { font-family: var(--mono); color: var(--accent); font-size: 11px; }
+  .sbf-note { color: var(--text3); font-size: 11px; line-height: 1.5; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+
+  /* BINEX structure */
+  .binex-structure { display: flex; flex-direction: column; gap: 2px; margin: 14px 0; }
+  .bx-field { display: grid; grid-template-columns: 120px 180px 1fr; gap: 10px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; align-items: baseline; }
+  .bx-sync { border-top: 2px solid var(--accent2); }
+  .bx-key { border-left: 2px solid rgba(0,212,170,0.4); }
+  .bx-label { font-weight: 600; color: var(--text); }
+  .bx-val { font-family: var(--mono); color: var(--accent2); font-size: 11px; }
+  .bx-note { color: var(--text3); font-size: 11px; line-height: 1.5; }
+
+  /* Protocol compare */
+  .proto-compare { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .pc-row { display: grid; grid-template-columns: 150px 1fr 1fr 1fr; gap: 10px; padding: 9px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; align-items: center; }
+  .pc-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .pc-factor { font-weight: 600; color: var(--text); font-size: 12px; }
+  .pc-row span:not(.pc-factor) { color: var(--text2); }
+
+  /* Workflow */
+  .workflow { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .wf-step { display: flex; gap: 16px; padding: 14px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; align-items: flex-start; }
+  .wf-num { width: 28px; height: 28px; background: rgba(0,212,170,0.12); color: var(--accent); border-radius: 50%; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: var(--mono); flex-shrink: 0; margin-top: 2px; }
+  .wf-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .wf-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Section complete */
+  .section-complete { display: flex; gap: 16px; align-items: flex-start; background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.2); border-radius: 12px; padding: 24px; margin: 32px 0; }
+  .complete-icon { font-size: 28px; flex-shrink: 0; }
+  .complete-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .complete-body { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .complete-link { font-size: 14px; font-weight: 600; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .ct-row { grid-template-columns: 1fr 1fr; }
+    .ct-row span:first-child { grid-column: 1 / -1; font-size: 12px; color: var(--text3); }
+    .msg-classes { grid-template-columns: 1fr; }
+    .sbf-field { grid-template-columns: 80px 1fr; }
+    .sbf-field span:nth-child(3), .sbf-field span:nth-child(4) { display: none; }
+    .bx-field { grid-template-columns: 100px 1fr; }
+    .bx-field span:last-child { display: none; }
+    .pc-row { grid-template-columns: 1fr 1fr; }
+    .pc-factor { grid-column: 1 / -1; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .frame-diagram { flex-direction: column; }
+    h2 { font-size: 20px; }
+  }
+</style>

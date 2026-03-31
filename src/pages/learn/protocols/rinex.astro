@@ -1,0 +1,599 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="RINEX">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/protocols">Protocols</a>
+        <span>›</span>
+        <span>RINEX</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Protocols · Article 2 of 5</span>
+        <h1>RINEX</h1>
+        <p class="lead">
+          RINEX — Receiver Independent Exchange Format — is the standard for storing and exchanging
+          GNSS observation data and navigation messages. If you want to post-process raw GNSS data,
+          compute a precise position with PPP, or submit data to a CORS network, you will work with
+          RINEX files.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#overview">Overview and purpose</a></li>
+          <li><a href="#file-types">File types</a></li>
+          <li><a href="#versions">RINEX versions</a></li>
+          <li><a href="#observation-file">Observation file structure</a></li>
+          <li><a href="#obs-codes">Observation codes</a></li>
+          <li><a href="#navigation-file">Navigation file structure</a></li>
+          <li><a href="#naming">File naming conventions</a></li>
+          <li><a href="#tools">Working with RINEX files</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="overview">Overview and purpose</h2>
+      <p>
+        Before RINEX (1989), sharing GNSS data between research groups was nearly impossible —
+        each receiver manufacturer used a proprietary binary format. RINEX solved this by
+        defining a receiver-independent ASCII format that any software could read, regardless
+        of which receiver collected the data.
+      </p>
+      <p>
+        RINEX is not a real-time protocol. It is a <strong>file format</strong> for archiving
+        and exchanging GNSS data. A receiver logs raw measurements to a proprietary binary
+        format in real time, then converts to RINEX for sharing, post-processing or submission
+        to data archives like CDDIS (NASA) or IGS.
+      </p>
+
+      <div class="use-cases">
+        <div class="uc">
+          <div class="uc-icon">🔄</div>
+          <div class="uc-title">Post-processing</div>
+          <div class="uc-desc">Submit RINEX observations to PPP services (CSRS-PPP, APPS) or process with RTKLIB, BERNESE, GIPSY.</div>
+        </div>
+        <div class="uc">
+          <div class="uc-icon">🌐</div>
+          <div class="uc-title">Data sharing</div>
+          <div class="uc-desc">CORS networks archive observations as RINEX. IGS distributes global tracking data in RINEX for orbit/clock computation.</div>
+        </div>
+        <div class="uc">
+          <div class="uc-icon">🔬</div>
+          <div class="uc-title">Research</div>
+          <div class="uc-desc">GNSS research uses RINEX as the universal input format. Any algorithm development starts with RINEX files.</div>
+        </div>
+        <div class="uc">
+          <div class="uc-icon">📐</div>
+          <div class="uc-title">Geodetic survey</div>
+          <div class="uc-desc">Static surveys collect RINEX for hours, then process against nearby CORS stations to achieve millimetre accuracy.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="file-types">File types</h2>
+      <p>
+        A complete RINEX dataset typically consists of multiple files covering different data types:
+      </p>
+
+      <div class="file-type-grid">
+        <div class="ft-card ft-obs">
+          <div class="ft-ext">.rnx / .obs</div>
+          <div class="ft-name">Observation file</div>
+          <div class="ft-desc">Raw measurements — pseudoranges (code), carrier phases, Doppler and signal strength for every satellite at each epoch. The primary RINEX file type.</div>
+        </div>
+        <div class="ft-card ft-nav">
+          <div class="ft-ext">.nav / .rnx</div>
+          <div class="ft-name">Navigation file</div>
+          <div class="ft-desc">Satellite ephemeris (orbital parameters) and clock corrections decoded from the navigation message. One file can cover all constellations in RINEX 3+.</div>
+        </div>
+        <div class="ft-card ft-met">
+          <div class="ft-ext">.met</div>
+          <div class="ft-name">Meteorological file</div>
+          <div class="ft-desc">Surface meteorological data — temperature, pressure, humidity — collocated with the receiver. Used to improve tropospheric delay modelling.</div>
+        </div>
+        <div class="ft-card ft-clk">
+          <div class="ft-ext">.clk</div>
+          <div class="ft-name">Clock file</div>
+          <div class="ft-desc">High-rate satellite and receiver clock estimates from precise timing analysis. Used in PPP to replace broadcast clock corrections.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="versions">RINEX versions</h2>
+      <p>
+        RINEX has evolved significantly over 35 years. Understanding which version you have
+        matters — parsers and processing software often support only specific versions:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Version</th>
+              <th>Year</th>
+              <th>Key changes</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>RINEX 2.11</strong></td>
+              <td>2007</td>
+              <td>GPS + GLONASS. Separate navigation files per constellation. Widely supported.</td>
+              <td>Legacy — still common</td>
+            </tr>
+            <tr>
+              <td><strong>RINEX 3.04</strong></td>
+              <td>2018</td>
+              <td>Multi-constellation (GPS, GLONASS, Galileo, BeiDou, QZSS, SBAS). New obs codes. Single mixed navigation file. New naming convention.</td>
+              <td>Current standard</td>
+            </tr>
+            <tr>
+              <td><strong>RINEX 3.05</strong></td>
+              <td>2020</td>
+              <td>Minor clarifications. NavIC/IRNSS added. L6 signal support for Galileo HAS.</td>
+              <td>Current</td>
+            </tr>
+            <tr>
+              <td><strong>RINEX 4.00</strong></td>
+              <td>2021</td>
+              <td>Restructured navigation file with record types. Improved handling of SSR-like data and integrity information.</td>
+              <td>Emerging</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div>
+          <strong>Practical note:</strong> RINEX 2.11 is still widely produced by older receivers
+          and accepted by most processing services. RINEX 3 is required for multi-constellation
+          processing, Galileo and BeiDou data. When submitting to IGS or CDDIS, RINEX 3.04 or
+          later is preferred.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="observation-file">Observation file structure</h2>
+      <p>
+        A RINEX observation file has two sections: a <strong>header</strong> (metadata) and
+        a <strong>data body</strong> (measurements at each epoch).
+      </p>
+
+      <h3>Header</h3>
+      <p>
+        The header is fixed-format, column-aligned ASCII. Each line has a label in columns 61–80.
+        Key header records:
+      </p>
+
+      <div class="rinex-header">
+        <div class="rh-line">
+          <div class="rh-content">     3.04           OBSERVATION DATA    M (Mixed)        RINEX VERSION / TYPE</div>
+        </div>
+        <div class="rh-line">
+          <div class="rh-content">teqc  2019Feb25                         20190301 000000UTC PGM / RUN BY / DATE</div>
+        </div>
+        <div class="rh-line">
+          <div class="rh-content">ALGO                                                        MARKER NAME</div>
+        </div>
+        <div class="rh-line">
+          <div class="rh-content">  4789440.8430   176955.3690  4194576.7740                 APPROX POSITION XYZ</div>
+        </div>
+        <div class="rh-line rh-important">
+          <div class="rh-content">G    8 C1C L1C D1C S1C C2W L2W D2W S2W                  SYS / # / OBS TYPES</div>
+        </div>
+        <div class="rh-line rh-important">
+          <div class="rh-content">E    4 C1C L1C C5Q L5Q                                    SYS / # / OBS TYPES</div>
+        </div>
+        <div class="rh-line">
+          <div class="rh-content">  30.000                                                   INTERVAL</div>
+        </div>
+        <div class="rh-line">
+          <div class="rh-content">  2019     3     1     0     0    0.0000000                TIME OF FIRST OBS</div>
+        </div>
+        <div class="rh-line">
+          <div class="rh-content">                                                            END OF HEADER</div>
+        </div>
+      </div>
+
+      <p>
+        The <code>SYS / # / OBS TYPES</code> record is critical — it defines which observation
+        types are in the file for each constellation. In the example above, GPS (<code>G</code>)
+        has 8 observation types and Galileo (<code>E</code>) has 4.
+      </p>
+
+      <h3>Data body</h3>
+      <p>
+        After the header, the file contains measurement epochs. Each epoch starts with a header
+        line giving the time and satellite list, followed by one line of observations per satellite:
+      </p>
+
+      <div class="rinex-data">
+        <div class="rd-line rd-epoch">
+          <div class="rd-content">&gt; 2019  3  1  0  0  0.0000000  0  8</div>
+          <div class="rd-comment">Epoch: year mon day h m s, flag=0 (OK), 8 satellites</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">G01  23274318.300   122316543.890   -2045.314          44.000  ...</div>
+          <div class="rd-comment">GPS PRN 1: C1C, L1C, D1C, S1C, ...</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">G04  21456789.123   112765432.100   -1234.567          42.500  ...</div>
+          <div class="rd-comment">GPS PRN 4</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">E11  22345678.456   117543210.789    -987.654          40.000  ...</div>
+          <div class="rd-comment">Galileo PRN 11</div>
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="obs-codes">Observation codes</h2>
+      <p>
+        RINEX 3 uses a three-character observation code to identify each measurement type.
+        The three characters encode:
+      </p>
+
+      <div class="obs-code-anatomy">
+        <div class="oc-char">
+          <div class="oc-val">C</div>
+          <div class="oc-pos">Character 1</div>
+          <div class="oc-meaning">Observation type</div>
+          <div class="oc-options">C=code/pseudorange · L=carrier phase · D=Doppler · S=signal strength</div>
+        </div>
+        <div class="oc-char">
+          <div class="oc-val">1</div>
+          <div class="oc-pos">Character 2</div>
+          <div class="oc-meaning">Frequency band</div>
+          <div class="oc-options">1=L1/E1/B1 · 2=L2/B2 · 5=L5/E5a/B2a · 6=E6/B3 · 7=E5b/B2b · 8=E5</div>
+        </div>
+        <div class="oc-char">
+          <div class="oc-val">C</div>
+          <div class="oc-pos">Character 3</div>
+          <div class="oc-meaning">Attribute (signal/code)</div>
+          <div class="oc-options">C=C/A · W=P(Y) · Q=pilot · I=data · X=I+Q combined · S=M-code</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Meaning</th>
+              <th>Typical use</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>C1C</code></td>
+              <td>GPS L1 C/A code pseudorange</td>
+              <td>Standard single-frequency positioning</td>
+            </tr>
+            <tr>
+              <td><code>L1C</code></td>
+              <td>GPS L1 C/A carrier phase</td>
+              <td>RTK, PPP carrier phase observation</td>
+            </tr>
+            <tr>
+              <td><code>D1C</code></td>
+              <td>GPS L1 C/A Doppler</td>
+              <td>Velocity estimation, cycle-slip detection</td>
+            </tr>
+            <tr>
+              <td><code>S1C</code></td>
+              <td>GPS L1 C/A signal strength (dB-Hz)</td>
+              <td>Quality monitoring, masking</td>
+            </tr>
+            <tr>
+              <td><code>C5Q</code></td>
+              <td>GPS L5 / Galileo E5a pilot code pseudorange</td>
+              <td>Dual-frequency ionosphere-free combination</td>
+            </tr>
+            <tr>
+              <td><code>L5Q</code></td>
+              <td>GPS L5 / Galileo E5a pilot carrier phase</td>
+              <td>Dual-frequency RTK/PPP</td>
+            </tr>
+            <tr>
+              <td><code>C1C</code> (Galileo)</td>
+              <td>Galileo E1 OS code pseudorange</td>
+              <td>Same code, different constellation</td>
+            </tr>
+            <tr>
+              <td><code>C7Q</code></td>
+              <td>Galileo E5b / BeiDou B2b pilot pseudorange</td>
+              <td>Triple-frequency processing</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="navigation-file">Navigation file structure</h2>
+      <p>
+        The RINEX navigation file contains satellite ephemeris records decoded from the navigation
+        message. Each record provides the Keplerian elements and perturbation parameters needed
+        to compute the satellite's position at any time within the ephemeris validity period.
+      </p>
+
+      <p>
+        A GPS navigation record example (RINEX 3, 8 lines per record):
+      </p>
+
+      <div class="rinex-data">
+        <div class="rd-line rd-epoch">
+          <div class="rd-content">G01 2019 03 01 00 00 00-1.659572124481e-04-8.412668087684e-12 0.000000000000e+00</div>
+          <div class="rd-comment">PRN, epoch, a0 (clock bias), a1 (freq drift), a2 (drift rate)</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">     1.300000000000e+01 4.234375000000e+01 4.678648742924e-09-2.785678029083e+00</div>
+          <div class="rd-comment">IODE, Crs, Δn, M0</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">     1.396052539349e-06 1.379120116681e-02 5.327537655830e-06 5.153696712494e+03</div>
+          <div class="rd-comment">Cuc, e (eccentricity), Cus, √a</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">     3.456000000000e+05-2.421438694000e-07 3.004530895000e+00-1.862645149231e-08</div>
+          <div class="rd-comment">toe, Cic, Ω0, Cis</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">     9.741855893934e-01 2.186875000000e+02-1.204148753480e+00-8.012729204117e-09</div>
+          <div class="rd-comment">i0, Crc, ω, Ω̇</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">     9.634413133217e-12 0.000000000000e+00 2.041000000000e+03 0.000000000000e+00</div>
+          <div class="rd-comment">İ, spare, GPS week, L2 P flag</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">     2.000000000000e+00 0.000000000000e+00 5.587935447693e-09 0.000000000000e+00</div>
+          <div class="rd-comment">SV accuracy, SV health, TGD, IODC</div>
+        </div>
+        <div class="rd-line">
+          <div class="rd-content">     3.456060000000e+05 4.000000000000e+00</div>
+          <div class="rd-comment">Transmission time, fit interval (hours)</div>
+        </div>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="naming">File naming conventions</h2>
+      <p>
+        RINEX 2 and RINEX 3 use different naming conventions. RINEX 3 introduced a long filename
+        format that encodes more metadata:
+      </p>
+
+      <div class="naming-grid">
+        <div class="naming-card">
+          <div class="naming-version">RINEX 2 (short name)</div>
+          <div class="naming-example">algo0010.19o</div>
+          <div class="naming-parts">
+            <div class="np"><span>algo</span><span>4-char station ID</span></div>
+            <div class="np"><span>001</span><span>Day of year (001 = Jan 1)</span></div>
+            <div class="np"><span>0</span><span>File sequence (0 = daily)</span></div>
+            <div class="np"><span>.19</span><span>Year (2019)</span></div>
+            <div class="np"><span>o</span><span>Type: o=obs, n=GPS nav, g=GLONASS nav, p=mixed nav</span></div>
+          </div>
+        </div>
+        <div class="naming-card">
+          <div class="naming-version">RINEX 3 (long name)</div>
+          <div class="naming-example">ALGO00CAN_R_20190010000_01D_30S_MO.rnx</div>
+          <div class="naming-parts">
+            <div class="np"><span>ALGO00CAN</span><span>9-char station (name + monument + country)</span></div>
+            <div class="np"><span>R</span><span>Data source: R=receiver, S=stream, U=unknown</span></div>
+            <div class="np"><span>20190010000</span><span>Start time: year + DOY + hour (0000 = 00:00)</span></div>
+            <div class="np"><span>01D</span><span>Duration: 01 Day</span></div>
+            <div class="np"><span>30S</span><span>Sample rate: 30 Seconds</span></div>
+            <div class="np"><span>MO</span><span>Content: M=Mixed constellation, O=Observation</span></div>
+            <div class="np"><span>.rnx</span><span>Extension (compressed: .crx or .gz)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 8 -->
+      <h2 id="tools">Working with RINEX files</h2>
+      <p>
+        Several free tools are essential when working with RINEX data:
+      </p>
+
+      <div class="tools-grid">
+        <div class="tool-card">
+          <div class="tool-name">RTKLIB</div>
+          <div class="tool-desc">Open-source GNSS processing suite. Converts proprietary binary to RINEX (RTKCONV), post-processes baselines (RTKPOST), runs PPP. The most widely used open-source GNSS toolkit.</div>
+          <a href="https://rtklib.com" target="_blank" rel="noopener noreferrer" class="tool-link">rtklib.com →</a>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name">gfzrnx</div>
+          <div class="tool-desc">GFZ Potsdam RINEX file manipulation tool. Converts between RINEX versions, splices files, extracts constellations, repairs headers. The standard tool for RINEX file management.</div>
+          <a href="https://www.gfz-potsdam.de/en/section/space-geodetic-techniques/software/" target="_blank" rel="noopener noreferrer" class="tool-link">GFZ →</a>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name">teqc</div>
+          <div class="tool-desc">UNAVCO translation, editing and quality checking tool. Converts many proprietary formats to RINEX, performs quality checks (multipath, SNR, cycle slips). Legacy but still widely used.</div>
+          <a href="https://www.unavco.org/software/data-processing/teqc/teqc.html" target="_blank" rel="noopener noreferrer" class="tool-link">UNAVCO →</a>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name">NRCan CSRS-PPP</div>
+          <div class="tool-desc">Submit a RINEX observation file, receive a PPP solution using IGS precise products. Free. Supports static and kinematic processing. 2 cm accuracy for long static sessions.</div>
+          <a href="https://webapp.csrs-scrs.nrcan-rncan.gc.ca/geod/tools-outils/ppp.php" target="_blank" rel="noopener noreferrer" class="tool-link">NRCan →</a>
+        </div>
+      </div>
+
+      <!-- SECTION 9 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📁</div>
+          <div class="summary-title">File format, not protocol</div>
+          <div class="summary-body">RINEX is for archiving and exchanging data, not real-time streaming. Receivers log proprietary binary in real time and convert to RINEX for sharing or post-processing.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📋</div>
+          <div class="summary-title">Observation + navigation</div>
+          <div class="summary-body">Raw measurements go in the observation file (.rnx). Satellite ephemeris goes in the navigation file (.nav). Both are needed for standalone post-processing.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔤</div>
+          <div class="summary-title">Obs codes define what's measured</div>
+          <div class="summary-body">Three-character codes (e.g. C1C, L5Q) identify each measurement precisely. The header's SYS / OBS TYPES record lists which codes the file contains.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔢</div>
+          <div class="summary-title">Use RINEX 3 for multi-constellation</div>
+          <div class="summary-body">RINEX 2 only covers GPS and GLONASS. Any file containing Galileo, BeiDou or other constellations must be RINEX 3.03 or later.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/protocols/nmea-0183" class="nav-prev">← NMEA 0183</a>
+        <a href="/learn/protocols/rtcm" class="nav-next">RTCM →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>IGS/RTCM-SC104 (2018). RINEX Version 3.04. <a href="https://files.igs.org/pub/data/format/rinex304.pdf" target="_blank" rel="noopener noreferrer">IGS →</a></li>
+          <li>Gurtner, W. & Estey, L. (2007). RINEX: The Receiver Independent Exchange Format Version 2.11. <a href="https://files.igs.org/pub/data/format/rinex211.txt" target="_blank" rel="noopener noreferrer">IGS →</a></li>
+          <li>RTKLIB v2.4.3 Manual. <a href="https://www.rtklib.com/prog/manual_2.4.2.pdf" target="_blank" rel="noopener noreferrer">rtklib.com →</a></li>
+          <li>IGS Data Centre — CDDIS. <a href="https://cddis.nasa.gov/Data_and_Derived_Products/GNSS/GNSS_data_and_product_archive.html" target="_blank" rel="noopener noreferrer">NASA CDDIS →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  code { font-family: var(--mono); font-size: 13px; background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: var(--accent2); }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  /* Use cases */
+  .use-cases { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+  .uc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .uc-icon { font-size: 20px; margin-bottom: 8px; }
+  .uc-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .uc-desc { font-size: 12px; color: var(--text3); line-height: 1.5; }
+
+  /* File type grid */
+  .file-type-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+  .ft-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .ft-obs { border-left: 3px solid var(--accent); }
+  .ft-nav { border-left: 3px solid var(--accent2); }
+  .ft-met { border-left: 3px solid #fbbf24; }
+  .ft-clk { border-left: 3px solid #a3e635; }
+  .ft-ext { font-family: var(--mono); font-size: 13px; color: var(--accent); margin-bottom: 4px; }
+  .ft-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .ft-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; color: var(--text2); border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+
+  /* RINEX header/data display */
+  .rinex-header, .rinex-data { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 16px 0; }
+  .rh-line, .rd-line { padding: 4px 12px; border-bottom: 1px solid var(--border); }
+  .rh-line:last-child, .rd-line:last-child { border-bottom: none; }
+  .rh-content, .rd-content { font-family: var(--mono); font-size: 11px; color: var(--text2); white-space: pre; overflow-x: auto; }
+  .rh-important { background: rgba(0,212,170,0.04); }
+  .rh-important .rh-content { color: var(--accent2); }
+  .rd-epoch { background: var(--bg3); }
+  .rd-epoch .rd-content { color: var(--accent); }
+  .rd-comment { font-size: 11px; color: var(--text3); margin-top: 2px; padding-left: 2px; }
+
+  /* Obs code anatomy */
+  .obs-code-anatomy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .oc-char { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .oc-val { font-size: 32px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .oc-pos { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-bottom: 4px; }
+  .oc-meaning { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .oc-options { font-size: 11px; color: var(--text3); line-height: 1.6; }
+
+  /* Naming */
+  .naming-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .naming-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .naming-version { font-size: 12px; font-weight: 600; color: var(--text3); font-family: var(--mono); margin-bottom: 8px; text-transform: uppercase; }
+  .naming-example { font-family: var(--mono); font-size: 13px; color: var(--accent); background: var(--bg3); padding: 6px 10px; border-radius: 4px; margin-bottom: 12px; overflow-x: auto; white-space: nowrap; }
+  .naming-parts { display: flex; flex-direction: column; gap: 4px; }
+  .np { display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 12px; }
+  .np span:first-child { font-family: var(--mono); color: var(--accent2); }
+  .np span:last-child { color: var(--text3); }
+
+  /* Tools */
+  .tools-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+  .tool-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .tool-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .tool-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-bottom: 8px; }
+  .tool-link { font-size: 12px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .use-cases { grid-template-columns: repeat(2, 1fr); }
+    .file-type-grid { grid-template-columns: 1fr; }
+    .obs-code-anatomy { grid-template-columns: 1fr; }
+    .naming-grid { grid-template-columns: 1fr; }
+    .tools-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    h2 { font-size: 20px; }
+  }
+</style>
