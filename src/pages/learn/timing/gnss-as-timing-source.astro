@@ -1,0 +1,514 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="GNSS as a Timing Source">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/timing">Timing</a>
+        <span>›</span>
+        <span>GNSS as a Timing Source</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Timing · Article 1 of 5</span>
+        <h1>GNSS as a Timing Source</h1>
+        <p class="lead">
+          Your phone knows the time to within a microsecond. Every 4G base station in the world
+          is synchronised to nanoseconds. The backbone of this global timekeeping infrastructure
+          is GNSS — specifically, the atomic clocks aboard satellites 20,000 km overhead.
+          This article explains how satellite timing works and why GNSS became the world's
+          primary time distribution system.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#atomic-clocks">Atomic clocks aboard satellites</a></li>
+          <li><a href="#timing-signal">How timing information is broadcast</a></li>
+          <li><a href="#receiver-timing">How a receiver extracts time</a></li>
+          <li><a href="#accuracy">Timing accuracy</a></li>
+          <li><a href="#why-gnss">Why GNSS dominates time distribution</a></li>
+          <li><a href="#vulnerabilities">Vulnerabilities of GNSS timing</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="atomic-clocks">Atomic clocks aboard satellites</h2>
+      <p>
+        Each GPS satellite carries between two and four atomic clocks — a mix of rubidium
+        and caesium oscillators, with Block III satellites also carrying advanced rubidium
+        atomic frequency standards (RAFS) and experimental optical clocks. These are not
+        the caesium fountain clocks used in national metrology labs, but they are remarkably
+        precise for their size and operating environment.
+      </p>
+
+      <div class="clock-table">
+        <div class="ct-row ct-header">
+          <span>Clock type</span>
+          <span>Stability (Allan deviation, 1 day)</span>
+          <span>Satellites</span>
+          <span>Daily drift</span>
+        </div>
+        <div class="ct-row">
+          <span><strong>Rubidium (Rb)</strong></span>
+          <span class="good">~10⁻¹³ – 10⁻¹⁴</span>
+          <span>GPS Block IIR/IIR-M, BeiDou, QZSS</span>
+          <span>&lt;10 ns/day</span>
+        </div>
+        <div class="ct-row">
+          <span><strong>Caesium (Cs)</strong></span>
+          <span class="good">~10⁻¹³ – 10⁻¹⁴</span>
+          <span>GPS Block II/IIA, GLONASS</span>
+          <span>&lt;10 ns/day</span>
+        </div>
+        <div class="ct-row">
+          <span><strong>RAFS (advanced Rb)</strong></span>
+          <span class="ok">~10⁻¹⁴</span>
+          <span>GPS Block IIF, Block III</span>
+          <span>&lt;3 ns/day</span>
+        </div>
+        <div class="ct-row">
+          <span><strong>Passive hydrogen maser</strong></span>
+          <span class="ok">~10⁻¹⁵</span>
+          <span>Galileo FOC satellites</span>
+          <span>&lt;1 ns/day</span>
+        </div>
+      </div>
+
+      <p>
+        To put this in perspective: a caesium clock with stability of 10⁻¹³ loses or gains
+        less than <strong>1 nanosecond every 10 seconds</strong>. Over a day it drifts by at
+        most ~10 ns. Galileo's hydrogen maser clocks are ten times better still — drifting
+        less than 1 ns per day. For comparison, a typical quartz oscillator drifts ~1 ms/day.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔬</div>
+        <div>
+          <strong>Galileo's PHM advantage:</strong> Galileo is the first civil GNSS constellation
+          to carry passive hydrogen maser (PHM) clocks. PHMs are significantly more stable than
+          rubidium or caesium at averaging times longer than ~1,000 seconds, which improves
+          Galileo's broadcast clock accuracy and reduces the satellite clock error contribution
+          to user ranging errors.
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="timing-signal">How timing information is broadcast</h2>
+      <p>
+        Each satellite continuously broadcasts a timing signal that allows any receiver to
+        determine the exact time of transmission. The mechanism is built into the signal
+        structure itself — the ranging code doubles as a timing reference.
+      </p>
+
+      <ol class="steps">
+        <li>
+          <strong>Code epoch markers:</strong> The GPS C/A code repeats every 1 millisecond.
+          Each repetition is a precise time marker — the rising edge of the code epoch is
+          synchronised to GPS system time to within nanoseconds.
+        </li>
+        <li>
+          <strong>Navigation message subframes:</strong> GPS transmits 5 subframes of 300 bits
+          at 50 bps. Each subframe begins with a Telemetry Word (TLM) and a Handover Word (HOW)
+          that contains the Time of Week (TOW) — the number of 6-second intervals since
+          the start of the GPS week (Sunday midnight GPS time).
+        </li>
+        <li>
+          <strong>Clock correction parameters:</strong> The navigation message broadcasts
+          polynomial coefficients (a₀, a₁, a₂) that describe the satellite clock's deviation
+          from GPS system time. The receiver applies these to correct the broadcast time.
+        </li>
+        <li>
+          <strong>UTC offset:</strong> The navigation message also broadcasts the GPS-UTC
+          offset (integer leap seconds) and the subnanosecond fractional offset, allowing
+          the receiver to compute UTC directly.
+        </li>
+      </ol>
+
+      <!-- Signal timing diagram -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">GPS timing signal hierarchy</div>
+        <svg viewBox="0 0 680 200" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+          <!-- Layers -->
+          <rect x="40" y="20" width="600" height="36" rx="6" fill="rgba(0,212,170,0.08)" stroke="rgba(0,212,170,0.3)" stroke-width="1"/>
+          <text x="340" y="42" text-anchor="middle" font-size="12" fill="var(--accent)" font-family="var(--sans)" font-weight="500">GPS system time — maintained by Master Control Station (MCS), Schriever AFB</text>
+
+          <rect x="40" y="76" width="600" height="36" rx="6" fill="rgba(0,153,255,0.08)" stroke="rgba(0,153,255,0.25)" stroke-width="1"/>
+          <text x="340" y="98" text-anchor="middle" font-size="12" fill="var(--accent2)" font-family="var(--sans)" font-weight="500">Satellite atomic clock — steered to GPS time, correction broadcast in nav message</text>
+
+          <rect x="40" y="132" width="600" height="36" rx="6" fill="rgba(251,191,36,0.08)" stroke="rgba(251,191,36,0.25)" stroke-width="1"/>
+          <text x="340" y="154" text-anchor="middle" font-size="12" fill="#fbbf24" font-family="var(--sans)" font-weight="500">Receiver clock — cheap quartz, offset estimated as 4th unknown in nav solution</text>
+
+          <!-- Arrows -->
+          <line x1="340" y1="56" x2="340" y2="74" stroke="var(--text3)" stroke-width="1" marker-end="url(#arr8)"/>
+          <line x1="340" y1="112" x2="340" y2="130" stroke="var(--text3)" stroke-width="1" marker-end="url(#arr8)"/>
+
+          <!-- Labels -->
+          <text x="360" y="68" font-size="10" fill="var(--text3)" font-family="var(--mono)">clock correction coefficients</text>
+          <text x="360" y="124" font-size="10" fill="var(--text3)" font-family="var(--mono)">estimated from pseudoranges</text>
+        </svg>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="receiver-timing">How a receiver extracts time</h2>
+      <p>
+        A GNSS receiver can determine time in two modes depending on whether it is computing
+        position simultaneously:
+      </p>
+
+      <div class="timing-modes">
+        <div class="tm-card">
+          <div class="tm-title">Positioning mode (standard)</div>
+          <div class="tm-desc">
+            The receiver tracks ≥4 satellites and solves the navigation solution for
+            (x, y, z, δt). The receiver clock offset δt is estimated simultaneously
+            with position. Time accuracy is limited by the ranging noise and satellite
+            clock quality — typically <strong>100 ns to 1 µs</strong> for standard receivers.
+          </div>
+          <div class="tm-accuracy">~100 ns – 1 µs (1σ)</div>
+        </div>
+        <div class="tm-card tm-timing">
+          <div class="tm-title">Timing mode (known position)</div>
+          <div class="tm-desc">
+            If the receiver position is known (surveyed-in), only the clock offset δt
+            needs to be estimated. All available satellites contribute to a single
+            clock estimate — an overdetermined system of n equations in 1 unknown.
+            Averaging over many satellites and epochs dramatically reduces noise.
+            This is how timing receivers achieve <strong>10–50 ns accuracy</strong>.
+          </div>
+          <div class="tm-accuracy">~10 – 50 ns (1σ)</div>
+        </div>
+      </div>
+
+      <p>
+        The most accurate GNSS timing technique is <strong>common-view timing</strong> —
+        two separated receivers simultaneously observe the same satellite. The satellite
+        clock error cancels in the difference, leaving only the relative clock offset between
+        the two receivers. Used by national metrology laboratories to compare atomic clocks
+        across continents with sub-nanosecond precision.
+      </p>
+
+      <!-- SECTION 4 -->
+      <h2 id="accuracy">Timing accuracy</h2>
+      <p>
+        GNSS timing accuracy is specified in the same performance standards as positioning.
+        The GPS SPS Performance Standard guarantees:
+      </p>
+
+      <div class="accuracy-cards">
+        <div class="ac-card">
+          <div class="ac-value">≤ 30 ns</div>
+          <div class="ac-label">UTC(USNO) offset (95%)</div>
+          <div class="ac-note">GPS SPS specification. Typical performance is significantly better.</div>
+        </div>
+        <div class="ac-card ac-highlight">
+          <div class="ac-value">~5 – 15 ns</div>
+          <div class="ac-label">Typical single-frequency timing (1σ)</div>
+          <div class="ac-note">Good antenna, surveyed position, quality timing receiver in steady state.</div>
+        </div>
+        <div class="ac-card">
+          <div class="ac-value">&lt; 1 ns</div>
+          <div class="ac-label">Common-view / carrier-phase timing</div>
+          <div class="ac-note">Used by national metrology labs. Requires long averaging and phase measurements.</div>
+        </div>
+      </div>
+
+      <p>
+        The primary error sources for GNSS timing (compared to positioning) are different.
+        Multipath affects both. But the dominant timing error is usually the
+        <strong>antenna cable delay</strong> — a 1-metre coaxial cable introduces ~5 ns of
+        delay. This must be calibrated and entered into the receiver for accurate absolute timing.
+        For relative timing (two receivers comparing to each other) the cable delay cancels.
+      </p>
+
+      <div class="error-budget-timing">
+        <div class="ebt-title">Timing error budget — single-frequency surveyed-position receiver</div>
+        <div class="ebt-rows">
+          <div class="ebt-row">
+            <div class="ebt-source">Satellite clock (broadcast)</div>
+            <div class="ebt-bar"><div class="ebt-fill" style="width:35%; background:rgba(251,191,36,0.5);">~5 ns</div></div>
+          </div>
+          <div class="ebt-row">
+            <div class="ebt-source">Ionospheric delay (L1, modelled)</div>
+            <div class="ebt-bar"><div class="ebt-fill" style="width:30%; background:rgba(255,71,87,0.4);">~5 ns</div></div>
+          </div>
+          <div class="ebt-row">
+            <div class="ebt-source">Tropospheric delay (modelled)</div>
+            <div class="ebt-bar"><div class="ebt-fill" style="width:10%; background:rgba(240,165,0,0.4);">~1 ns</div></div>
+          </div>
+          <div class="ebt-row">
+            <div class="ebt-source">Multipath</div>
+            <div class="ebt-bar"><div class="ebt-fill" style="width:15%; background:rgba(163,230,53,0.4);">~3 ns</div></div>
+          </div>
+          <div class="ebt-row">
+            <div class="ebt-source">Receiver noise</div>
+            <div class="ebt-bar"><div class="ebt-fill" style="width:10%; background:rgba(0,212,170,0.4);">~1 ns</div></div>
+          </div>
+          <div class="ebt-total">Combined (RSS): ~8 ns typical · Specification: ≤30 ns (95%)</div>
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="why-gnss">Why GNSS dominates time distribution</h2>
+      <p>
+        Before GNSS, distributing precise time over long distances was genuinely hard.
+        Methods included telephone time signals, Loran-C radio navigation, and physically
+        transporting caesium clocks between laboratories (portable clock comparisons).
+        GNSS changed everything:
+      </p>
+
+      <div class="advantage-grid">
+        <div class="adv-card">
+          <div class="adv-icon">🌍</div>
+          <div class="adv-title">Global coverage</div>
+          <div class="adv-desc">Nanosecond-accurate time is available anywhere with a clear sky view — remote oil platforms, ships at sea, mountain observatories, Antarctic research stations.</div>
+        </div>
+        <div class="adv-card">
+          <div class="adv-icon">💰</div>
+          <div class="adv-title">Near-zero cost</div>
+          <div class="adv-desc">A timing-capable GNSS receiver costs £50–£500. The satellite infrastructure is paid for by national governments. The time signal is free to all users.</div>
+        </div>
+        <div class="adv-card">
+          <div class="adv-icon">🔗</div>
+          <div class="adv-title">Traceable to atomic standards</div>
+          <div class="adv-desc">GPS time is steered to UTC(USNO) — the US Naval Observatory's atomic time standard. The offset is broadcast in the navigation message. GNSS timing is formally traceable to national standards.</div>
+        </div>
+        <div class="adv-card">
+          <div class="adv-icon">📡</div>
+          <div class="adv-title">Simultaneous multi-point distribution</div>
+          <div class="adv-desc">The same signal synchronises millions of receivers simultaneously — impossible with wired or point-to-point distribution methods. Critical for large-scale infrastructure like cellular networks.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="vulnerabilities">Vulnerabilities of GNSS timing</h2>
+      <p>
+        The same properties that make GNSS an excellent timing source also create
+        dependencies and vulnerabilities that critical infrastructure operators must understand:
+      </p>
+
+      <div class="vuln-list">
+        <div class="vuln">
+          <div class="vuln-title">RF interference and jamming</div>
+          <div class="vuln-desc">
+            GNSS signals arrive at ground level at approximately −130 dBm — about 20 dB below
+            the thermal noise floor of a receiver. A modest jammer can disrupt GNSS reception
+            over hundreds of square kilometres. Timing loss can propagate to thousands of
+            downstream systems (telecom base stations, NTP servers) within seconds.
+          </div>
+        </div>
+        <div class="vuln">
+          <div class="vuln-title">Spoofing</div>
+          <div class="vuln-desc">
+            A spoofing attack broadcasts counterfeit GNSS signals that gradually shift the
+            receiver's time and position estimate without triggering alarms. A timing spoof
+            can cause financial timestamps to drift, cellular handovers to fail, or power
+            grid synchrophasors to report false phase angles. Detection requires signal
+            monitoring or multi-constellation cross-checking.
+          </div>
+        </div>
+        <div class="vuln">
+          <div class="vuln-title">Space weather</div>
+          <div class="vuln-desc">
+            Severe geomagnetic storms (G4–G5, Kp ≥ 8) can cause ionospheric scintillation
+            that interrupts satellite signal lock, and solar radio bursts can directly jam
+            GNSS frequencies. The October 2003 Halloween storms temporarily disrupted GPS
+            timing services globally. See the <a href="/dashboards/space-weather">Space Weather dashboard</a>.
+          </div>
+        </div>
+        <div class="vuln">
+          <div class="vuln-title">Single point of failure</div>
+          <div class="vuln-desc">
+            Critical infrastructure that relies solely on GNSS timing is vulnerable to any
+            GNSS outage. Best practice is to maintain a backup timing source — typically a
+            GPSDO (GPS-disciplined oscillator) that can holdover for hours using its internal
+            oscillator, or an independent time source such as eLoran or a direct atomic clock.
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Real-world impact:</strong> In January 2016, a GPS control segment error
+          caused a 13-microsecond timing offset that propagated to hundreds of telecom base
+          stations and caused synchronisation failures across several national mobile networks.
+          In 2019, a software fault on a single GPS satellite broadcast incorrect timing data
+          for 13 hours before being detected. These incidents highlight why resilient
+          backup timing is essential for critical infrastructure.
+        </div>
+      </div>
+
+      <!-- SECTION 7 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">⚛️</div>
+          <div class="summary-title">Atomic clocks in orbit</div>
+          <div class="summary-body">Each satellite carries 2–4 atomic clocks (Rb, Cs, or hydrogen maser). Stability of 10⁻¹³ to 10⁻¹⁵ — drifting less than 10 ns/day. Galileo's PHMs are the most precise civil space clocks ever deployed.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📡</div>
+          <div class="summary-title">Time embedded in the signal</div>
+          <div class="summary-body">The ranging code epoch and TOW field in the navigation message carry precise time to every receiver. Clock correction coefficients in the nav message correct satellite clock drift to &lt;1 m equivalent range.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">⏱️</div>
+          <div class="summary-title">10–50 ns timing accuracy</div>
+          <div class="summary-body">Standard timing receivers achieve 10–50 ns (1σ) with surveyed position. Cable delay calibration is essential for absolute accuracy. Common-view timing achieves sub-nanosecond for laboratory comparisons.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">⚠️</div>
+          <div class="summary-title">Vulnerability requires backup</div>
+          <div class="summary-body">Jamming, spoofing and space weather can disrupt GNSS timing with cascading effects on dependent infrastructure. Critical systems require holdover-capable GPSDOs and independent backup timing sources.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/timing" class="nav-prev">← Timing</a>
+        <a href="/learn/timing/time-scales" class="nav-next">Time Scales →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>GPS SPS Performance Standard, 5th Edition (2020). <a href="https://www.gps.gov/technical/ps/2020-SPS-performance-standard.pdf" target="_blank" rel="noopener noreferrer">GPS.gov →</a></li>
+          <li>Lombardi, M. A. (2008). The use of GPS disciplined oscillators as primary frequency standards for calibration and metrology laboratories. <em>NCSLI Measure</em>, 3(3), 56–65.</li>
+          <li>Lewandowski, W. & Thomas, C. (1991). GPS time transfer. <em>Proceedings of the IEEE</em>, 79(7), 991–1000.</li>
+          <li>Teunissen, P. J. G. & Montenbruck, O. (eds.) (2017). <em>Springer Handbook of Global Navigation Satellite Systems</em>. Chapter 25 — GNSS Timing.</li>
+          <li>USNO GPS timing information. <a href="https://www.usno.navy.mil/USNO/time/gps" target="_blank" rel="noopener noreferrer">usno.navy.mil →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  /* Clock table */
+  .clock-table { display: flex; flex-direction: column; gap: 2px; margin: 20px 0; }
+  .ct-row { display: grid; grid-template-columns: 160px 200px 1fr 100px; gap: 10px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .ct-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .good { color: var(--accent); font-family: var(--mono); }
+  .ok { color: #a3e635; font-family: var(--mono); }
+
+  /* Diagram */
+  .diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 24px 0; }
+  .diagram-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* Steps */
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+  .steps li { counter-increment: step; padding: 12px 12px 12px 48px; position: relative; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text2); line-height: 1.7; }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before { content: counter(step); position: absolute; left: 12px; top: 14px; width: 22px; height: 22px; background: rgba(0,212,170,0.12); color: var(--accent); border-radius: 50%; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; font-family: var(--mono); }
+
+  /* Timing modes */
+  .timing-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .tm-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .tm-timing { border-color: rgba(0,212,170,0.3); }
+  .tm-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .tm-desc { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 10px; }
+  .tm-accuracy { font-size: 14px; font-weight: 700; font-family: var(--mono); color: var(--accent); }
+
+  /* Accuracy cards */
+  .accuracy-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+  .ac-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; text-align: center; }
+  .ac-highlight { border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.03); }
+  .ac-value { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .ac-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .ac-note { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+  /* Error budget */
+  .error-budget-timing { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin: 20px 0; }
+  .ebt-title { font-size: 12px; font-weight: 600; color: var(--text3); font-family: var(--mono); text-transform: uppercase; margin-bottom: 14px; }
+  .ebt-rows { display: flex; flex-direction: column; gap: 8px; }
+  .ebt-row { display: grid; grid-template-columns: 220px 1fr; gap: 12px; align-items: center; }
+  .ebt-source { font-size: 13px; color: var(--text2); }
+  .ebt-bar { background: var(--bg3); border-radius: 3px; height: 24px; }
+  .ebt-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; font-family: var(--mono); color: var(--text); }
+  .ebt-total { font-size: 12px; font-family: var(--mono); color: var(--accent2); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+  /* Advantage grid */
+  .advantage-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+  .adv-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .adv-icon { font-size: 20px; margin-bottom: 8px; }
+  .adv-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .adv-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Vulnerability list */
+  .vuln-list { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .vuln { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; }
+  .vuln-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .vuln-desc { font-size: 13px; color: var(--text3); line-height: 1.7; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .timing-modes { grid-template-columns: 1fr; }
+    .accuracy-cards { grid-template-columns: 1fr; }
+    .advantage-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .ct-row { grid-template-columns: 130px 1fr; }
+    .ct-row span:nth-child(3), .ct-row span:last-child { display: none; }
+    h2 { font-size: 20px; }
+  }
+</style>

@@ -1,0 +1,459 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Clock Error and Its Effect on Positioning">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/timing">Timing</a>
+        <span>›</span>
+        <span>Clock Error</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Timing · Article 4 of 5</span>
+        <h1>Clock Error and Its Effect on Positioning</h1>
+        <p class="lead">
+          A 1-nanosecond clock error causes 30 centimetres of ranging error. A 1-microsecond
+          error causes 300 metres. Clock errors — in the receiver, in the satellite, and in
+          the relativistic corrections — are woven through every GNSS measurement. This article
+          explains each type, how it enters the observation equations, and how receivers deal with it.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#clock-range">Clock error and ranging error</a></li>
+          <li><a href="#receiver-clock">Receiver clock error</a></li>
+          <li><a href="#satellite-clock">Satellite clock error</a></li>
+          <li><a href="#relativistic">Relativistic clock corrections</a></li>
+          <li><a href="#fourth-unknown">The fourth unknown</a></li>
+          <li><a href="#inter-system">Inter-system time offsets</a></li>
+          <li><a href="#carrier-phase-clock">Clock error in carrier phase</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <h2 id="clock-range">Clock error and ranging error</h2>
+      <p>GNSS measures distance by measuring time. The pseudorange is:</p>
+
+      <div class="formula-block">
+        <div class="formula">rho = c x delta_t</div>
+        <div class="formula-desc">
+          rho = measured pseudorange (m) · c = 299,792,458 m/s · delta_t = signal travel time (s)<br/><br/>
+          Because c is so large, tiny timing errors produce significant ranging errors.
+        </div>
+      </div>
+
+      <div class="clock-sensitivity">
+        <div class="cs-title">Clock error to ranging error</div>
+        <div class="cs-rows">
+          <div class="cs-row">
+            <div class="cs-time">1 nanosecond (10⁻⁹ s)</div>
+            <div class="cs-range cs-good">0.30 m</div>
+            <div class="cs-context">Satellite clock residual after broadcast correction</div>
+          </div>
+          <div class="cs-row">
+            <div class="cs-time">10 nanoseconds</div>
+            <div class="cs-range cs-ok">3.0 m</div>
+            <div class="cs-context">Typical timing receiver accuracy</div>
+          </div>
+          <div class="cs-row">
+            <div class="cs-time">100 nanoseconds</div>
+            <div class="cs-range cs-warn">30 m</div>
+            <div class="cs-context">Rough receiver clock uncertainty at startup</div>
+          </div>
+          <div class="cs-row">
+            <div class="cs-time">1 microsecond (10⁻⁶ s)</div>
+            <div class="cs-range cs-bad">300 m</div>
+            <div class="cs-context">Receiver clock after brief satellite loss</div>
+          </div>
+          <div class="cs-row">
+            <div class="cs-time">1 millisecond (10⁻³ s)</div>
+            <div class="cs-range cs-bad">300 km</div>
+            <div class="cs-context">Catastrophic — prevents positioning</div>
+          </div>
+        </div>
+      </div>
+
+      <h2 id="receiver-clock">Receiver clock error</h2>
+      <p>
+        Consumer and survey GNSS receivers use a <strong>quartz oscillator</strong> — cheap,
+        compact and low-power, but far less stable than satellite atomic clocks.
+        A typical receiver quartz drifts ~1 ms/day (~300 km/day of ranging error if uncorrected).
+        The receiver clock offset c·delta_t_r appears identically in all pseudoranges at the
+        same epoch — it is a common bias that must be solved as the fourth unknown.
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">rho_i = r_i + c·delta_t_r - c·delta_t^s_i + I_i + T_i + epsilon_i</div>
+        <div class="formula-desc">
+          r_i = true geometric range (m) · c·delta_t_r = receiver clock (same for all satellites)<br/>
+          c·delta_t^s_i = satellite clock (corrected by nav message) · I = iono · T = tropo<br/><br/>
+          c·delta_t_r is identical for all n observations. It cannot be separated from position
+          using a single observation — with n &ge; 4 it becomes the fourth unknown.
+        </div>
+      </div>
+
+      <div class="clock-models">
+        <div class="cm-card">
+          <div class="cm-title">White noise (reset each epoch)</div>
+          <div class="cm-desc">Clock offset estimated fresh every epoch — no prediction forward. Suitable for consumer oscillators where drift is large and unpredictable.</div>
+          <div class="cm-use">Used by: most consumer and low-cost receivers</div>
+        </div>
+        <div class="cm-card cm-rw">
+          <div class="cm-title">Random walk (carried forward)</div>
+          <div class="cm-desc">Clock modelled as random walk: delta_t_r(k) = delta_t_r(k-1) + w_k. Allows clock aiding — filter maintains estimate even with fewer than 4 satellites visible.</div>
+          <div class="cm-use">Used by: precision timing and survey receivers with TCXO/OCXO</div>
+        </div>
+      </div>
+
+      <h2 id="satellite-clock">Satellite clock error</h2>
+      <p>
+        Despite being atomic clocks, satellite oscillators drift relative to GNSS system time.
+        This drift is monitored by the ground control segment and broadcast as clock correction
+        parameters in the navigation message:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">delta_t^s(t) = a0 + a1(t - t_oc) + a2(t - t_oc)²</div>
+        <div class="formula-desc">
+          a0 = clock bias (s) · a1 = frequency drift (s/s) · a2 = drift rate (s/s²)<br/>
+          t_oc = reference epoch (seconds of GPS week)<br/><br/>
+          After applying this correction, residual satellite clock error is typically &lt;1 m.
+          IGS precise clock products reduce this to ~3 cm.
+        </div>
+      </div>
+
+      <h3>Relativistic periodic correction</h3>
+      <p>
+        A satellite in an elliptical orbit experiences varying gravitational potential and
+        velocity, causing a periodic relativistic clock correction that must be applied in
+        addition to the polynomial:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">delta_t_rel = F · e · sqrt(a) · sin(E_k)</div>
+        <div class="formula-desc">
+          F = -4.442807633 × 10⁻¹⁰ s/√m · e = orbital eccentricity · a = semi-major axis (m)<br/>
+          E_k = eccentric anomaly at time t<br/><br/>
+          Magnitude: up to ±46 ns (±14 m) for typical GPS eccentricities of ~0.01.
+          This correction is mandatory per IS-GPS-200. Omitting it introduces a periodic
+          14 m ranging error with a ~12 hour period.
+        </div>
+      </div>
+
+      <h2 id="relativistic">Relativistic clock corrections</h2>
+      <p>Two relativistic effects act simultaneously on satellite clocks in opposite directions:</p>
+
+      <div class="relativity-cards">
+        <div class="rel-card rel-grav">
+          <div class="rel-title">Gravitational time dilation</div>
+          <div class="rel-effect">General relativity</div>
+          <div class="rel-desc">
+            Clocks run faster in weaker gravitational fields. A GPS satellite at 20,200 km
+            is in weaker gravity than a ground clock — its atomic clock runs
+            <strong>faster</strong> by approximately 45.9 µs/day.
+          </div>
+          <div class="rel-magnitude">+45.9 µs/day</div>
+        </div>
+        <div class="rel-card rel-vel">
+          <div class="rel-title">Velocity time dilation</div>
+          <div class="rel-effect">Special relativity</div>
+          <div class="rel-desc">
+            Moving clocks run slower. A GPS satellite moves at ~3.87 km/s in orbit,
+            so its clock runs <strong>slower</strong> than a stationary ground clock by
+            approximately 7.2 µs/day.
+          </div>
+          <div class="rel-magnitude">-7.2 µs/day</div>
+        </div>
+      </div>
+
+      <div class="net-correction">
+        <div class="nc-title">Net relativistic correction</div>
+        <div class="nc-calc">+45.9 µs/day - 7.2 µs/day = +38.4 µs/day = 11.5 km/day of error</div>
+        <div class="nc-desc">
+          Without correction GPS clocks would gain 38.4 µs/day — equivalent to 11.5 km/day
+          of position error. The correction is applied before launch by manufacturing satellite
+          clocks to run at 10.22999999545 MHz instead of 10.23 MHz. Once in orbit the
+          relativistic effects bring them back to the correct rate.
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔬</div>
+        <div>
+          <strong>Relativity is not optional:</strong> IS-GPS-200 explicitly requires receivers
+          to apply the periodic relativistic correction. The constant 38.4 µs/day offset is
+          pre-corrected in satellite hardware. GNSS is the most prominent everyday engineering
+          application of Einstein's theories of relativity.
+        </div>
+      </div>
+
+      <h2 id="fourth-unknown">The fourth unknown</h2>
+      <p>
+        The receiver clock offset delta_t_r must be estimated simultaneously with position —
+        this is why GNSS needs at least 4 satellites. With n &gt; 4, the overdetermined system
+        is solved by weighted least squares.
+      </p>
+      <p>
+        An important consequence: because delta_t_r is common to all observations, it cancels
+        when differencing observations between two satellites at the same receiver:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">rho^i - rho^j = (r^i - r^j) - c·(delta_t^s_i - delta_t^s_j) + (I^i - I^j) + (T^i - T^j) + epsilon</div>
+        <div class="formula-desc">
+          The receiver clock term c·delta_t_r cancels exactly — it is the same for both satellites.
+          This between-satellite single difference enables clock-free positioning and is used
+          when fewer than 4 satellites are visible and the clock is carried from a previous epoch.
+        </div>
+      </div>
+
+      <h2 id="inter-system">Inter-system time offsets</h2>
+      <p>
+        A multi-constellation receiver tracking GPS, Galileo, BeiDou and GLONASS simultaneously
+        must estimate an additional Inter-System Bias (ISB) for each extra constellation,
+        since each runs on a different time scale:
+      </p>
+
+      <div class="isb-table">
+        <div class="isb-row isb-header">
+          <span>Pair</span>
+          <span>Name</span>
+          <span>Nominal value</span>
+          <span>Source</span>
+        </div>
+        <div class="isb-row">
+          <span>GPS ↔ Galileo</span>
+          <span>GGTO</span>
+          <span>&lt;50 ns (nominally 0)</span>
+          <span>Galileo nav message</span>
+        </div>
+        <div class="isb-row">
+          <span>GPS ↔ BeiDou</span>
+          <span>BGTO</span>
+          <span>14 s (fixed)</span>
+          <span>BeiDou nav message</span>
+        </div>
+        <div class="isb-row">
+          <span>GPS ↔ GLONASS</span>
+          <span>ISB</span>
+          <span>~18 s + sub-µs residual</span>
+          <span>Estimated in receiver filter</span>
+        </div>
+      </div>
+
+      <p>
+        For GPS + Galileo + BeiDou + GLONASS, the navigation solution has 7 unknowns:
+        (x, y, z, delta_t_GPS, ISB_GAL, ISB_BDS, ISB_GLO). This requires at least
+        7 satellites — or fewer if ISBs are known from navigation messages.
+      </p>
+
+      <h2 id="carrier-phase-clock">Clock error in carrier phase</h2>
+      <p>
+        Carrier phase observations contain the same clock error as pseudoranges — just expressed
+        in cycles (f·delta_t) rather than metres. For GPS L1 at 1575.42 MHz, 1 ns of clock
+        error = 1.575 cycles = 0.30 m, identical to the pseudorange sensitivity.
+      </p>
+      <p>
+        In double-differenced RTK processing, both clock errors vanish:
+      </p>
+
+      <div class="differencing-summary">
+        <div class="ds-row">
+          <div class="ds-op">Raw phase</div>
+          <div class="ds-terms">
+            <span class="ds-t keep">range</span>
+            <span class="ds-t keep">N</span>
+            <span class="ds-t cancel">rx clock</span>
+            <span class="ds-t cancel">sv clock</span>
+            <span class="ds-t keep">iono</span>
+            <span class="ds-t keep">tropo</span>
+          </div>
+        </div>
+        <div class="ds-row">
+          <div class="ds-op">Single diff (between receivers)</div>
+          <div class="ds-terms">
+            <span class="ds-t keep">delta-range</span>
+            <span class="ds-t keep">delta-N</span>
+            <span class="ds-t keep">rx clock diff</span>
+            <span class="ds-t gone">sv clock ✓</span>
+            <span class="ds-t small">delta-I</span>
+            <span class="ds-t small">delta-T</span>
+          </div>
+        </div>
+        <div class="ds-row ds-highlight">
+          <div class="ds-op">Double diff</div>
+          <div class="ds-terms">
+            <span class="ds-t keep">nabla-range</span>
+            <span class="ds-t keep">nabla-N</span>
+            <span class="ds-t gone">rx clock ✓</span>
+            <span class="ds-t gone">sv clock ✓</span>
+            <span class="ds-t small">nabla-I</span>
+            <span class="ds-t small">nabla-T</span>
+          </div>
+        </div>
+      </div>
+
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">⏱️</div>
+          <div class="summary-title">1 ns = 30 cm</div>
+          <div class="summary-body">Clock error converts to ranging error at the speed of light. Satellite clock residuals (~1 ns) contribute ~30 cm. Receiver clock errors are much larger but solved as the fourth unknown.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🛰️</div>
+          <div class="summary-title">Satellite clock polynomial</div>
+          <div class="summary-body">Broadcast a0, a1, a2 corrects satellite drift to &lt;1 m. IGS precise clocks achieve ~3 cm. The periodic relativistic correction (±14 m peak) is mandatory per IS-GPS-200.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🌌</div>
+          <div class="summary-title">Relativity: +38.4 µs/day</div>
+          <div class="summary-body">Gravity speeds clocks (+45.9 µs/day), velocity slows them (-7.2 µs/day). Net 38.4 µs/day = 11.5 km/day error without correction. Pre-corrected in satellite hardware before launch.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">➖</div>
+          <div class="summary-title">Double-differencing eliminates both</div>
+          <div class="summary-body">Single difference cancels satellite clock. Second difference cancels receiver clock. RTK removes both simultaneously — leaving only atmospheric residuals and noise.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/timing/timing-applications" class="nav-prev">← Timing Applications</a>
+        <a href="/learn/timing/pps-output" class="nav-next">PPS Output →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>IS-GPS-200N — GPS Interface Specification, Section 20.3.3.3.3 (relativistic correction). <a href="https://www.navcen.uscg.gov/sites/default/files/pdf/gps/IS-GPS-200N.pdf" target="_blank" rel="noopener noreferrer">NAVCEN →</a></li>
+          <li>Ashby, N. (2003). Relativity in the Global Positioning System. <em>Living Reviews in Relativity</em>, 6(1). <a href="https://link.springer.com/article/10.12942/lrr-2003-1" target="_blank" rel="noopener noreferrer">Springer →</a></li>
+          <li>Kaplan, E. D. & Hegarty, C. J. (2017). <em>Understanding GPS/GNSS: Principles and Applications</em>, 3rd ed. Artech House. Chapter 7.</li>
+          <li>Teunissen, P. J. G. & Montenbruck, O. (eds.) (2017). <em>Springer Handbook of Global Navigation Satellite Systems</em>. Chapter 10.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.7; margin-top: 10px; }
+
+  .clock-sensitivity { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 20px 0; }
+  .cs-title { font-size: 11px; font-weight: 600; color: var(--text3); font-family: var(--mono); text-transform: uppercase; padding: 10px 14px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  .cs-rows { display: flex; flex-direction: column; }
+  .cs-row { display: grid; grid-template-columns: 200px 90px 1fr; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; align-items: center; }
+  .cs-row:last-child { border-bottom: none; }
+  .cs-time { font-family: var(--mono); color: var(--text2); }
+  .cs-range { font-family: var(--mono); font-size: 14px; font-weight: 700; }
+  .cs-good { color: var(--accent); }
+  .cs-ok { color: #a3e635; }
+  .cs-warn { color: #fbbf24; }
+  .cs-bad { color: #ff4757; }
+  .cs-context { color: var(--text3); font-size: 12px; }
+
+  .clock-models { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .cm-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .cm-rw { border-color: rgba(0,212,170,0.3); }
+  .cm-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .cm-desc { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 8px; }
+  .cm-use { font-size: 11px; font-family: var(--mono); color: var(--text3); padding: 4px 8px; background: var(--bg3); border-radius: 4px; }
+
+  .relativity-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .rel-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .rel-grav { border-top: 3px solid var(--accent); }
+  .rel-vel  { border-top: 3px solid var(--accent2); }
+  .rel-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .rel-effect { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-bottom: 8px; }
+  .rel-desc { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 8px; }
+  .rel-magnitude { font-size: 20px; font-weight: 700; font-family: var(--mono); color: var(--accent); }
+
+  .net-correction { background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.2); border-radius: 10px; padding: 18px 20px; margin: 16px 0; }
+  .nc-title { font-size: 12px; font-weight: 600; color: var(--text3); font-family: var(--mono); text-transform: uppercase; margin-bottom: 8px; }
+  .nc-calc { font-size: 15px; font-family: var(--mono); color: var(--accent); margin-bottom: 10px; }
+  .nc-desc { font-size: 13px; color: var(--text2); line-height: 1.7; }
+
+  .isb-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .isb-row { display: grid; grid-template-columns: 150px 80px 160px 1fr; gap: 10px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .isb-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .isb-row span:nth-child(2) { font-family: var(--mono); color: var(--accent); }
+
+  .differencing-summary { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .ds-row { display: grid; grid-template-columns: 200px 1fr; gap: 12px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; align-items: center; }
+  .ds-highlight { border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.03); }
+  .ds-op { font-size: 12px; font-weight: 600; color: var(--text); }
+  .ds-terms { display: flex; flex-wrap: wrap; gap: 5px; }
+  .ds-t { font-size: 11px; padding: 2px 7px; border-radius: 4px; font-family: var(--mono); }
+  .keep { background: var(--bg3); color: var(--text2); }
+  .cancel { background: rgba(255,71,87,0.1); color: #ff4757; }
+  .gone { background: rgba(0,212,170,0.1); color: var(--accent); text-decoration: line-through; }
+  .small { background: rgba(251,191,36,0.1); color: #fbbf24; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 640px) {
+    .clock-models { grid-template-columns: 1fr; }
+    .relativity-cards { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .cs-row { grid-template-columns: 130px 80px; }
+    .cs-context { display: none; }
+    .ds-row { grid-template-columns: 1fr; gap: 6px; }
+    h2 { font-size: 20px; }
+  }
+</style>

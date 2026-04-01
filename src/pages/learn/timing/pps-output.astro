@@ -1,0 +1,577 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="PPS Output and Disciplined Oscillators">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/timing">Timing</a>
+        <span>›</span>
+        <span>PPS Output</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Timing · Article 5 of 5</span>
+        <h1>PPS Output and Disciplined Oscillators</h1>
+        <p class="lead">
+          The pulse-per-second (PPS) signal is how a GNSS receiver delivers precise time
+          to external equipment — a hardware pulse whose rising edge is synchronised to
+          GPS time with nanosecond accuracy. Understanding PPS, its limitations, and how
+          GPS-disciplined oscillators extend its usefulness is essential for anyone building
+          timing infrastructure.
+        </p>
+        <div class="article-meta">
+          <span>8 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#what-is-pps">What is a PPS signal?</a></li>
+          <li><a href="#hardware">Hardware interface</a></li>
+          <li><a href="#accuracy">PPS accuracy and error sources</a></li>
+          <li><a href="#gpsdo">GPS-disciplined oscillators (GPSDO)</a></li>
+          <li><a href="#holdover">Holdover behaviour</a></li>
+          <li><a href="#using-pps">Using PPS in practice</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="what-is-pps">What is a PPS signal?</h2>
+      <p>
+        A <strong>Pulse Per Second (PPS)</strong> signal is a periodic electrical pulse
+        output by a GNSS receiver or timing device. The rising edge of each pulse is
+        precisely synchronised to GNSS time — typically GPS time or UTC — with nanosecond
+        accuracy. The pulse width is usually 100 ms or 500 ms, but the timing reference
+        point is always the <strong>rising edge</strong>.
+      </p>
+
+      <!-- PPS waveform diagram -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">PPS signal — rising edge aligned to GPS second</div>
+        <svg viewBox="0 0 680 160" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <!-- Time axis -->
+          <line x1="40" y1="120" x2="640" y2="120" stroke="var(--border)" stroke-width="0.8"/>
+          <!-- Second markers -->
+          <line x1="100" y1="115" x2="100" y2="125" stroke="var(--text3)" stroke-width="0.8"/>
+          <text x="100" y="138" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">t=0 s</text>
+          <line x1="280" y1="115" x2="280" y2="125" stroke="var(--text3)" stroke-width="0.8"/>
+          <text x="280" y="138" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">t=1 s</text>
+          <line x1="460" y1="115" x2="460" y2="125" stroke="var(--text3)" stroke-width="0.8"/>
+          <text x="460" y="138" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">t=2 s</text>
+          <line x1="640" y1="115" x2="640" y2="125" stroke="var(--text3)" stroke-width="0.8"/>
+          <text x="640" y="138" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">t=3 s</text>
+          <!-- Pulse 1 -->
+          <polyline points="100,120 100,30 190,30 190,120" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <!-- Pulse 2 -->
+          <polyline points="280,120 280,30 370,30 370,120" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <!-- Pulse 3 -->
+          <polyline points="460,120 460,30 550,30 550,120" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <!-- Rising edge annotation -->
+          <line x1="100" y1="30" x2="100" y2="10" stroke="var(--accent2)" stroke-width="0.8" stroke-dasharray="3 2"/>
+          <text x="104" y="18" font-size="10" fill="var(--accent2)" font-family="var(--mono)">Rising edge = GPS second boundary</text>
+          <!-- Pulse width annotation -->
+          <line x1="100" y1="50" x2="190" y2="50" stroke="var(--text3)" stroke-width="0.5" stroke-dasharray="3 2"/>
+          <line x1="100" y1="44" x2="100" y2="56" stroke="var(--text3)" stroke-width="0.5"/>
+          <line x1="190" y1="44" x2="190" y2="56" stroke="var(--text3)" stroke-width="0.5"/>
+          <text x="145" y="46" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">pulse width</text>
+          <text x="145" y="58" text-anchor="middle" font-size="9" fill="var(--text3)" font-family="var(--mono)">(100 ms typical)</text>
+        </svg>
+      </div>
+
+      <p>
+        A companion message — typically an NMEA <code>$GPRMC</code> or
+        <code>$GPZDA</code> sentence — is transmitted over serial at the same time
+        as each pulse, providing the calendar time (year, month, day, hour, minute, second)
+        that the pulse represents. The PPS pulse marks <em>when</em> the second occurs;
+        the serial message tells the system <em>which</em> second it is.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div>
+          <strong>UTC vs GPS PPS:</strong> Most timing receivers can output PPS aligned to
+          either GPS time or UTC. The difference is the current leap second offset (18 seconds
+          as of 2024). For applications requiring UTC-aligned timestamps (MiFID II compliance,
+          NTP servers), always configure the receiver to output UTC PPS and verify that the
+          receiver knows the current leap second count.
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="hardware">Hardware interface</h2>
+      <p>
+        PPS is a simple digital signal. The electrical specifications vary by receiver and
+        application, but the most common standards are:
+      </p>
+
+      <div class="hw-table">
+        <div class="hw-row hw-header">
+          <span>Standard</span>
+          <span>Voltage levels</span>
+          <span>Impedance</span>
+          <span>Typical use</span>
+        </div>
+        <div class="hw-row">
+          <span><strong>TTL</strong></span>
+          <span>0 V / 3.3–5 V</span>
+          <span>50 Ω (driven)</span>
+          <span>Embedded systems, microcontrollers, u-blox modules</span>
+        </div>
+        <div class="hw-row">
+          <span><strong>CMOS</strong></span>
+          <span>0 V / 3.3 V</span>
+          <span>High impedance</span>
+          <span>Modern low-power receiver modules</span>
+        </div>
+        <div class="hw-row">
+          <span><strong>RS-232</strong></span>
+          <span>±5 V / ±12 V</span>
+          <span>3–7 kΩ</span>
+          <span>Legacy serial port PPS on DB9 pin 1 (DCD)</span>
+        </div>
+        <div class="hw-row">
+          <span><strong>BNC / SMA (50 Ω)</strong></span>
+          <span>0 V / 5 V (into 50 Ω)</span>
+          <span>50 Ω</span>
+          <span>Lab instruments, frequency standards, timing receivers</span>
+        </div>
+        <div class="hw-row">
+          <span><strong>Differential (RS-422)</strong></span>
+          <span>±3.5 V differential</span>
+          <span>100 Ω differential</span>
+          <span>Long cable runs, noise-sensitive environments</span>
+        </div>
+      </div>
+
+      <p>
+        When interfacing PPS to a Linux system, use a GPIO pin or the serial port DCD
+        line with the <code>pps-gpio</code> or <code>pps-ldisc</code> kernel driver.
+        These drivers timestamp the PPS rising edge using the kernel's hardware clock
+        interrupt — giving sub-microsecond accuracy. The <code>gpsd</code> daemon then
+        makes PPS available to <code>ntpd</code> or <code>chrony</code> as a precision
+        time reference.
+      </p>
+
+      <div class="linux-setup">
+        <div class="ls-title">Linux PPS setup — typical stack</div>
+        <div class="ls-chain">
+          <div class="ls-node">
+            <div class="ls-name">GNSS receiver</div>
+            <div class="ls-detail">PPS on GPIO pin · NMEA on UART</div>
+          </div>
+          <div class="ls-arrow">↓</div>
+          <div class="ls-node">
+            <div class="ls-name">pps-gpio kernel driver</div>
+            <div class="ls-detail">Timestamps PPS edge with hardware interrupt</div>
+          </div>
+          <div class="ls-arrow">↓</div>
+          <div class="ls-node">
+            <div class="ls-name">gpsd</div>
+            <div class="ls-detail">Parses NMEA · exposes PPS via shared memory (SHM)</div>
+          </div>
+          <div class="ls-arrow">↓</div>
+          <div class="ls-node ls-highlight">
+            <div class="ls-name">chrony / ntpd</div>
+            <div class="ls-detail">Uses PPS as precision reference · serves NTP to local network</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="accuracy">PPS accuracy and error sources</h2>
+      <p>
+        The PPS signal itself is not the only source of timing error. Several effects
+        degrade the accuracy between GPS time and the ultimate timestamp in an application:
+      </p>
+
+      <div class="error-chain">
+        <div class="ec-row">
+          <div class="ec-source">Satellite clock error</div>
+          <div class="ec-budget">~5–10 ns (broadcast)</div>
+          <div class="ec-bar"><div class="ec-fill" style="width:30%; background:rgba(251,191,36,0.5);"></div></div>
+        </div>
+        <div class="ec-row">
+          <div class="ec-source">Ionospheric delay (L1)</div>
+          <div class="ec-budget">~1–5 ns (modelled)</div>
+          <div class="ec-bar"><div class="ec-fill" style="width:20%; background:rgba(255,71,87,0.4);"></div></div>
+        </div>
+        <div class="ec-row">
+          <div class="ec-source">Antenna cable delay</div>
+          <div class="ec-budget">~5 ns/m (must calibrate)</div>
+          <div class="ec-bar"><div class="ec-fill" style="width:25%; background:rgba(240,165,0,0.4);"></div></div>
+        </div>
+        <div class="ec-row">
+          <div class="ec-source">Receiver internal delay</div>
+          <div class="ec-budget">~10–50 ns (calibrated in firmware)</div>
+          <div class="ec-bar"><div class="ec-fill" style="width:35%; background:rgba(163,230,53,0.4);"></div></div>
+        </div>
+        <div class="ec-row">
+          <div class="ec-source">PPS output jitter</div>
+          <div class="ec-budget">~1–10 ns (hardware quality dependent)</div>
+          <div class="ec-bar"><div class="ec-fill" style="width:15%; background:rgba(0,212,170,0.5);"></div></div>
+        </div>
+        <div class="ec-row">
+          <div class="ec-source">OS interrupt latency (software timestamp)</div>
+          <div class="ec-budget">~1–10 µs (varies by OS load)</div>
+          <div class="ec-bar"><div class="ec-fill" style="width:80%; background:rgba(255,71,87,0.6);"></div></div>
+        </div>
+        <div class="ec-total">Hardware PPS timestamp: ~20–50 ns total · Software timestamp: ~1–10 µs</div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Cable delay is the most commonly overlooked error:</strong> Coaxial cable
+          propagates signals at approximately 2×10⁸ m/s (66% of the speed of light for
+          typical RG-58). A 10-metre cable introduces ~50 ns of delay. For timing better
+          than 100 ns, measure your cable delay and enter it as a calibration offset in
+          the receiver's timing configuration. Many receivers have a dedicated
+          "antenna cable delay" or "cable compensation" setting for exactly this purpose.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="gpsdo">GPS-disciplined oscillators (GPSDO)</h2>
+      <p>
+        A standalone GNSS receiver outputs PPS only when tracking satellites. The moment
+        the antenna is obstructed — briefly by a passing lorry, longer by a power outage
+        — PPS output may stop or degrade. Critical infrastructure needs continuous,
+        uninterrupted timing.
+      </p>
+      <p>
+        A <strong>GPS-Disciplined Oscillator (GPSDO)</strong> solves this by combining
+        a GNSS receiver with a high-quality local oscillator (OCXO or rubidium) in a
+        phase-locked loop:
+      </p>
+
+      <div class="gpsdo-diagram">
+        <div class="gd-block gd-gps">
+          <div class="gd-title">GNSS receiver</div>
+          <div class="gd-detail">Produces PPS when satellites available. Provides long-term frequency reference.</div>
+        </div>
+        <div class="gd-arrow">→ phase error →</div>
+        <div class="gd-block gd-loop">
+          <div class="gd-title">Phase comparator + loop filter</div>
+          <div class="gd-detail">Measures phase difference between GNSS PPS and oscillator output. Generates correction voltage. Long time constant (minutes to hours) for stability.</div>
+        </div>
+        <div class="gd-arrow">→ EFC →</div>
+        <div class="gd-block gd-osc">
+          <div class="gd-title">Oscillator (OCXO / Rb)</div>
+          <div class="gd-detail">Electronically frequency-controlled (EFC). Provides short-term stability, low phase noise. Free-runs during GNSS outages.</div>
+        </div>
+        <div class="gd-output">
+          <div class="gd-out-item">PPS output (continuous)</div>
+          <div class="gd-out-item">10 MHz reference signal</div>
+          <div class="gd-out-item">NMEA / timing messages</div>
+        </div>
+      </div>
+
+      <p>
+        The GNSS signal provides <strong>long-term accuracy</strong> — it keeps the oscillator
+        on frequency over hours and days. The local oscillator provides
+        <strong>short-term stability</strong> — low phase noise, continuous output and immunity
+        to brief GNSS outages. Together they achieve better performance than either alone.
+      </p>
+
+      <div class="gpsdo-types">
+        <div class="gt-card">
+          <div class="gt-osc">OCXO-based GPSDO</div>
+          <div class="gt-accuracy">~10–30 ns steady-state</div>
+          <div class="gt-holdover">Holdover: ~1 µs/hour drift</div>
+          <div class="gt-cost">£200–£2,000</div>
+          <div class="gt-use">NTP servers, telecom small cells, test equipment reference</div>
+        </div>
+        <div class="gt-card gt-rb">
+          <div class="gt-osc">Rubidium GPSDO</div>
+          <div class="gt-accuracy">~5–15 ns steady-state</div>
+          <div class="gt-holdover">Holdover: ~0.1 µs/hour drift</div>
+          <div class="gt-cost">£1,000–£10,000</div>
+          <div class="gt-use">Telecom grandmaster clocks, power grid PMUs, financial trading, 5G synchronisation</div>
+        </div>
+        <div class="gt-card gt-cs">
+          <div class="gt-osc">Caesium GPSDO</div>
+          <div class="gt-accuracy">~1–5 ns steady-state</div>
+          <div class="gt-holdover">Holdover: ~0.01 µs/hour drift</div>
+          <div class="gt-cost">£10,000–£50,000+</div>
+          <div class="gt-use">National metrology, VLBI stations, master timing infrastructure</div>
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="holdover">Holdover behaviour</h2>
+      <p>
+        When GNSS signals are lost, the GPSDO enters <strong>holdover mode</strong> —
+        the oscillator free-runs using its last frequency correction from the GPS-steering
+        loop. The frequency estimate degrades over time as temperature and aging effects
+        push the oscillator away from its corrected value.
+      </p>
+      <p>
+        The time error during holdover grows approximately as:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">Δt_holdover(T) ≈ ½ · (df/dt) · T²</div>
+        <div class="formula-desc">
+          df/dt = oscillator frequency aging rate (fractional frequency per second)<br/>
+          T = time since GNSS loss (seconds)<br/><br/>
+          For a rubidium oscillator with aging rate 10⁻¹³/s:
+          After 1 hour (T = 3600 s): Δt = ½ × 10⁻¹³ × 3600² ≈ 0.65 ns — negligible.<br/>
+          After 1 day (T = 86400 s): Δt = ½ × 10⁻¹³ × 86400² ≈ 374 ns — still &lt;1 µs.<br/><br/>
+          In practice, initial frequency uncertainty after GNSS loss dominates the early
+          holdover error — the oscillator frequency is known only to the precision of the
+          GPS steering loop (~10⁻¹² or better for a well-designed GPSDO).
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="using-pps">Using PPS in practice</h2>
+      <p>
+        Key practical considerations when deploying PPS-based timing:
+      </p>
+
+      <div class="practical-list">
+        <div class="prac-item">
+          <div class="prac-title">Always use hardware timestamping</div>
+          <div class="prac-desc">
+            Software-timestamped PPS (relying on the OS scheduler to record the interrupt time)
+            introduces 1–100 µs of jitter — completely negating the nanosecond accuracy of the
+            GNSS receiver. Use hardware PPS drivers (pps-gpio on Linux, dedicated hardware
+            timestamping NICs for network PTP) that capture the edge with a hardware counter.
+          </div>
+        </div>
+        <div class="prac-item">
+          <div class="prac-title">Calibrate cable delay</div>
+          <div class="prac-desc">
+            Measure or calculate the antenna cable propagation delay (~5 ns/m for RG-58, ~4 ns/m
+            for LMR-400). Enter this value in the receiver's cable delay compensation field.
+            For lab-grade timing, use a TDR (Time Domain Reflectometer) to measure the actual
+            delay rather than estimating from cable specs.
+          </div>
+        </div>
+        <div class="prac-item">
+          <div class="prac-title">Verify UTC alignment</div>
+          <div class="prac-desc">
+            Confirm that the receiver is outputting UTC PPS (not GPS PPS) if UTC-traceable
+            timestamps are required. Check the leap second count in the NMEA ZDA sentence or
+            receiver status. After a leap second insertion, some receivers take several minutes
+            to update — monitor for 1-second timestamp jumps after known leap second events.
+          </div>
+        </div>
+        <div class="prac-item">
+          <div class="prac-title">Monitor antenna health</div>
+          <div class="prac-desc">
+            PPS accuracy degrades silently when satellite count drops (multipath, jamming, obstruction).
+            Monitor satellite count and C/N₀ continuously. Configure alerts for drops below 4 satellites
+            or loss of PPS lock. For critical systems, use a multi-constellation receiver with
+            antenna monitoring (RAIM or dual-antenna) to detect anomalies before they affect timing.
+          </div>
+        </div>
+        <div class="prac-item">
+          <div class="prac-title">Define your holdover budget</div>
+          <div class="prac-desc">
+            Before deploying a timing system, calculate the required holdover duration for your
+            application's worst-case GNSS outage scenario. Match the oscillator grade to this
+            budget. A telecoms grandmaster serving 5G base stations (±130 ns requirement) needs
+            a rubidium oscillator to hold over more than ~15 minutes — an OCXO is marginal.
+          </div>
+        </div>
+      </div>
+
+      <!-- Section complete -->
+      <div class="section-complete">
+        <div class="complete-icon">✅</div>
+        <div>
+          <div class="complete-title">Timing section complete</div>
+          <div class="complete-body">
+            You now understand GNSS as a timing infrastructure — from the atomic clocks
+            in orbit to the PPS pulse on your receiver's GPIO pin, and the disciplined
+            oscillators that keep critical systems running through outages.
+            The Learn section is now complete.
+          </div>
+          <a href="/learn" class="complete-link">Back to Learn →</a>
+        </div>
+      </div>
+
+      <!-- SECTION 7 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">⚡</div>
+          <div class="summary-title">Rising edge is the reference</div>
+          <div class="summary-body">PPS accuracy lives in the rising edge — not the pulse width. The companion NMEA sentence identifies which second. Always use hardware timestamping to capture the edge.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📏</div>
+          <div class="summary-title">Cable delay matters</div>
+          <div class="summary-body">~5 ns/m for RG-58. A 10 m antenna cable introduces 50 ns of delay. Measure it and enter it in the receiver's cable compensation setting — this is the most commonly missed calibration.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔒</div>
+          <div class="summary-title">GPSDO for continuous timing</div>
+          <div class="summary-body">GNSS + high-quality oscillator in a phase-locked loop. GPS provides long-term accuracy; the oscillator provides short-term stability and holdover. Rubidium GPSDOs are the standard for critical infrastructure.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔋</div>
+          <div class="summary-title">Size your holdover budget</div>
+          <div class="summary-body">Calculate worst-case outage duration × required accuracy → choose oscillator grade. OCXO: ~1 µs/hour. Rubidium: ~0.1 µs/hour. Match the oscillator to the application requirement.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/timing/clock-error" class="nav-prev">← Clock Error</a>
+        <a href="/learn" class="nav-next">Back to Learn →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Lombardi, M. A. (2008). The use of GPS disciplined oscillators as primary frequency standards for calibration and metrology laboratories. <em>NCSLI Measure</em>, 3(3), 56–65.</li>
+          <li>NIST Special Publication 960-12 — Precision Measurement of Cable and Antenna Delays. <a href="https://www.nist.gov" target="_blank" rel="noopener noreferrer">nist.gov →</a></li>
+          <li>u-blox Application Note — Timing. <a href="https://www.u-blox.com/en/technologies/timing" target="_blank" rel="noopener noreferrer">u-blox →</a></li>
+          <li>Symmetricom — GPS Disciplined Oscillator Application Guide.</li>
+          <li>RFC 7822 — Network Time Protocol Best Current Practice. <a href="https://www.rfc-editor.org/rfc/rfc7822" target="_blank" rel="noopener noreferrer">rfc-editor.org →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  code { font-family: var(--mono); font-size: 13px; background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: var(--accent2); }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; white-space: pre; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.7; margin-top: 10px; }
+
+  .diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 24px 0; }
+  .diagram-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* Hardware table */
+  .hw-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .hw-row { display: grid; grid-template-columns: 140px 120px 90px 1fr; gap: 10px; padding: 9px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .hw-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .hw-row span:first-child { color: var(--text); }
+  .hw-row span:nth-child(2) { font-family: var(--mono); color: var(--accent2); font-size: 12px; }
+  .hw-row span:nth-child(3) { font-family: var(--mono); color: var(--text3); font-size: 12px; }
+  .hw-row span:last-child { color: var(--text3); font-size: 12px; }
+
+  /* Linux setup */
+  .linux-setup { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin: 20px 0; }
+  .ls-title { font-size: 12px; font-weight: 600; color: var(--text3); font-family: var(--mono); text-transform: uppercase; margin-bottom: 14px; }
+  .ls-chain { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+  .ls-node { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; }
+  .ls-highlight { border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.04); }
+  .ls-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; font-family: var(--mono); }
+  .ls-detail { font-size: 12px; color: var(--text3); }
+  .ls-arrow { font-size: 11px; color: var(--text3); font-family: var(--mono); padding: 4px 14px; }
+
+  /* Error chain */
+  .error-chain { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin: 20px 0; }
+  .ec-row { display: grid; grid-template-columns: 200px 160px 1fr; gap: 12px; align-items: center; margin-bottom: 8px; }
+  .ec-source { font-size: 13px; color: var(--text2); }
+  .ec-budget { font-size: 11px; font-family: var(--mono); color: var(--accent2); }
+  .ec-bar { background: var(--bg3); border-radius: 3px; height: 20px; }
+  .ec-fill { height: 100%; border-radius: 3px; }
+  .ec-total { font-size: 12px; font-family: var(--mono); color: var(--accent2); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+  /* GPSDO diagram */
+  .gpsdo-diagram { display: flex; align-items: center; gap: 8px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin: 16px 0; flex-wrap: wrap; }
+  .gd-block { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; flex: 1; min-width: 120px; }
+  .gd-gps { border-color: rgba(0,212,170,0.3); }
+  .gd-osc { border-color: rgba(251,191,36,0.3); }
+  .gd-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .gd-detail { font-size: 11px; color: var(--text3); line-height: 1.5; }
+  .gd-arrow { font-size: 11px; color: var(--text3); font-family: var(--mono); white-space: nowrap; }
+  .gd-output { background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.2); border-radius: 8px; padding: 10px 14px; margin-left: auto; }
+  .gd-out-item { font-size: 12px; font-family: var(--mono); color: var(--accent); margin-bottom: 3px; }
+  .gd-out-item:last-child { margin-bottom: 0; }
+
+  /* GPSDO types */
+  .gpsdo-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .gt-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .gt-rb { border-color: rgba(0,212,170,0.3); }
+  .gt-cs { border-color: rgba(0,153,255,0.3); }
+  .gt-osc { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .gt-accuracy { font-size: 13px; font-family: var(--mono); color: var(--accent); margin-bottom: 3px; }
+  .gt-holdover { font-size: 12px; font-family: var(--mono); color: var(--accent2); margin-bottom: 3px; }
+  .gt-cost { font-size: 12px; font-family: var(--mono); color: var(--text3); margin-bottom: 8px; }
+  .gt-use { font-size: 12px; color: var(--text3); line-height: 1.5; padding-top: 8px; border-top: 1px solid var(--border); }
+
+  /* Practical list */
+  .practical-list { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .prac-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; }
+  .prac-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .prac-desc { font-size: 13px; color: var(--text3); line-height: 1.7; }
+
+  /* Section complete */
+  .section-complete { display: flex; gap: 16px; align-items: flex-start; background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.2); border-radius: 12px; padding: 24px; margin: 32px 0; }
+  .complete-icon { font-size: 28px; flex-shrink: 0; }
+  .complete-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .complete-body { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .complete-link { font-size: 14px; font-weight: 600; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .gpsdo-types { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .hw-row { grid-template-columns: 110px 1fr; }
+    .hw-row span:nth-child(3), .hw-row span:last-child { display: none; }
+    .ec-row { grid-template-columns: 150px 1fr; }
+    .ec-budget { display: none; }
+    .gpsdo-diagram { flex-direction: column; }
+    .gd-output { margin-left: 0; width: 100%; }
+    h2 { font-size: 20px; }
+  }
+</style>

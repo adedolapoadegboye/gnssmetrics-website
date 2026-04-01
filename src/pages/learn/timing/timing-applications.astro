@@ -1,0 +1,563 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Precision Timing Applications">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/timing">Timing</a>
+        <span>›</span>
+        <span>Timing Applications</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Timing · Article 3 of 5</span>
+        <h1>Precision Timing Applications</h1>
+        <p class="lead">
+          GNSS timing underpins infrastructure that billions of people depend on daily —
+          mobile networks, power grids, financial markets and the internet all rely on
+          nanosecond-accurate synchronisation. This article explains the specific timing
+          requirements of each sector, how GNSS meets them, and what happens when it doesn't.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#telecom">Telecommunications</a></li>
+          <li><a href="#power">Power grids</a></li>
+          <li><a href="#finance">Financial systems</a></li>
+          <li><a href="#internet">Internet infrastructure</a></li>
+          <li><a href="#science">Scientific applications</a></li>
+          <li><a href="#resilience">Resilience and backup strategies</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="telecom">Telecommunications</h2>
+      <p>
+        Modern mobile networks are the largest single consumer of GNSS timing. Every base station
+        in a 4G/5G network must be synchronised to a common time reference to coordinate
+        handovers, avoid interference between adjacent cells and support advanced features
+        like carrier aggregation and Coordinated Multipoint (CoMP) transmission.
+      </p>
+
+      <div class="req-card req-telecom">
+        <div class="req-header">
+          <div class="req-sector">4G LTE / 5G NR timing requirements</div>
+        </div>
+        <div class="req-body">
+          <div class="req-row">
+            <div class="req-param">Frequency accuracy</div>
+            <div class="req-value">±50 ppb (LTE), ±16 ppb (5G NR)</div>
+            <div class="req-note">Carrier frequency must be stable to this level for radio access</div>
+          </div>
+          <div class="req-row req-key">
+            <div class="req-param">Phase/time accuracy (TDD)</div>
+            <div class="req-value">±1.5 µs (LTE-TDD), ±130 ns (5G NR)</div>
+            <div class="req-note">TDD cells sharing the same frequency must be synchronised to avoid uplink/downlink interference</div>
+          </div>
+          <div class="req-row">
+            <div class="req-param">5G URLLC</div>
+            <div class="req-value">±100 ns</div>
+            <div class="req-note">Ultra-Reliable Low Latency Communications for industrial automation</div>
+          </div>
+          <div class="req-row">
+            <div class="req-param">5G positioning (Rel-17)</div>
+            <div class="req-value">±10 ns</div>
+            <div class="req-note">Sub-metre 5G positioning requires this level of network time synchronisation</div>
+          </div>
+        </div>
+      </div>
+
+      <p>
+        GNSS delivers this timing via a two-tier architecture. A small number of
+        <strong>grandmaster clocks</strong> — GPS-disciplined oscillators connected directly
+        to GPS antennas — serve as the primary reference. Below them, the
+        <strong>IEEE 1588 Precision Time Protocol (PTP)</strong> distributes nanosecond-accurate
+        time over the packet network to thousands of base stations that have no direct
+        GPS view.
+      </p>
+
+      <div class="timing-chain">
+        <div class="tc-node tc-gps">
+          <div class="tc-label">GPS satellite</div>
+          <div class="tc-acc">~10 ns accuracy</div>
+        </div>
+        <div class="tc-arrow">↓</div>
+        <div class="tc-node tc-gm">
+          <div class="tc-label">GNSS grandmaster clock</div>
+          <div class="tc-acc">~30 ns to UTC</div>
+        </div>
+        <div class="tc-arrow">↓ IEEE 1588 PTP</div>
+        <div class="tc-node tc-bc">
+          <div class="tc-label">Boundary clock / T-BC</div>
+          <div class="tc-acc">~100 ns</div>
+        </div>
+        <div class="tc-arrow">↓ IEEE 1588 PTP</div>
+        <div class="tc-node tc-bs">
+          <div class="tc-label">Base station (eNB / gNB)</div>
+          <div class="tc-acc">~130–1500 ns</div>
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>5G and GNSS dependency:</strong> 5G NR Time Division Duplex (TDD) requires
+          ±130 ns synchronisation between base stations. A GNSS outage lasting more than the
+          grandmaster holdover time (~hours for a GPSDO) will cause TDD cells to go
+          out of sync, producing interference between adjacent base stations and degrading
+          or completely disabling service. This is a known vulnerability in national 5G rollouts.
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="power">Power grids</h2>
+      <p>
+        Electrical power grids operate at 50 or 60 Hz AC. At any given moment, generators
+        hundreds of kilometres apart must be synchronised to within a fraction of a degree
+        of phase. GNSS timing enables two critical grid applications:
+      </p>
+
+      <div class="power-apps">
+        <div class="pa-card">
+          <div class="pa-title">Synchrophasors (PMUs)</div>
+          <div class="pa-standard">IEEE C37.118 · GPS timing</div>
+          <div class="pa-desc">
+            Phasor Measurement Units (PMUs) measure voltage and current phasors (magnitude
+            and phase angle) at multiple points in the grid simultaneously, timestamped to
+            GPS time with <strong>1 µs accuracy</strong>. The resulting synchrophasor data
+            (10–120 samples/second per PMU) allows grid operators to observe dynamic behaviour
+            in real time — oscillations, voltage collapse, generator trips.
+          </div>
+          <div class="pa-timing">Required: ±1 µs (1 µs = 0.018° at 50 Hz)</div>
+        </div>
+        <div class="pa-card">
+          <div class="pa-title">Fault location</div>
+          <div class="pa-standard">Travelling wave methods</div>
+          <div class="pa-desc">
+            When a fault occurs on a transmission line (lightning strike, broken conductor),
+            an electromagnetic travelling wave propagates from the fault point toward both
+            ends of the line at ~97% of the speed of light. By precisely timestamping the
+            arrival of this wave at each end using GPS-synchronised recorders, the fault
+            location can be determined to within <strong>50–100 metres</strong> on a 500 km line.
+          </div>
+          <div class="pa-timing">Required: ±100 ns for 30 m fault location accuracy</div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🌑</div>
+        <div>
+          <strong>Northeast blackout 2003:</strong> The largest power outage in North American
+          history (55 million people affected) was partly attributed to grid operators lacking
+          real-time situational awareness of grid conditions. The subsequent widespread
+          deployment of GPS-synchronised PMUs across North America was a direct response —
+          today over 2,500 PMUs provide synchrophasor data to NERC's wide-area monitoring system.
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="finance">Financial systems</h2>
+      <p>
+        Financial markets generate millions of transactions per second. Regulators require
+        accurate timestamps on every trade for audit trails, market surveillance and
+        reconstruction of events after a flash crash. Two major regulatory frameworks
+        drive GNSS timing adoption in finance:
+      </p>
+
+      <div class="finance-regs">
+        <div class="fr-card">
+          <div class="fr-name">MiFID II (EU)</div>
+          <div class="fr-full">Markets in Financial Instruments Directive II</div>
+          <div class="fr-req">
+            <div class="fr-req-item">
+              <span class="fr-asset">High-frequency trading (HFT)</span>
+              <span class="fr-threshold">±100 µs to UTC</span>
+            </div>
+            <div class="fr-req-item">
+              <span class="fr-asset">Algorithmic trading</span>
+              <span class="fr-threshold">±1 ms to UTC</span>
+            </div>
+            <div class="fr-req-item">
+              <span class="fr-asset">Voice trading</span>
+              <span class="fr-threshold">±1 s to UTC</span>
+            </div>
+          </div>
+          <div class="fr-note">Traceability to UTC is mandatory. GNSS-disciplined grandmaster clocks are the standard implementation. Applies to all trading venues and systematic internalisers in the EU.</div>
+        </div>
+        <div class="fr-card">
+          <div class="fr-name">CAT (USA)</div>
+          <div class="fr-full">Consolidated Audit Trail</div>
+          <div class="fr-req">
+            <div class="fr-req-item">
+              <span class="fr-asset">Equities / options</span>
+              <span class="fr-threshold">±50 ms to UTC (industry captures much tighter)</span>
+            </div>
+            <div class="fr-req-item">
+              <span class="fr-asset">Latency-sensitive systems</span>
+              <span class="fr-threshold">±1 ms practical standard</span>
+            </div>
+          </div>
+          <div class="fr-note">FINRA and SEC require audit trail records for all NMS securities. GPS-traceable timestamps are mandatory for compliance.</div>
+        </div>
+      </div>
+
+      <p>
+        Beyond regulatory compliance, low-latency trading firms require timestamps accurate
+        to <strong>nanoseconds</strong> for their own internal purposes — to reconstruct
+        market microstructure and verify strategy performance. These firms typically use
+        GPS white rabbit or PTP grandmaster clocks with dedicated hardware timestamping
+        NICs (network interface cards) that bypass operating system scheduling jitter.
+      </p>
+
+      <!-- SECTION 4 -->
+      <h2 id="internet">Internet infrastructure</h2>
+      <p>
+        The internet's time distribution hierarchy ultimately traces back to GNSS. The
+        primary reference clocks at the top of the NTP (Network Time Protocol) hierarchy —
+        <strong>Stratum 0</strong> — are GPS receivers and other atomic time sources.
+      </p>
+
+      <div class="ntp-hierarchy">
+        <div class="ntp-level">
+          <div class="ntp-stratum">Stratum 0</div>
+          <div class="ntp-desc">GPS receivers, caesium/rubidium clocks, PPS sources. Not on the network — connected directly to Stratum 1 servers.</div>
+          <div class="ntp-acc">Reference — nanosecond accuracy</div>
+        </div>
+        <div class="ntp-arrow">↓ NTP / PTP</div>
+        <div class="ntp-level ntp-1">
+          <div class="ntp-stratum">Stratum 1</div>
+          <div class="ntp-desc">Public NTP servers directly connected to Stratum 0 sources (time.google.com, time.cloudflare.com, pool.ntp.org nodes). Typically GPS-disciplined.</div>
+          <div class="ntp-acc">~1–10 µs to UTC</div>
+        </div>
+        <div class="ntp-arrow">↓ NTP</div>
+        <div class="ntp-level">
+          <div class="ntp-stratum">Stratum 2</div>
+          <div class="ntp-desc">Servers that synchronise to Stratum 1. Most enterprise NTP servers. Your router, your office time server.</div>
+          <div class="ntp-acc">~1–100 ms</div>
+        </div>
+        <div class="ntp-arrow">↓ NTP</div>
+        <div class="ntp-level">
+          <div class="ntp-stratum">Stratum 3+</div>
+          <div class="ntp-desc">Client devices — laptops, phones, servers. Synchronised to Stratum 2/3 servers via NTP.</div>
+          <div class="ntp-acc">~10–100 ms typical</div>
+        </div>
+      </div>
+
+      <p>
+        Beyond NTP, <strong>IEEE 1588 PTP</strong> (Precision Time Protocol) delivers
+        sub-microsecond synchronisation over Ethernet for applications that need it —
+        data centres, financial networks, telecom backhaul and industrial automation.
+        PTP grandmaster clocks are invariably GPS-disciplined.
+      </p>
+
+      <!-- SECTION 5 -->
+      <h2 id="science">Scientific applications</h2>
+      <p>
+        GNSS timing enables experiments and observations that would be physically impossible
+        without a global, nanosecond-accurate time reference:
+      </p>
+
+      <div class="science-apps">
+        <div class="sci-card">
+          <div class="sci-title">Very Long Baseline Interferometry (VLBI)</div>
+          <div class="sci-desc">
+            Radio telescopes on different continents record the same quasar signal with
+            hydrogen maser clocks synchronised to within <strong>picoseconds</strong>.
+            Correlation of the recordings reveals Earth's orientation, polar motion,
+            and the positions of quasars to microarcsecond accuracy. GNSS time transfer
+            and VLBI are complementary — each calibrates the other's systematic errors.
+          </div>
+        </div>
+        <div class="sci-card">
+          <div class="sci-title">Pulsar timing arrays</div>
+          <div class="sci-desc">
+            Millisecond pulsars are the most stable natural clocks known — rivalling
+            atomic clocks over decades. Arrays of radio telescopes (PPTA, NANOGrav, EPTA)
+            monitor dozens of pulsars simultaneously, using GPS time to connect observations
+            across observatories. Deviations from predicted pulse arrival times reveal
+            gravitational waves from supermassive black hole mergers.
+          </div>
+        </div>
+        <div class="sci-card">
+          <div class="sci-title">GNSS meteorology</div>
+          <div class="sci-desc">
+            The wet tropospheric delay in GNSS signals is proportional to integrated water
+            vapour along the signal path. Networks of CORS stations measure this delay using
+            precise GNSS timing, recovering precipitable water vapour (PWV) at thousands
+            of points simultaneously. PWV data assimilated into weather models improves
+            rainfall forecasting, particularly for convective events.
+          </div>
+        </div>
+        <div class="sci-card">
+          <div class="sci-title">Relativistic tests</div>
+          <div class="sci-desc">
+            GNSS satellites provide a direct laboratory for testing general and special
+            relativity. The satellite atomic clocks run fast due to gravitational time
+            dilation (45.9 µs/day) and slow due to velocity time dilation (7.2 µs/day),
+            for a net +38.4 µs/day. Without relativistic corrections, GPS positions would
+            drift by ~10 km/day. GNSS is our most-tested real-world application of relativity.
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="resilience">Resilience and backup strategies</h2>
+      <p>
+        Any system that depends on GNSS timing for critical operations must have a plan for
+        GNSS outages. The standard approach is layered resilience:
+      </p>
+
+      <div class="resilience-layers">
+        <div class="rl-layer rl-primary">
+          <div class="rl-title">Primary: GNSS-disciplined oscillator</div>
+          <div class="rl-desc">GPS/multi-constellation receiver disciplines a local oscillator (TCXO, OCXO or rubidium) to GPS time in steady state. Provides PPS output and frequency reference.</div>
+          <div class="rl-acc">~10–50 ns to UTC (normal operation)</div>
+        </div>
+        <div class="rl-arrow">↓ GNSS signal lost</div>
+        <div class="rl-layer rl-holdover">
+          <div class="rl-title">Holdover: disciplined oscillator free-runs</div>
+          <div class="rl-desc">When GNSS is unavailable, the local oscillator free-runs using its last known frequency correction. A high-quality OCXO drifts ~1 µs/hour; a rubidium oscillator drifts ~0.1 µs/hour.</div>
+          <div class="rl-acc">Degrades: ±1 µs after 1h (OCXO), ±0.1 µs after 1h (Rb)</div>
+        </div>
+        <div class="rl-arrow">↓ extended outage</div>
+        <div class="rl-layer rl-backup">
+          <div class="rl-title">Backup: alternative time source</div>
+          <div class="rl-desc">eLoran (where available), White Rabbit PTP from a remote site with GNSS view, or direct atomic clock. Prevents indefinite drift after holdover budget exhausted.</div>
+          <div class="rl-acc">Depends on backup source</div>
+        </div>
+      </div>
+
+      <div class="holdover-table">
+        <div class="ht-title">Holdover performance by oscillator type</div>
+        <div class="ht-row ht-header">
+          <span>Oscillator</span>
+          <span>Drift rate</span>
+          <span>Time to ±1 µs</span>
+          <span>Time to ±1 ms</span>
+          <span>Typical cost</span>
+        </div>
+        <div class="ht-row">
+          <span>TCXO</span>
+          <span class="bad">~100 µs/hour</span>
+          <span class="bad">36 s</span>
+          <span class="bad">10 min</span>
+          <span>£5–£50</span>
+        </div>
+        <div class="ht-row">
+          <span>OCXO</span>
+          <span class="warn">~1 µs/hour</span>
+          <span class="warn">1 hour</span>
+          <span class="warn">40 days</span>
+          <span>£50–£500</span>
+        </div>
+        <div class="ht-row">
+          <span>Rubidium</span>
+          <span class="ok">~0.1 µs/hour</span>
+          <span class="ok">10 hours</span>
+          <span class="good">&gt;1 year</span>
+          <span>£500–£5,000</span>
+        </div>
+        <div class="ht-row">
+          <span>Caesium</span>
+          <span class="good">~0.01 µs/hour</span>
+          <span class="good">100 hours</span>
+          <span class="good">&gt;10 years</span>
+          <span>£10,000–£50,000</span>
+        </div>
+      </div>
+
+      <!-- SECTION 7 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📡</div>
+          <div class="summary-title">Telecom needs ±130 ns (5G)</div>
+          <div class="summary-body">5G TDD requires ±130 ns synchronisation between base stations. GNSS grandmaster clocks feed IEEE 1588 PTP networks. A GNSS outage cascades to network degradation within hours.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">⚡</div>
+          <div class="summary-title">Power grids need ±1 µs</div>
+          <div class="summary-body">Synchrophasors require ±1 µs for grid state monitoring. Travelling wave fault location needs ±100 ns. GPS-synchronised PMUs now cover most of North America and Europe.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">💹</div>
+          <div class="summary-title">Finance needs ±100 µs (MiFID II)</div>
+          <div class="summary-body">MiFID II mandates ±100 µs UTC-traceable timestamps for HFT. CAT requires similar for US equities. GPS grandmaster clocks are the standard implementation for compliance.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔋</div>
+          <div class="summary-title">Holdover is essential</div>
+          <div class="summary-body">GNSS outages happen. A rubidium oscillator holds ±1 µs for 10 hours — adequate for most outages. Critical infrastructure needs a formal holdover budget and backup strategy.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/timing/time-scales" class="nav-prev">← Time Scales</a>
+        <a href="/learn/timing/clock-error" class="nav-next">Clock Error →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>ITU-T G.8272 — Timing characteristics of primary reference time clocks. <a href="https://www.itu.int" target="_blank" rel="noopener noreferrer">itu.int →</a></li>
+          <li>IEEE 1588-2019 — IEEE Standard for a Precision Clock Synchronization Protocol for Networked Measurement and Control Systems.</li>
+          <li>ESMA MiFID II RTS 25 — Regulatory Technical Standard on clock synchronisation. <a href="https://www.esma.europa.eu" target="_blank" rel="noopener noreferrer">esma.europa.eu →</a></li>
+          <li>NERC — Reliability Guideline: GPS Vulnerabilities. <a href="https://www.nerc.com" target="_blank" rel="noopener noreferrer">nerc.com →</a></li>
+          <li>Lombardi, M. A. (2008). The use of GPS disciplined oscillators as primary frequency standards. <em>NCSLI Measure</em>, 3(3), 56–65.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  /* Requirements card */
+  .req-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 0; }
+  .req-telecom { border-top: 3px solid var(--accent); }
+  .req-header { padding: 12px 16px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  .req-sector { font-size: 13px; font-weight: 600; color: var(--text); }
+  .req-body { padding: 4px 0; }
+  .req-row { display: grid; grid-template-columns: 180px 180px 1fr; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; align-items: baseline; }
+  .req-row:last-child { border-bottom: none; }
+  .req-key { background: rgba(0,212,170,0.03); }
+  .req-param { color: var(--text); font-weight: 500; }
+  .req-value { font-family: var(--mono); color: var(--accent); font-size: 12px; }
+  .req-note { color: var(--text3); font-size: 12px; }
+
+  /* Timing chain */
+  .timing-chain { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 20px 0; }
+  .tc-node { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; width: 100%; max-width: 400px; text-align: center; }
+  .tc-gps { border-color: rgba(0,212,170,0.4); }
+  .tc-gm { border-color: rgba(0,212,170,0.3); }
+  .tc-bc { border-color: rgba(0,153,255,0.3); }
+  .tc-bs { border-color: rgba(251,191,36,0.3); }
+  .tc-label { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .tc-acc { font-size: 12px; font-family: var(--mono); color: var(--accent2); }
+  .tc-arrow { font-size: 12px; color: var(--text3); font-family: var(--mono); padding: 4px 0; text-align: center; }
+
+  /* Power apps */
+  .power-apps { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .pa-card { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid #fbbf24; border-radius: 10px; padding: 16px; }
+  .pa-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .pa-standard { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-bottom: 8px; }
+  .pa-desc { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 8px; }
+  .pa-timing { font-size: 12px; font-family: var(--mono); color: #fbbf24; padding: 4px 8px; background: rgba(251,191,36,0.08); border-radius: 4px; }
+
+  /* Finance regs */
+  .finance-regs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .fr-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .fr-name { font-size: 16px; font-weight: 700; color: var(--accent); font-family: var(--mono); margin-bottom: 4px; }
+  .fr-full { font-size: 11px; color: var(--text3); margin-bottom: 10px; }
+  .fr-req { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .fr-req-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .fr-req-item:last-child { border-bottom: none; }
+  .fr-asset { color: var(--text2); }
+  .fr-threshold { font-family: var(--mono); color: var(--accent); white-space: nowrap; }
+  .fr-note { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+  /* NTP hierarchy */
+  .ntp-hierarchy { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 16px 0; }
+  .ntp-level { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; width: 100%; }
+  .ntp-1 { border-color: rgba(0,212,170,0.3); }
+  .ntp-stratum { font-size: 12px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 4px; }
+  .ntp-desc { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 4px; }
+  .ntp-acc { font-size: 11px; font-family: var(--mono); color: var(--text3); }
+  .ntp-arrow { font-size: 11px; color: var(--text3); font-family: var(--mono); padding: 4px 0; text-align: center; }
+
+  /* Science apps */
+  .science-apps { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .sci-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .sci-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .sci-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  /* Resilience layers */
+  .resilience-layers { display: flex; flex-direction: column; align-items: stretch; gap: 0; margin: 16px 0; }
+  .rl-layer { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; }
+  .rl-primary { border-color: rgba(0,212,170,0.3); }
+  .rl-holdover { border-color: rgba(251,191,36,0.3); }
+  .rl-backup { border-color: rgba(0,153,255,0.3); }
+  .rl-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .rl-desc { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 6px; }
+  .rl-acc { font-size: 11px; font-family: var(--mono); color: var(--accent2); }
+  .rl-arrow { font-size: 11px; color: var(--text3); font-family: var(--mono); padding: 6px 0 6px 18px; }
+
+  /* Holdover table */
+  .holdover-table { margin: 16px 0; }
+  .ht-title { font-size: 12px; font-weight: 600; color: var(--text3); font-family: var(--mono); text-transform: uppercase; margin-bottom: 8px; }
+  .ht-row { display: grid; grid-template-columns: 100px 120px 110px 110px 1fr; gap: 10px; padding: 9px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; margin-bottom: 2px; }
+  .ht-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .good { color: var(--accent); font-family: var(--mono); font-size: 12px; }
+  .ok { color: #a3e635; font-family: var(--mono); font-size: 12px; }
+  .warn { color: #fbbf24; font-family: var(--mono); font-size: 12px; }
+  .bad { color: #ff4757; font-family: var(--mono); font-size: 12px; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .power-apps { grid-template-columns: 1fr; }
+    .finance-regs { grid-template-columns: 1fr; }
+    .science-apps { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .req-row { grid-template-columns: 140px 1fr; }
+    .req-note { display: none; }
+    .ht-row { grid-template-columns: 80px 100px 1fr; }
+    .ht-row span:nth-child(4), .ht-row span:last-child { display: none; }
+    h2 { font-size: 20px; }
+  }
+</style>
