@@ -1,0 +1,259 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+
+const terms = [
+  // A
+  { term: "ADOP", letter: "A", def: "Ambiguity Dilution of Precision. A scalar measure of the overall quality of the float ambiguity covariance matrix. ADOP = det(Q_â)^(1/2m) where m is the number of ambiguities. ADOP < 0.12 cycles indicates reliable integer ambiguity resolution (success rate > 99.9%)." },
+  { term: "Almanac", letter: "A", def: "A coarse set of orbital parameters broadcast by every satellite describing the approximate positions of all satellites in the constellation. Updated weekly. Used by receivers to speed up satellite acquisition (warm start). Less accurate than ephemeris — not used for positioning." },
+  { term: "Ambiguity (integer)", letter: "A", def: "The unknown number of complete carrier wavelengths between satellite and receiver at the moment of initial lock. Denoted N. Must be resolved to a correct integer value before carrier-phase positioning (RTK, PPP) can achieve centimetre accuracy. See: LAMBDA, ratio test." },
+  { term: "Antenna Reference Point (ARP)", letter: "A", def: "The physical reference point of a GNSS antenna, typically the bottom of the antenna mount. All phase centre offsets and antenna heights are referenced to the ARP. Heights entered in survey software should be to ARP, not to the top of the antenna." },
+  { term: "APV", letter: "A", def: "Approach with Vertical Guidance. An aviation instrument approach procedure that provides both lateral and vertical guidance. APV-I and APV-II are enabled by SBAS (WAAS, EGNOS) with decision heights of 250 ft and 200 ft respectively." },
+  { term: "AUSPOS", letter: "A", def: "Geoscience Australia's online GPS processing service. Accepts RINEX observation files and returns a precise geodetic position using IGS products. Free to use. Equivalent to NRCan CSRS-PPP for Australian users." },
+  { term: "Azimuth", letter: "A", def: "The horizontal direction from the receiver to a satellite, measured clockwise from true north. Expressed in degrees (0–360°). Used together with elevation angle to describe satellite position in the sky. Azimuth and elevation computed from ECEF satellite position using the ENU rotation matrix." },
+  // B
+  { term: "BeiDou (BDS)", letter: "B", def: "China's Global Navigation Satellite System. BDS-3 (third generation) achieved global coverage in 2020 with 30 MEO satellites plus GEO and IGSO satellites. Signals: B1I, B1C, B2a, B2b, B3I. Reference frame: CGCS2000 (aligned with WGS84 to <1 cm). Operates PPP-B2b free correction service on B2b signal." },
+  { term: "BINEX", letter: "B", def: "Binary RINEX. An open, receiver-independent binary format for GNSS data exchange developed by UNAVCO and adopted by IGS. 4–6× more compact than text RINEX. Record 0x7f carries raw observables. Used for CORS archiving and IGS real-time streams." },
+  { term: "BPSK", letter: "B", def: "Binary Phase Shift Keying. The modulation scheme used by GPS C/A code, P(Y) code and legacy signals. The carrier phase is shifted by 180° to encode 0s and 1s in the ranging code. Has a triangular correlation function. Compared to BOC modulation, BPSK has a broader, less sharp correlation peak." },
+  { term: "BOC", letter: "B", def: "Binary Offset Carrier. A signal modulation used by modern GNSS signals (Galileo E1, GPS L1C, BeiDou B1C). Subcarrier is XORed with the ranging code before modulation, creating a split-spectrum signal with a sharper correlation peak than BPSK — better multipath rejection and improved ranging accuracy." },
+  // C
+  { term: "C/A code", letter: "C", def: "Coarse/Acquisition code. The GPS civilian ranging code on L1. 1,023 chips at 1.023 Mcps — period of exactly 1 ms. Each GPS satellite has a unique C/A code (PRN). Chip length ≈ 293 m, giving code-based ranging noise of ~0.3 m. Free, open access." },
+  { term: "CDMA", letter: "C", def: "Code Division Multiple Access. The signal access scheme used by GPS, Galileo, BeiDou and new GLONASS signals. All satellites transmit on the same frequency simultaneously. Receivers separate signals using code correlation — each satellite has a unique PRN code with near-zero cross-correlation with other codes." },
+  { term: "CEP", letter: "C", def: "Circular Error Probable. The radius of a circle centred on the true position within which 50% of position fixes fall. Used as a horizontal accuracy metric. CEP ≈ 0.589 × σ_horizontal for a circular normal distribution. Not to be confused with 95% (2DRMS) accuracy specifications." },
+  { term: "Chip", letter: "C", def: "One binary element of a GNSS ranging code (PRN code). The chip rate determines the ranging resolution: chip length = c / chip_rate. For GPS C/A code: 1.023 Mcps → chip length ≈ 293 m. A receiver can measure code phase to ~1% of a chip, giving ~3 m ranging noise." },
+  { term: "Clock bias", letter: "C", def: "The difference between a receiver's internal clock and GNSS system time. Equivalent to a constant range error (1 µs = 300 m). Solved as the fourth unknown in the navigation solution. Satellite clock bias is corrected by the broadcast polynomial (a₀, a₁, a₂) in the navigation message." },
+  { term: "CORS", letter: "C", def: "Continuously Operating Reference Station. A permanently installed GNSS receiver at a precisely known location that logs observations and streams RTCM corrections. Networks of CORS stations (NOAA CORS, OS Net, SAPOS) form the backbone of network RTK services." },
+  { term: "CSRS-PPP", letter: "C", def: "Canada's online PPP post-processing service operated by Natural Resources Canada. Accepts RINEX observation files; returns a precise position using IGS final products. Free. Achieves ~2 cm horizontal accuracy for long (1+ hour) static sessions." },
+  { term: "Cycle slip", letter: "C", def: "A sudden discontinuity in the carrier phase measurement caused by brief loss of satellite signal lock. The integer counter resets. The receiver must re-initialise the integer ambiguity for that satellite. Frequent cycle slips prevent RTK fixed solution. Detected using Doppler and code-phase consistency checks." },
+  // D
+  { term: "DCM", letter: "D", def: "Direction Cosine Matrix. A 3×3 rotation matrix that transforms vectors between coordinate frames. For GNSS attitude applications, the DCM relates body frame to navigation frame. Equivalent to the ZYX Euler angle rotation R_z(ψ)·R_y(θ)·R_x(φ). Updated using: Ṙ = R·Ω where Ω is the skew-symmetric gyroscope measurement matrix." },
+  { term: "DGNSS", letter: "D", def: "Differential GNSS. A technique that reduces positioning errors by applying corrections from a reference station with known position. The reference computes pseudorange corrections (PRC) and broadcasts them to the rover. Reduces errors from satellite clocks, ephemeris and ionosphere. Achieves 0.3–3 m accuracy depending on baseline length." },
+  { term: "Dilution of Precision", letter: "D", def: "See DOP." },
+  { term: "DOP", letter: "D", def: "Dilution of Precision. A dimensionless factor that describes how satellite geometry amplifies ranging errors into position errors: σ_position = DOP × σ_UERE. Computed from the design matrix Q = (AᵀA)⁻¹. Types: PDOP (3D), HDOP (horizontal), VDOP (vertical), TDOP (time), GDOP (full 4D). DOP < 2 is excellent; DOP > 6 is poor." },
+  { term: "Double difference", letter: "D", def: "A differencing operation applied to carrier phase observations between two receivers and two satellites simultaneously. Cancels satellite clock errors (single difference cancels these) and receiver clock errors (differencing between satellites cancels these). The basic observable for RTK processing." },
+  { term: "Doppler", letter: "D", def: "The frequency shift of a GNSS signal due to relative motion between satellite and receiver. Typically ±4 kHz on GPS L1. Used to compute receiver velocity (Doppler / wavelength = range rate). Also used for cycle-slip detection and signal acquisition. Measured in all quality GNSS receivers alongside pseudorange and carrier phase." },
+  // E
+  { term: "ECEF", letter: "E", def: "Earth-Centred Earth-Fixed. A 3D Cartesian coordinate frame with origin at Earth's centre of mass, X-axis toward the prime meridian/equator intersection, Z-axis toward the North Pole. Rotates with the Earth. The frame in which GNSS satellites are tracked and navigation solutions are computed. Converted to geodetic (lat/lon/height) for output." },
+  { term: "EGNOS", letter: "E", def: "European Geostationary Navigation Overlay Service. The European SBAS system operated by EUSPA. Covers Europe, North Africa and parts of the Middle East. Provides 0.5–1.5 m horizontal accuracy and integrity bounds for aviation. Supports APV-I approaches. Signals broadcast on GPS L1 frequency from GEO satellites." },
+  { term: "Elevation angle", letter: "E", def: "The angle above the local horizon to a satellite, measured in degrees. 0° = on the horizon, 90° = directly overhead (zenith). Low-elevation satellites have larger ionospheric and tropospheric delays. Receivers apply an elevation mask (typically 10–15°) to exclude low-elevation satellites with excessive errors." },
+  { term: "Elevation mask", letter: "E", def: "A minimum elevation angle threshold below which satellite signals are excluded from the positioning solution. Typical values: 10–15° for general positioning, 5° for open-sky survey. Raising the mask improves signal quality but reduces satellite count and worsens DOP." },
+  { term: "ENU", letter: "E", def: "East-North-Up. A local Cartesian coordinate frame anchored at a reference point on the Earth's surface. East and North are in the local horizontal plane; Up is normal to the ellipsoid surface. Used to express baselines, satellite azimuths and elevations, and position differences in intuitive local coordinates. See: NED." },
+  { term: "Ephemeris", letter: "E", def: "Satellite orbital parameters broadcast in the navigation message. GPS uses a set of Keplerian elements plus perturbation corrections, valid for ~2 hours. Used by receivers to compute satellite positions at any epoch. Broadcast ephemeris accuracy: ~1 m radial. IGS precise ephemeris: ~2.5 cm." },
+  { term: "ETRS89", letter: "E", def: "European Terrestrial Reference System 1989. The geodetic datum used for mapping and positioning in Europe. Uses the GRS80 ellipsoid. Defined to be fixed to the stable part of the Eurasian tectonic plate. Coincided with WGS84 at the 1989 epoch; diverges by ~2.5 cm/year due to plate motion. For practical purposes aligned with WGS84 to <1 m." },
+  // F
+  { term: "FDMA", letter: "F", def: "Frequency Division Multiple Access. The signal access scheme used by legacy GLONASS (L1, L2). Each satellite transmits on a slightly different frequency (channel spacing: 562.5 kHz on L1). Receivers separate satellites by frequency filtering. Causes inter-channel biases in RTK processing between different receiver types." },
+  { term: "Fix quality", letter: "F", def: "The GGA sentence field 6 indicator of solution type: 0=no fix, 1=GPS/standalone, 2=DGPS, 4=RTK fixed, 5=RTK float, 6=estimated (dead reckoning). A value of 4 (RTK fixed) indicates integer ambiguities have been resolved and centimetre accuracy is expected." },
+  { term: "Float solution", letter: "F", def: "An RTK or PPP solution in which carrier phase ambiguities are estimated as real numbers rather than integers. Accuracy is typically 5–30 cm — better than code-only but worse than a fixed solution. The float solution is the starting point for integer ambiguity resolution (LAMBDA). See: fixed solution." },
+  { term: "Fixed solution", letter: "F", def: "An RTK solution in which carrier phase integer ambiguities have been correctly resolved and held fixed. Accuracy is typically 1–3 cm. A wrong fix — integers fixed to incorrect values — gives a position error of one or more wavelengths (~19 cm for L1). Always validate with the ratio test before accepting." },
+  // G
+  { term: "GAGAN", letter: "G", def: "GPS Aided Geo Augmented Navigation. India's SBAS system, jointly operated by the Airports Authority of India (AAI) and the Indian Space Research Organisation (ISRO). Covers the Indian subcontinent. Certified for aviation (APV-I). Signals on GPS L1 frequency." },
+  { term: "Galileo", letter: "G", def: "The European Union's Global Navigation Satellite System, operated by EUSPA. Full operational capability achieved in 2019 with 24+ MEO satellites at 23,222 km altitude in three orbital planes. Signals: E1, E5a, E5b, E6. Reference frame: GTRF. Notable services: Open Service (E1/E5a), High Accuracy Service (HAS) on E6-B." },
+  { term: "GDOP", letter: "G", def: "Geometric Dilution of Precision. The DOP factor for the complete 4D navigation solution (position + time). GDOP² = PDOP² + TDOP². Represents the total geometry of the navigation solution including the receiver clock estimation. Always ≥ PDOP." },
+  { term: "Geoid", letter: "G", def: "An equipotential surface of Earth's gravity field that approximates mean sea level. The geoid is irregular — it undulates by ±100 m relative to the WGS84 ellipsoid. GNSS receivers output ellipsoidal height (above the ellipsoid), not orthometric height (above the geoid). The difference is the geoid undulation N: h = H + N." },
+  { term: "Geoid undulation", letter: "G", def: "The height difference N between the WGS84 ellipsoid and the geoid surface at a given location. Ranges from approximately −107 m (near India) to +85 m (near Iceland). Must be subtracted from GNSS ellipsoidal height h to obtain orthometric height H (height above mean sea level): H = h − N. Computed using models such as EGM2008." },
+  { term: "GGA", letter: "G", def: "NMEA sentence type: Global Positioning System Fix Data. The most important NMEA sentence. Contains UTC time, latitude, longitude, fix quality (0–6), satellite count, HDOP, altitude above mean sea level and geoid separation. Field 6 (fix quality) must always be checked before using the position." },
+  { term: "GLONASS", letter: "G", def: "Russia's Global Navigation Satellite System (Globalnaya Navigatsionnaya Sputnikovaya Sistema). Constellation of 24+ MEO satellites at 19,130 km altitude. Legacy signals use FDMA (each satellite on a different frequency). Newer CDMA signals (L3) are being added. Reference frame: PZ-90. Time system: GLONASS time (offset from UTC by integer seconds)." },
+  { term: "GPS", letter: "G", def: "Global Positioning System. The United States' GNSS, operated by the US Space Force. 31+ MEO satellites at 20,200 km altitude in 6 orbital planes at 55° inclination. Signals: L1 C/A, L1C, L2C, L2 P(Y), L5. Reference frame: WGS84. Time system: GPS time (no leap seconds, offset from UTC by 18 seconds as of 2024)." },
+  { term: "GPS time", letter: "G", def: "The continuous time scale maintained by the GPS system. Epoch: midnight January 5–6, 1980. No leap seconds — GPS time diverges from UTC by an increasing integer number of seconds (18 seconds ahead of UTC as of 2024). The GPS-UTC offset is broadcast in the navigation message." },
+  { term: "GSA", letter: "G", def: "NMEA sentence type: GNSS DOP and Active Satellites. Reports fix type (2D/3D), satellite PRNs used, PDOP, HDOP and VDOP. One GSA sentence per constellation in multi-constellation receivers." },
+  { term: "GSV", letter: "G", def: "NMEA sentence type: GNSS Satellites in View. Reports elevation, azimuth and SNR for every visible satellite. Maximum 4 satellites per sentence; multiple sentences needed for more. SNR > 35 dB-Hz indicates good signal; < 25 dB-Hz is marginal." },
+  // H
+  { term: "HAS", letter: "H", def: "High Accuracy Service. Galileo's free global PPP correction service broadcast on the E6-B signal (1278.75 MHz). Phase 1 (operational 2023): orbit, clock and phase bias corrections enabling PPP-AR with ~20 cm accuracy. Phase 2 (planned): regional ionospheric corrections enabling full PPP-RTK. No subscription, no internet required." },
+  { term: "HDOP", letter: "H", def: "Horizontal Dilution of Precision. The DOP factor for horizontal (East-North) positioning. HDOP = √(Q_EE + Q_NN) where Q = (AᵀA)⁻¹. Typically 0.8–2.0 in open sky. HDOP < 2 is excellent for navigation; survey-grade work requires HDOP < 1.5." },
+  { term: "Helmert transformation", letter: "H", def: "A 7-parameter similarity transformation used to convert coordinates between geodetic datums. Parameters: 3 translations (T_x, T_y, T_z in metres), 3 rotations (R_x, R_y, R_z in arcseconds) and 1 scale factor (s in ppm). The standard model for datum conversions such as WGS84 to OSGB36." },
+  // I
+  { term: "ICB", letter: "I", def: "Inter-Channel Bias. The differential code and phase bias between GLONASS frequency channels in an RTK baseline. Caused by the FDMA signal structure — each satellite transmits on a different frequency, and receiver hardware introduces different delays for each channel. ICBs are receiver-type dependent and prevent GLONASS ambiguity resolution between mixed receiver types without calibration." },
+  { term: "IGS", letter: "I", def: "International GNSS Service. A voluntary federation of 400+ GNSS tracking stations, data centres and analysis centres. Produces precise satellite orbit and clock products (final, rapid, ultra-rapid), reference frame solutions, and real-time SSR corrections. IGS final products: ~2.5 cm orbit accuracy, ~75 ps clock accuracy." },
+  { term: "Innovation", letter: "I", def: "In Kalman filtering: the difference between the actual measurement and the predicted measurement based on the current state estimate. Innovation = z − Hx̂⁻. Should be zero-mean, white (uncorrelated in time) and Gaussian if the filter model is correct. Large or structured innovations indicate unmodelled errors, outliers or cycle slips." },
+  { term: "Integer ambiguity", letter: "I", def: "See: Ambiguity (integer)." },
+  { term: "Ionosphere", letter: "I", def: "The layer of the atmosphere between approximately 60–1,000 km altitude where solar radiation ionises gas molecules, creating free electrons. Delays GNSS code pseudoranges and advances carrier phase by the same magnitude (I = 40.3·TEC/f²). The largest single error source for single-frequency receivers: 1–100+ metres depending on conditions." },
+  { term: "Ionospheric scintillation", letter: "I", def: "Rapid, irregular fluctuations in GNSS signal amplitude and phase caused by plasma irregularities in the ionosphere. Characterised by S4 index (amplitude scintillation) and σφ (phase scintillation). S4 > 0.3 or σφ > 0.1 rad causes cycle slips and may prevent RTK fixing. Worst at equatorial latitudes after local sunset and at high latitudes during geomagnetic storms." },
+  { term: "IPP", letter: "I", def: "Ionospheric Pierce Point. The point where a GNSS signal path intersects the assumed single-layer ionospheric model (typically at 450 km altitude). Ionospheric corrections and maps are referenced to IPP coordinates. The mapping function converts vertical TEC at the IPP to slant TEC along the signal path." },
+  // K
+  { term: "Kalman filter", letter: "K", def: "A recursive algorithm that estimates the state of a dynamic system from noisy measurements. Used in all GNSS receivers for sequential position, velocity and time estimation. Alternates between prediction (state propagation using motion model) and update (measurement fusion using Kalman gain). Optimal for linear systems with Gaussian noise." },
+  { term: "Klobuchar model", letter: "K", def: "An ionospheric delay model broadcast by GPS satellites as 8 coefficients (α₀–α₃, β₀–β₃). Models the vertical delay as a half-cosine function peaking at 14:00 local time. Corrects approximately 50% of the RMS ionospheric delay at mid-latitudes. Available free to all GPS single-frequency receivers." },
+  { term: "Kp index", letter: "K", def: "A global geomagnetic activity index on a scale of 0–9 (0 = quiet, 9 = extreme storm). Computed every 3 hours from a network of ground magnetometer stations. GNSS is affected at Kp ≥ 5 (G1 geomagnetic storm). At Kp ≥ 7 (G3), single-frequency RTK may fail; scintillation at high and equatorial latitudes increases significantly." },
+  // L
+  { term: "LAMBDA", letter: "L", def: "Least-squares AMBiguity Decorrelation Adjustment. The standard algorithm for integer GNSS ambiguity resolution, developed by P.J.G. Teunissen (Delft, 1993). Three steps: (1) compute float solution, (2) apply Z-transformation to decorrelate ambiguities, (3) search for best integer vector. Reduces search from exponential to polynomial time." },
+  { term: "L-band", letter: "L", def: "The portion of the radio spectrum from approximately 1–2 GHz used for GNSS signals. Chosen for ionospheric penetration, compact antenna size (19–24 cm wavelength) and manageable Doppler shifts. GPS L1: 1575.42 MHz, L2: 1227.60 MHz, L5: 1176.45 MHz. Galileo E1: 1575.42 MHz, E5a: 1176.45 MHz, E6: 1278.75 MHz." },
+  { term: "Leap second", letter: "L", def: "An occasional 1-second adjustment inserted into UTC to keep it aligned with Earth's rotation (UT1). As of 2024, UTC is 37 seconds behind TAI. GPS time does not use leap seconds — GPS time is 18 seconds ahead of UTC as of 2024. The GPS-UTC offset is broadcast in the navigation message (field in subframe 4)." },
+  // M
+  { term: "Mapping function", letter: "M", def: "A function that converts vertical tropospheric or ionospheric delay to the slant delay along a satellite signal path. For ionosphere: MF(el) = 1/√(1 − (R_E·cos(el)/(R_E+h_IPP))²). At 10° elevation, MF ≈ 3 — three times more ionosphere than at zenith. Explains why low-elevation satellites have larger atmospheric errors." },
+  { term: "Multipath", letter: "M", def: "GNSS signals reaching the receiver antenna via reflected paths in addition to the direct line-of-sight signal. Reflected signals arrive later and with different phase, distorting the code correlation peak and introducing pseudorange errors. Code multipath: up to half the chip length (~150 m for C/A, typically 1–10 m urban). Carrier phase multipath: <9.5 cm. Not removed by differential techniques." },
+  { term: "MSM", letter: "M", def: "Multiple Signal Messages. The modern RTCM observation format (RTCM 3.2+) that carries code, carrier phase, Doppler and SNR for any constellation and signal combination in a unified structure. MSM4 (e.g. MT 1074 for GPS) is the standard for RTK. MSM7 adds extended resolution fields for PPP-grade post-processing." },
+  // N
+  { term: "NAD83", letter: "N", def: "North American Datum of 1983. The horizontal geodetic datum used in the USA and Canada. Uses the GRS80 ellipsoid. Quasi-identical to WGS84 for most applications (differences < 2 m). Being superseded by NATRF2022 which is aligned to ITRF2020." },
+  { term: "Navigation message", letter: "N", def: "Data broadcast by GNSS satellites containing satellite ephemeris, clock corrections, almanac, ionospheric model parameters (Klobuchar for GPS, NeQuick for Galileo), and health information. GPS: 50 bps on L1 C/A. Galileo: 250–500 bps depending on signal. Used by receivers to compute satellite positions and apply corrections." },
+  { term: "NED", letter: "N", def: "North-East-Down. A local Cartesian coordinate frame used in aviation and marine navigation. Z-axis points downward (into the Earth) rather than upward. Related to ENU by: N=ENU_row2, E=ENU_row1, D=−ENU_row3. The positive-down convention aligns with the right-hand rule and gravity direction. Check which convention your library uses." },
+  { term: "NeQuick", letter: "N", def: "An ionospheric electron density model used by Galileo (NeQuick-G variant). Three broadcast coefficients (a₀, a₁, a₂) parameterise the model. Integrates electron density along the signal path directly (no mapping function required). Corrects ~60–70% of RMS ionospheric delay — better than Klobuchar, especially at low latitudes." },
+  { term: "NMEA 0183", letter: "N", def: "National Marine Electronics Association standard for GNSS output. ASCII text sentences beginning with $ and ending with CR+LF. Talker IDs: GP (GPS), GL (GLONASS), GA (Galileo), GB (BeiDou), GN (combined). Key sentences: GGA (position), RMC (minimum nav data), GSA (DOP), GSV (sky view). Coordinates in ddmm.mmmm format, not decimal degrees." },
+  { term: "NTRIP", letter: "N", def: "Networked Transport of RTCM via Internet Protocol. The standard for delivering GNSS corrections over the internet. Three roles: NtripServer (reference station), NtripCaster (relay server), NtripClient (rover). HTTP-based; default port 2101. Client sends GGA position to caster for VRS services. NTRIP v2 uses proper HTTP/1.1 chunked transfer." },
+  // O
+  { term: "Orthometric height", letter: "O", def: "Height above the geoid (approximately mean sea level), denoted H. The physically meaningful height for engineering and hydrology — water flows downhill in the direction of decreasing orthometric height. GNSS receivers output ellipsoidal height h. Conversion: H = h − N where N is the geoid undulation. Use EGM2008 or national geoid models." },
+  { term: "OSGB36", letter: "O", def: "Ordnance Survey Great Britain 1936. The traditional horizontal datum used for UK Ordnance Survey maps. Uses the Airy 1830 ellipsoid. Differs from WGS84 by ~100 m in the UK. A 7-parameter Helmert transformation provides ~5 m accuracy; the OSTN15 national grid shift file provides sub-centimetre accuracy." },
+  // P
+  { term: "PDOP", letter: "P", def: "Position Dilution of Precision. The DOP factor for 3D positioning. PDOP = √(Q_EE + Q_NN + Q_UU) = √(HDOP² + VDOP²). Typical open-sky value: 1.0–2.0 multi-constellation, 1.5–3.0 GPS-only. Survey receivers apply a PDOP mask (typically 6) and reject observations when PDOP exceeds it." },
+  { term: "Phase centre", letter: "P", def: "The effective electrical origin of a GNSS antenna — the point from which signal reception appears to occur. Not coincident with the physical antenna reference point (ARP). Varies with satellite elevation and azimuth (phase centre variation, PCV) and between frequency bands. For millimetre-level positioning, phase centre offsets and variations must be applied using IGS antenna calibration files." },
+  { term: "PPP", letter: "P", def: "Precise Point Positioning. A positioning technique using a single receiver with precise satellite orbit and clock corrections (from IGS or commercial services). No local base station required. Works anywhere with sky view. Float accuracy: 5–30 cm after 20–60 min convergence. PPP-AR (with ambiguity resolution): 1–5 cm after 10–20 min." },
+  { term: "PPP-B2b", letter: "P", def: "BeiDou PPP correction service broadcast free of charge on the BDS-3 B2b signal. Covers the Asia-Pacific region without internet connectivity. Provides orbit, clock and bias corrections. Decimetre accuracy after convergence. Available on B2b-capable receivers." },
+  { term: "PPP-RTK", letter: "P", def: "A positioning technique combining PPP's global corrections with regional atmospheric corrections to achieve RTK-level accuracy (1–3 cm) and fast initialisation (10–60 s) without a dedicated base station. Corrections delivered via SSR messages. Key enabler: ionospheric grid corrections that remove the dominant PPP convergence bottleneck." },
+  { term: "PPS", letter: "P", def: "Pulse Per Second. A precise timing signal output by GNSS receivers — typically a 100 ms or 500 ms TTL pulse whose rising edge is synchronised to GNSS system time (usually GPS time or UTC). Accuracy: 10–50 ns (1σ) for standard receivers, sub-nanosecond for timing-grade units. Used for synchronising clocks in telecom, power grids, financial systems and scientific instruments." },
+  { term: "PRC", letter: "P", def: "Pseudorange Correction. The correction computed at a DGNSS reference station: PRC = ρ_expected − ρ_measured. Captures satellite clock error, ephemeris error and ionospheric delay. Transmitted to rovers via RTCM. Paired with RRC (range rate correction) to allow extrapolation over time." },
+  { term: "PRN", letter: "P", def: "Pseudo-Random Noise code. A deterministic binary sequence that appears random but has known, near-zero cross-correlation with other PRN codes. Each GNSS satellite broadcasts a unique PRN code enabling simultaneous reception of multiple satellites on the same frequency (CDMA). Also used as the satellite identifier number (e.g. PRN 14 = GPS satellite 14)." },
+  { term: "Pseudorange", letter: "P", def: "The measured distance from receiver to satellite derived from code correlation, before correcting for receiver clock offset. ρ = c × Δt where Δt is the measured signal travel time. Called 'pseudo' because receiver clock error (c·δt_r) is included, making it slightly longer or shorter than the true geometric range." },
+  // Q
+  { term: "Quaternion", letter: "Q", def: "A 4-parameter representation of 3D rotation: q = [q₀, q₁, q₂, q₃] with unit constraint q₀²+q₁²+q₂²+q₃² = 1. No gimbal lock (unlike Euler angles). Efficient rotation composition (quaternion multiplication). Standard in INS and robotics for attitude propagation. q and −q represent the same rotation (double cover)." },
+  { term: "QZSS", letter: "Q", def: "Quasi-Zenith Satellite System. Japan's regional GNSS constellation operated by JAXA/Cabinet Office. 4 satellites in highly elliptical orbits maintain a satellite near zenith over Japan at all times — addressing urban canyon visibility issues. Interoperable with GPS (same L1/L2/L5 frequencies). Provides SLAS (Sub-metre Level Augmentation Service) and CLAS (Centimetre Level Augmentation Service)." },
+  // R
+  { term: "RAIM", letter: "R", def: "Receiver Autonomous Integrity Monitoring. A technique using redundant measurements (more satellites than needed) to detect and isolate measurement errors without external reference. Based on least squares residual analysis (data snooping). Provides a protection level — a bound on the position error at a given probability. Required for safety-critical aviation applications." },
+  { term: "Ratio test", letter: "R", def: "The standard validation test for RTK integer ambiguity resolution. Ratio = J(ž₂)/J(ž₁) where J(ž₁) and J(ž₂) are the objective function values of the best and second-best integer candidates. If ratio ≥ threshold (typically 2.0–3.0), the fix is accepted. A low ratio indicates two competing solutions — the fix is rejected and the float solution is retained." },
+  { term: "RINEX", letter: "R", def: "Receiver Independent Exchange Format. The standard ASCII format for storing and exchanging GNSS raw observations (pseudoranges, carrier phases, Doppler) and satellite navigation messages. Versions: 2.11 (GPS + GLONASS), 3.04 (multi-constellation, current standard), 4.00 (emerging). Observation codes: 3-character codes (e.g. C1C, L5Q) identifying measurement type, frequency and signal." },
+  { term: "RMC", letter: "R", def: "NMEA sentence type: Recommended Minimum Specific GNSS Data. Contains UTC time, status (A=valid, V=warning), latitude, longitude, speed over ground (knots), course over ground, date, and magnetic variation. The minimal sentence for basic navigation. Status field must be 'A' before using the data." },
+  { term: "RRC", letter: "R", def: "Range Rate Correction. The time derivative of the pseudorange correction (PRC), in m/s. Broadcast alongside PRC in RTCM DGNSS messages. Allows the rover to extrapolate the correction forward in time: PRC(t) = PRC(t₀) + RRC × (t − t₀). Compensates for correction message latency." },
+  { term: "RTCM", letter: "R", def: "Radio Technical Commission for Maritime Services Standard 10403. The binary protocol standard for GNSS correction data transmission. Key message families: 1001–1004 (legacy GPS RTK), 1005–1006 (reference station coordinates), 1071–1127 (MSM observations for all constellations), 1057–1270 (SSR corrections for PPP-RTK). CRC-24Q integrity check." },
+  { term: "RTK", letter: "R", def: "Real-Time Kinematic. A carrier-phase differential positioning technique that resolves integer ambiguities in real time to achieve centimetre accuracy. Requires: reference station or CORS network, data link (NTRIP or radio), dual or triple-frequency receivers. Fixed solution accuracy: 1–3 cm. TTFF: 3–30 s depending on baseline, frequency count and satellite geometry." },
+  // S
+  { term: "SBAS", letter: "S", def: "Satellite-Based Augmentation System. A wide-area DGNSS system that broadcasts corrections and integrity bounds via geostationary satellites on GPS L1. Systems: WAAS (USA), EGNOS (Europe), MSAS (Japan), GAGAN (India), SDCM (Russia), BDSBAS (China). Accuracy: 0.5–1.5 m horizontal. Provides integrity guarantees for aviation (APV approaches)." },
+  { term: "SBF", letter: "S", def: "Septentrio Binary Format. Septentrio's proprietary receiver binary protocol. Frame: '$@' sync, CRC-CCITT, block ID (number + revision), total length, TOW, WNc, body. Key blocks: MeasEpoch (4006, raw measurements), MeasExtra (4007, multipath estimates), PVTCartesian (4001), BaseVectorCart (5902). Convert to RINEX with sbf2rin." },
+  { term: "Signal-to-noise ratio (SNR)", letter: "S", def: "The ratio of signal power to noise power, expressed in dB-Hz for GNSS. Reported in NMEA GSV sentences and binary protocols. Values: <25 dB-Hz = marginal, 25–35 dB-Hz = moderate, 35–45 dB-Hz = good, >45 dB-Hz = excellent. Used for satellite weighting in least squares and for cycle-slip detection." },
+  { term: "Single difference", letter: "S", def: "A differencing operation applied to observations between two receivers for the same satellite and epoch. Cancels satellite clock error (identical for both receivers at the same time). Residual terms: receiver clock difference, differential atmospheric delays, integer ambiguity difference. The first step toward RTK double differences." },
+  { term: "SSR", letter: "S", def: "State Space Representation. A correction format for PPP-RTK in which individual physical error components (orbit, clock, phase bias, ionosphere, troposphere) are broadcast separately. Contrast with OSR (Observation Space Representation) which lumps all corrections into a single pseudorange correction. Standardised in RTCM 10403.3 messages 1057–1270." },
+  // T
+  { term: "TAI", letter: "T", def: "International Atomic Time (Temps Atomique International). A continuous atomic time scale maintained by the BIPM from 400+ atomic clocks worldwide. No leap seconds. GPS time = TAI − 19 s. UTC = TAI − 37 s (as of 2024). GLONASS time is aligned to UTC." },
+  { term: "TEC", letter: "T", def: "Total Electron Content. The line integral of electron density along the signal path from satellite to receiver, measured in TECU (1 TECU = 10¹⁶ electrons/m²). Determines ionospheric delay: I = 40.3 × TEC / f². Typical values: 1–5 TECU at night (mid-latitude), 10–50 TECU daytime, 50–200 TECU equatorial solar maximum." },
+  { term: "TECU", letter: "T", def: "Total Electron Content Unit. 1 TECU = 10¹⁶ electrons/m². The standard unit for expressing TEC. 1 TECU causes ~0.162 m of ionospheric delay on GPS L1 (1575.42 MHz) and ~0.267 m on GPS L2 (1227.60 MHz)." },
+  { term: "Time To First Fix (TTFF)", letter: "T", def: "The time from receiver start to first valid position fix. Cold start (no almanac/ephemeris): 30–60 s. Warm start (almanac known): 15–45 s. Hot start (ephemeris valid): <10 s. RTK TTFF (time to fixed solution): 3–30 s depending on baseline length, number of frequencies and constellations." },
+  { term: "Troposphere", letter: "T", def: "The lowest layer of the atmosphere (0–50 km). Delays GNSS signals by ~2.3 m at zenith for the dry component and 0.01–0.35 m for the wet component. Unlike the ionosphere, tropospheric delay is frequency-independent — it cannot be eliminated by dual-frequency combinations. Modelled using Saastamoinen, VMF or similar models." },
+  { term: "TTFF", letter: "T", def: "See: Time To First Fix." },
+  // U
+  { term: "UBX", letter: "U", def: "u-blox binary protocol. Frame: 0xB5 0x62 sync, class byte, ID byte, 2-byte little-endian length, payload, Fletcher-8 checksum. Key message classes: NAV (navigation outputs), RXM (raw measurements — enable RXM-RAWX for post-processing), CFG (configuration), MON (monitoring/diagnostics). Convert to RINEX with RTKLIB convbin." },
+  { term: "UDRE", letter: "U", def: "User Differential Range Error. An integrity bound broadcast by SBAS on the confidence of the pseudorange corrections. Used to compute the Protection Level — a guaranteed bound on the position error at a specified probability. Required for aviation approaches (APV-I, APV-II)." },
+  { term: "UPD", letter: "U", def: "Uncalibrated Phase Delay. The hardware-dependent fractional phase bias in satellite and receiver carrier phase measurements. Absorbs the integer nature of the carrier phase ambiguity in undifferenced PPP processing, preventing integer fixing. Satellite UPDs must be estimated and broadcast by the correction service to enable PPP-AR. Also called phase bias, wide-lane bias or narrow-lane bias depending on context." },
+  { term: "UTC", letter: "U", def: "Coordinated Universal Time. The civil time standard, maintained by the BIPM. Tracks atomic time (TAI) but includes leap seconds to stay within 0.9 s of UT1 (Earth rotation time). UTC = TAI − 37 s (as of 2024). GNSS time scales differ: GPS is ahead of UTC by 18 s; GLONASS tracks UTC(SU) directly." },
+  // V
+  { term: "VDOP", letter: "V", def: "Vertical Dilution of Precision. DOP factor for the vertical (Up) direction. VDOP = √(Q_UU). Always larger than HDOP because satellites only appear above the horizon, making vertical geometry inherently weaker. Typical values: 1.5–3.0 in open sky. Vertical position errors are typically 1.5–2× larger than horizontal." },
+  { term: "VRS", letter: "V", def: "Virtual Reference Station. A network RTK technique where the correction service generates synthetic RTCM observations as if a physical base station were located a few km from the rover. The rover runs standard single-baseline RTK against this virtual station. Requires the rover to send its GGA position to the caster so the network can generate tailored corrections." },
+  // W
+  { term: "WAAS", letter: "W", def: "Wide Area Augmentation System. The US Federal Aviation Administration's SBAS system covering North America. Provides ~0.7 m horizontal accuracy (95%) and integrity bounds. Enables LPV (Localizer Performance with Vertical guidance) approaches at 4,000+ US airports with decision heights as low as 200 ft." },
+  { term: "WGS84", letter: "W", def: "World Geodetic System 1984. The global reference frame and ellipsoid used by GPS. Semi-major axis a = 6,378,137 m; flattening f = 1/298.257223563. The origin is the Earth's centre of mass; the Z-axis points toward the conventional terrestrial pole. All GPS coordinates are expressed in WGS84." },
+  { term: "Wrong fix", letter: "W", def: "An RTK solution in which the integer ambiguities have been resolved to incorrect values. Produces a position error of one or more carrier wavelengths (~19 cm per cycle on GPS L1). Can be metres of error — worse than the float solution. Prevented by the ratio test and ADOP-based success rate criteria. Never accept a fix with ratio < 2.0 in precision applications." },
+  // X
+  { term: "X-ray flux", letter: "X", def: "Solar X-ray emission monitored by NOAA GOES satellites. Bursts of X-ray flux (solar flares) increase ionisation on the sunlit side of Earth, causing sudden increases in ionospheric delay (Sudden Ionospheric Disturbance, SID). X-class flares can cause rapid TEC increases of tens of TECU, temporarily degrading single-frequency GNSS accuracy." },
+  // Z
+  { term: "ZTD", letter: "Z", def: "Zenith Total Delay. The total tropospheric delay in the zenith direction. ZTD = ZHD (zenith hydrostatic delay, ~2.3 m) + ZWD (zenith wet delay, 0.01–0.35 m). The ZWD is estimated as a state in the Kalman filter in PPP and network RTK processing. Slant delay = ZTD × mapping function." },
+  { term: "Z-transformation", letter: "Z", def: "The integer decorrelation step in LAMBDA. An integer matrix Z (unimodular: integer entries, det = ±1) is applied to the float ambiguities to produce a transformed set with nearly diagonal covariance. This converts the elongated search ellipsoid to a near-sphere, reducing the integer search from exponential to polynomial time. The key innovation of LAMBDA." },
+];
+
+const letters = [...new Set(terms.map(t => t.letter))].sort();
+---
+<Layout title="GNSS Glossary">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <span>Glossary</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Reference</span>
+        <h1>GNSS Glossary</h1>
+        <p class="lead">
+          Definitions for the most important terms in GNSS — from ADOP to ZTD.
+          Cross-referenced with the Learn articles where appropriate.
+        </p>
+        <div class="article-meta">
+          <span>{terms.length} terms</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <!-- Letter navigation -->
+      <div class="letter-nav">
+        {letters.map(l => (
+          <a href={`#letter-${l}`} class="letter-link">{l}</a>
+        ))}
+      </div>
+
+      <!-- Terms grouped by letter -->
+      {letters.map(letter => (
+        <div class="letter-section" id={`letter-${letter}`}>
+          <div class="letter-heading">{letter}</div>
+          <div class="terms-list">
+            {terms.filter(t => t.letter === letter).map(t => (
+              <div class="term-entry" id={t.term.toLowerCase().replace(/[^a-z0-9]/g, '-')}>
+                <div class="term-name">{t.term}</div>
+                <div class="term-def">{t.def}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div class="back-footer">
+        <a href="/learn" class="back-link">← Back to Learn</a>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 32px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+
+  /* Letter navigation */
+  .letter-nav {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 32px;
+  }
+  .letter-link {
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600; font-family: var(--mono); color: var(--text2);
+    border-radius: 6px; transition: background 0.15s, color 0.15s;
+    text-decoration: none;
+  }
+  .letter-link:hover { background: rgba(0,212,170,0.12); color: var(--accent); }
+
+  /* Letter sections */
+  .letter-section { margin-bottom: 40px; }
+  .letter-heading {
+    font-size: 28px; font-weight: 700; font-family: var(--mono);
+    color: var(--accent); opacity: 0.5;
+    padding-bottom: 8px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Term entries */
+  .terms-list { display: flex; flex-direction: column; }
+  .term-entry {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    display: grid; grid-template-columns: 180px 1fr; gap: 24px;
+    align-items: baseline;
+  }
+  .term-entry:last-child { border-bottom: none; }
+  .term-name {
+    font-size: 14px; font-weight: 700; color: var(--text);
+    font-family: var(--mono); line-height: 1.6;
+  }
+  .term-def {
+    font-size: 14px; color: var(--text2); line-height: 1.8;
+  }
+
+  .back-footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .back-link { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  @media (max-width: 640px) {
+    .term-entry { grid-template-columns: 1fr; gap: 6px; }
+    .term-name { font-size: 13px; }
+  }
+</style>

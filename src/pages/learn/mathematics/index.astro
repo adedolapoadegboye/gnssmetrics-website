@@ -1,0 +1,147 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+const articles = [
+  {
+    href: '/learn/mathematics/least-squares',
+    title: 'Least Squares Estimation',
+    desc: 'The mathematical foundation of GNSS positioning. Overdetermined systems, the normal equations, weighted least squares and residual analysis.',
+    time: '14 min',
+  },
+  {
+    href: '/learn/mathematics/kalman-filter',
+    title: 'Kalman Filter',
+    desc: 'Sequential state estimation for dynamic systems. Prediction, update, noise covariance and how receivers fuse GNSS with IMU data.',
+    time: '14 min',
+  },
+  {
+    href: '/learn/mathematics/ambiguity-resolution',
+    title: 'Integer Ambiguity Resolution',
+    desc: 'The LAMBDA method, integer least squares, the ratio test and success rate — the mathematics behind RTK fixed solutions.',
+    time: '12 min',
+  },
+  {
+    href: '/learn/mathematics/ionospheric-models',
+    title: 'Ionospheric Models',
+    desc: 'Klobuchar, NeQuick and the ionosphere-free combination — how receivers model and remove the largest single-frequency error source.',
+    time: '10 min',
+  },
+  {
+    href: '/learn/mathematics/coordinate-transforms',
+    title: 'Coordinate Transformations',
+    desc: 'Rotation matrices, Euler angles, quaternions and datum shifts — the mathematics of moving between coordinate frames.',
+    time: '12 min',
+  },
+];
+---
+<Layout title="GNSS Mathematics">
+  <section class="section">
+    <div class="container">
+
+      <a href="/learn" class="back">← Learn</a>
+
+      <div class="section-header">
+        <span class="badge">Mathematics</span>
+        <h1>Positioning Mathematics</h1>
+        <p class="sub">
+          The algorithms inside every GNSS receiver. These articles cover the mathematical
+          foundations — from the least squares estimator that computes your position to the
+          Kalman filter that tracks it over time. Calculus and linear algebra at university
+          first-year level assumed.
+        </p>
+        <a href="/learn/positioning" class="prereq">Prerequisites: Positioning Methods →</a>
+      </div>
+
+      <!-- Math dependency map -->
+      <div class="dep-map">
+        <div class="dep-title">How the topics build on each other</div>
+        <div class="dep-flow">
+          <div class="dep-node dep-foundation">
+            <div class="dep-num">01</div>
+            <div class="dep-name">Least Squares</div>
+            <div class="dep-role">Foundation — everything else builds on this</div>
+          </div>
+          <div class="dep-arrow">→</div>
+          <div class="dep-node">
+            <div class="dep-num">02</div>
+            <div class="dep-name">Kalman Filter</div>
+            <div class="dep-role">Extends least squares to dynamic systems</div>
+          </div>
+          <div class="dep-arrow">→</div>
+          <div class="dep-node">
+            <div class="dep-num">03</div>
+            <div class="dep-name">Ambiguity Resolution</div>
+            <div class="dep-role">Integer least squares — LAMBDA method</div>
+          </div>
+          <div class="dep-branch">
+            <div class="dep-node dep-parallel">
+              <div class="dep-num">04</div>
+              <div class="dep-name">Ionospheric Models</div>
+              <div class="dep-role">Error modelling for the observation equations</div>
+            </div>
+            <div class="dep-node dep-parallel">
+              <div class="dep-num">05</div>
+              <div class="dep-name">Coordinate Transforms</div>
+              <div class="dep-role">Rotation matrices and datum conversions</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="article-list">
+        {articles.map((a, i) => (
+          <a href={a.href} class="article-card">
+            <div class="article-num">{String(i + 1).padStart(2, '0')}</div>
+            <div class="article-body">
+              <div class="article-title">{a.title}</div>
+              <div class="article-desc">{a.desc}</div>
+            </div>
+            <div class="article-meta">
+              <span class="read-time">{a.time} read</span>
+              <span class="arrow">→</span>
+            </div>
+          </a>
+        ))}
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; transition: color 0.2s; }
+  .back:hover { color: var(--accent); }
+  .section-header { margin-bottom: 32px; }
+  h1 { font-size: clamp(24px, 4vw, 36px); font-weight: 700; margin: 10px 0 14px; }
+  .sub { color: var(--text2); max-width: 600px; font-size: 15px; line-height: 1.7; margin-bottom: 10px; }
+  .prereq { font-size: 13px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Dependency map */
+  .dep-map { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 28px; }
+  .dep-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--mono); margin-bottom: 16px; }
+  .dep-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dep-node { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; min-width: 120px; }
+  .dep-foundation { border-color: rgba(0,212,170,0.4); background: rgba(0,212,170,0.05); }
+  .dep-parallel { flex: 1; }
+  .dep-num { font-size: 11px; font-family: var(--mono); color: var(--accent); margin-bottom: 2px; }
+  .dep-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .dep-role { font-size: 11px; color: var(--text3); line-height: 1.4; }
+  .dep-arrow { font-size: 18px; color: var(--text3); }
+  .dep-branch { display: flex; gap: 8px; flex-direction: column; }
+
+  /* Article list */
+  .article-list { display: flex; flex-direction: column; gap: 2px; }
+  .article-card { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 20px; padding: 20px 24px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; transition: border-color 0.2s, background 0.2s; }
+  .article-card:hover { border-color: rgba(0,212,170,0.3); background: var(--bg3); }
+  .article-num { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--accent); opacity: 0.4; }
+  .article-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .article-desc { font-size: 13px; color: var(--text2); line-height: 1.5; }
+  .article-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .read-time { font-size: 11px; color: var(--text3); font-family: var(--mono); white-space: nowrap; }
+  .arrow { font-size: 16px; color: var(--accent); }
+  @media (max-width: 600px) {
+    .article-card { grid-template-columns: 36px 1fr; }
+    .article-meta { display: none; }
+    .dep-flow { flex-direction: column; align-items: flex-start; }
+    .dep-arrow { transform: rotate(90deg); }
+  }
+</style>

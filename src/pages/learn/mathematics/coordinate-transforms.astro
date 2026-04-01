@@ -1,0 +1,568 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Coordinate Transformations">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/mathematics">Mathematics</a>
+        <span>›</span>
+        <span>Coordinate Transformations</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Mathematics · Article 5 of 5</span>
+        <h1>Coordinate Transformations</h1>
+        <p class="lead">
+          GNSS receivers output latitude, longitude and height. Algorithms work in ECEF Cartesian.
+          Sensors report in body frame. Maps use local projections. Moving between these coordinate
+          systems — correctly and efficiently — requires rotation matrices, Euler angles,
+          quaternions and datum transformations. This article covers the mathematics you need.
+        </p>
+        <div class="article-meta">
+          <span>12 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#rotation-matrices">Rotation matrices</a></li>
+          <li><a href="#euler-angles">Euler angles</a></li>
+          <li><a href="#gimbal-lock">Gimbal lock</a></li>
+          <li><a href="#quaternions">Quaternions</a></li>
+          <li><a href="#ecef-enu">ECEF to ENU</a></li>
+          <li><a href="#geodetic-ecef">Geodetic to ECEF and back</a></li>
+          <li><a href="#helmert">Helmert datum transformation</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="rotation-matrices">Rotation matrices</h2>
+      <p>
+        A rotation matrix R rotates a vector from one coordinate frame to another while
+        preserving its length. Rotation matrices are orthogonal — their inverse equals
+        their transpose:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">R ∈ SO(3):   RᵀR = I,   det(R) = +1</div>
+        <div class="formula-desc">
+          SO(3) = Special Orthogonal group in 3D — the set of all valid rotation matrices.
+          The +1 determinant distinguishes proper rotations from reflections (which have det = −1).
+          Orthogonality means R⁻¹ = Rᵀ — inverting a rotation is free (just transpose).
+        </div>
+      </div>
+
+      <p>
+        The three elementary rotation matrices about the x, y and z axes by angle θ are:
+      </p>
+
+      <div class="rotation-matrices">
+        <div class="rm-card">
+          <div class="rm-title">R_x(θ) — roll</div>
+          <div class="rm-matrix">
+            <div class="rm-row"><span>1</span><span>0</span><span>0</span></div>
+            <div class="rm-row"><span>0</span><span>cos θ</span><span>−sin θ</span></div>
+            <div class="rm-row"><span>0</span><span>sin θ</span><span>cos θ</span></div>
+          </div>
+          <div class="rm-note">Rotation about x-axis. Positive θ = right-hand rule (right thumb along +x, fingers curl from +y to +z).</div>
+        </div>
+        <div class="rm-card">
+          <div class="rm-title">R_y(θ) — pitch</div>
+          <div class="rm-matrix">
+            <div class="rm-row"><span>cos θ</span><span>0</span><span>sin θ</span></div>
+            <div class="rm-row"><span>0</span><span>1</span><span>0</span></div>
+            <div class="rm-row"><span>−sin θ</span><span>0</span><span>cos θ</span></div>
+          </div>
+          <div class="rm-note">Note the sign pattern is different from R_x and R_z — a common source of errors. The sin θ in position (1,3) is positive.</div>
+        </div>
+        <div class="rm-card">
+          <div class="rm-title">R_z(θ) — yaw/heading</div>
+          <div class="rm-matrix">
+            <div class="rm-row"><span>cos θ</span><span>−sin θ</span><span>0</span></div>
+            <div class="rm-row"><span>sin θ</span><span>cos θ</span><span>0</span></div>
+            <div class="rm-row"><span>0</span><span>0</span><span>1</span></div>
+          </div>
+          <div class="rm-note">Rotation about z-axis. Most common in navigation — heading (yaw) is a rotation about the vertical axis.</div>
+        </div>
+      </div>
+
+      <p>
+        To transform a vector v from frame A to frame B:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">v_B = R_BA · v_A</div>
+        <div class="formula-desc">
+          R_BA = rotation matrix that takes vectors expressed in A and expresses them in B.
+          Convention matters: R_BA means "from A to B". Some texts use the opposite convention —
+          always check which way the matrix transforms before using it.
+          To go from B back to A: v_A = R_BAᵀ · v_B = R_AB · v_B.
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="euler-angles">Euler angles</h2>
+      <p>
+        Any 3D rotation can be parameterised by three Euler angles. In navigation, the most
+        common convention is <strong>ZYX (yaw-pitch-roll)</strong> — also called
+        aerospace or Tait-Bryan angles:
+      </p>
+
+      <div class="euler-def">
+        <div class="euler-angle">
+          <div class="ea-symbol">ψ</div>
+          <div class="ea-name">Yaw (heading)</div>
+          <div class="ea-desc">Rotation about body z-axis. 0° = north, positive = clockwise when viewed from above. Range: −180° to +180°.</div>
+        </div>
+        <div class="euler-angle">
+          <div class="ea-symbol">θ</div>
+          <div class="ea-name">Pitch</div>
+          <div class="ea-desc">Rotation about (intermediate) y-axis. Positive = nose up. Range: −90° to +90°. Singularity at ±90°.</div>
+        </div>
+        <div class="euler-angle">
+          <div class="ea-symbol">φ</div>
+          <div class="ea-name">Roll</div>
+          <div class="ea-desc">Rotation about (new) x-axis. Positive = right wing down. Range: −180° to +180°.</div>
+        </div>
+      </div>
+
+      <p>
+        The combined rotation matrix from body frame to navigation frame (NED) is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">R_nb = R_z(ψ) · R_y(θ) · R_x(φ)</div>
+        <div class="formula-desc">
+          Applied right to left: first roll (φ), then pitch (θ), then yaw (ψ).
+          Order matters — matrix multiplication is not commutative.
+          R_z(ψ) · R_y(θ) · R_x(φ) gives a different rotation than R_x(φ) · R_y(θ) · R_z(ψ).
+        </div>
+      </div>
+
+      <p>
+        Expanding the product gives the Direction Cosine Matrix (DCM):
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">R_nb = ⎡cψcθ   cψsθsφ−sψcφ   cψsθcφ+sψsφ⎤</div>
+        <div class="formula">       ⎢sψcθ   sψsθsφ+cψcφ   sψsθcφ−cψsφ⎥</div>
+        <div class="formula">       ⎣−sθ    cθsφ           cθcφ        ⎦</div>
+        <div class="formula-desc">
+          c = cos, s = sin. Subscripts dropped for brevity (cψ = cos ψ, etc.).
+          This 9-element matrix is how aircraft, ships and INS systems represent attitude
+          in real-time computations. It can be updated by: Ṙ = R · Ω (where Ω is the
+          skew-symmetric matrix of angular rate from the gyroscope).
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="gimbal-lock">Gimbal lock</h2>
+      <p>
+        Euler angles have a fundamental problem: when pitch θ = ±90°, the yaw and roll axes
+        become aligned and one degree of freedom is lost. This is <strong>gimbal lock</strong>.
+        Mathematically, the Jacobian that maps Euler angle rates to angular velocities
+        becomes singular:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">⎡φ̇⎤   ⎡1  sin φ tan θ   cos φ tan θ⎤⁻¹   ⎡ωₓ⎤</div>
+        <div class="formula">⎢θ̇⎥ = ⎢0  cos φ         −sin φ       ⎥    ⎢ω_y⎥</div>
+        <div class="formula">⎣ψ̇⎦   ⎣0  sin φ/cos θ   cos φ/cos θ ⎦    ⎣ω_z⎦</div>
+        <div class="formula-desc">
+          The 1/cos θ terms blow up at θ = ±90°. For aircraft this is rarely a problem
+          (planes don't fly vertically), but for spacecraft, missiles and manoeuvring vehicles
+          it is critical. Quaternions solve this completely.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="quaternions">Quaternions</h2>
+      <p>
+        A unit quaternion represents a 3D rotation using 4 numbers — no singularity, efficient
+        computation, and smooth interpolation. A quaternion is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">q = q₀ + q₁i + q₂j + q₃k = [q₀, q⃗],   q⃗ = [q₁, q₂, q₃]ᵀ</div>
+        <div class="formula-desc">
+          q₀ = scalar part (cos(θ/2)) · q⃗ = vector part (sin(θ/2) · û)<br/>
+          û = unit rotation axis · θ = rotation angle<br/>
+          Unit constraint: q₀² + q₁² + q₂² + q₃² = 1<br/>
+          i² = j² = k² = ijk = −1 (quaternion algebra rules)
+        </div>
+      </div>
+
+      <p>
+        To rotate a vector v using quaternion q:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">v' = q ⊗ [0, v] ⊗ q*</div>
+        <div class="formula-desc">
+          q* = conjugate = [q₀, −q⃗] (inverse rotation for unit quaternion)<br/>
+          ⊗ = quaternion multiplication (Hamilton product)<br/>
+          The result [0, v'] extracts the rotated vector from the quaternion product.<br/><br/>
+          Equivalent rotation matrix from quaternion:
+        </div>
+      </div>
+
+      <div class="formula-block">
+        <div class="formula">R = ⎡q₀²+q₁²−q₂²−q₃²   2(q₁q₂−q₀q₃)       2(q₁q₃+q₀q₂)    ⎤</div>
+        <div class="formula">    ⎢2(q₁q₂+q₀q₃)       q₀²−q₁²+q₂²−q₃²   2(q₂q₃−q₀q₁)    ⎥</div>
+        <div class="formula">    ⎣2(q₁q₃−q₀q₂)       2(q₂q₃+q₀q₁)       q₀²−q₁²−q₂²+q₃²⎦</div>
+        <div class="formula-desc">
+          This conversion is used when switching between quaternion attitude propagation
+          (no gimbal lock) and rotation matrix operations (needed for most linear algebra).
+        </div>
+      </div>
+
+      <div class="quat-advantages">
+        <div class="qa-card">
+          <div class="qa-icon">✓</div>
+          <div class="qa-title">No gimbal lock</div>
+          <div class="qa-desc">Unit quaternions parameterise all orientations smoothly — no singularity at any attitude.</div>
+        </div>
+        <div class="qa-card">
+          <div class="qa-icon">✓</div>
+          <div class="qa-title">Efficient computation</div>
+          <div class="qa-desc">Quaternion multiplication: 16 multiplications, 12 additions. DCM update: 54 multiplications. Quaternions win at high update rates.</div>
+        </div>
+        <div class="qa-card">
+          <div class="qa-icon">✓</div>
+          <div class="qa-title">Smooth interpolation</div>
+          <div class="qa-desc">SLERP (Spherical Linear Interpolation) interpolates smoothly between orientations — essential for animation and attitude smoothing.</div>
+        </div>
+        <div class="qa-card">
+          <div class="qa-icon">✗</div>
+          <div class="qa-title">Double cover</div>
+          <div class="qa-desc">q and −q represent the same rotation. This double cover can cause sign flips that must be handled (q₀ should be kept positive).</div>
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="ecef-enu">ECEF to ENU</h2>
+      <p>
+        The most common transformation in GNSS is from ECEF (Earth-Centred Earth-Fixed)
+        to ENU (East-North-Up) at a reference point (φ₀, λ₀). The rotation matrix
+        R_ENU from ECEF to ENU is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">R_ENU = ⎡    −sin λ₀          cos λ₀         0    ⎤</div>
+        <div class="formula">        ⎢−sin φ₀ cos λ₀   −sin φ₀ sin λ₀   cos φ₀⎥</div>
+        <div class="formula">        ⎣ cos φ₀ cos λ₀    cos φ₀ sin λ₀   sin φ₀⎦</div>
+        <div class="formula-desc">
+          To convert an ECEF position difference ΔX = [ΔX, ΔY, ΔZ]ᵀ to ENU:
+          [ΔE, ΔN, ΔU]ᵀ = R_ENU · ΔX<br/><br/>
+          Inverse (ENU → ECEF): ΔX = R_ENUᵀ · [ΔE, ΔN, ΔU]ᵀ<br/><br/>
+          This matrix is also used to compute satellite azimuth and elevation from
+          the ECEF satellite direction vector — project into ENU, then:
+          el = atan2(U, √(E²+N²)), az = atan2(E, N) mod 360°
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🧭</div>
+        <div>
+          <strong>NED vs ENU:</strong> Navigation systems (aircraft, ships) often use
+          NED (North-East-Down) instead of ENU. NED has z pointing down (into the Earth),
+          matching the right-hand rule with positive z in the direction of gravity.
+          The NED rotation matrix is the ENU matrix with rows 1 and 2 swapped and row 3 negated.
+          Always check which convention your library uses before comparing results.
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="geodetic-ecef">Geodetic to ECEF and back</h2>
+      <p>
+        Converting between (φ, λ, h) and (X, Y, Z) is covered in the
+        <a href="/learn/fundamentals/coordinate-systems">Coordinate Systems article</a>.
+        Here we focus on the matrix form used in algorithm implementations.
+      </p>
+
+      <h3>Forward: geodetic → ECEF</h3>
+
+      <div class="formula-block">
+        <div class="formula">N(φ) = a / √(1 − e²·sin²φ)      (prime vertical radius of curvature)</div>
+        <div class="formula">X = (N + h) · cos φ · cos λ</div>
+        <div class="formula">Y = (N + h) · cos φ · sin λ</div>
+        <div class="formula">Z = (N(1 − e²) + h) · sin φ</div>
+        <div class="formula-desc">
+          a = 6,378,137.0 m (WGS84 semi-major axis)<br/>
+          e² = 0.00669437999014 (WGS84 first eccentricity squared)<br/>
+          φ = geodetic latitude (rad), λ = longitude (rad), h = ellipsoidal height (m)
+        </div>
+      </div>
+
+      <h3>Inverse: ECEF → geodetic (Bowring iteration)</h3>
+
+      <div class="formula-block">
+        <div class="formula">p = √(X² + Y²)             (distance from Z-axis)</div>
+        <div class="formula">λ = atan2(Y, X)             (longitude — exact, one step)</div>
+        <div class="formula">φ₀ = atan2(Z, p·(1−e²))    (initial latitude estimate)</div>
+        <div class="formula">iterate:  N  = a/√(1−e²·sin²φ)</div>
+        <div class="formula">          φ  = atan2(Z + e²·N·sin φ, p)</div>
+        <div class="formula">until convergence (2–3 iterations, then:)</div>
+        <div class="formula">h = p/cos φ − N             (or use Z/sin φ − N(1−e²) near poles)</div>
+        <div class="formula-desc">
+          Convergence criterion: |φₙ − φₙ₋₁| &lt; 10⁻¹² rad (sub-micrometre accuracy).
+          Alternative closed-form: Zhu (1994) or Bowring (1985) give directly without iteration
+          to millimetre accuracy. Most implementations use 3 fixed Bowring iterations.
+        </div>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="helmert">Helmert datum transformation</h2>
+      <p>
+        Moving between datums (e.g. WGS84 to OSGB36) requires accounting for differences
+        in origin, scale and orientation. The 7-parameter Helmert (similarity) transformation
+        is the standard model:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">X' = T + (1+s)·R·X</div>
+        <div class="formula-desc">
+          <strong>T</strong> = translation vector [T_x, T_y, T_z]ᵀ (metres)<br/>
+          <strong>s</strong> = scale factor (dimensionless, often given in parts per million)<br/>
+          <strong>R</strong> = rotation matrix (small angle approximation for geodetic datums):
+        </div>
+      </div>
+
+      <div class="formula-block">
+        <div class="formula">R ≈ ⎡ 1    −R_z   R_y⎤</div>
+        <div class="formula">    ⎢ R_z   1    −R_x⎥</div>
+        <div class="formula">    ⎣−R_y   R_x   1  ⎦</div>
+        <div class="formula-desc">
+          R_x, R_y, R_z = rotations about x, y, z axes (radians — usually given in arcseconds,
+          convert: 1 arcsecond = π/648000 radians ≈ 4.848×10⁻⁶ rad).<br/><br/>
+          Small angle approximation is valid because geodetic datums differ by at most a few
+          arcseconds of rotation. For larger rotations (IMU alignment), use the full rotation
+          matrix or quaternion.
+        </div>
+      </div>
+
+      <h3>OSGB36 ↔ WGS84 example</h3>
+      <div class="helmert-example">
+        <div class="he-row he-header">
+          <span>Parameter</span>
+          <span>Value</span>
+          <span>Units</span>
+        </div>
+        <div class="he-row">
+          <span>T_x</span>
+          <span class="he-val">−446.448</span>
+          <span>m</span>
+        </div>
+        <div class="he-row">
+          <span>T_y</span>
+          <span class="he-val">+125.157</span>
+          <span>m</span>
+        </div>
+        <div class="he-row">
+          <span>T_z</span>
+          <span class="he-val">−542.060</span>
+          <span>m</span>
+        </div>
+        <div class="he-row">
+          <span>R_x</span>
+          <span class="he-val">+0.1502</span>
+          <span>arcsec</span>
+        </div>
+        <div class="he-row">
+          <span>R_y</span>
+          <span class="he-val">+0.2470</span>
+          <span>arcsec</span>
+        </div>
+        <div class="he-row">
+          <span>R_z</span>
+          <span class="he-val">+0.8421</span>
+          <span>arcsec</span>
+        </div>
+        <div class="he-row">
+          <span>s</span>
+          <span class="he-val">−20.4894</span>
+          <span>ppm</span>
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>7-parameter is not enough for the UK:</strong> The OSGB36 datum is slightly
+          distorted relative to WGS84 — a single 7-parameter transformation leaves residuals
+          of up to 5 m. The Ordnance Survey publishes OSTN15, a national grid shift file that
+          reduces this to sub-centimetre by applying local corrections across a 1 km grid.
+          Always use OSTN15 for survey work in the UK.
+        </div>
+      </div>
+
+      <!-- SECTION 8 — SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">🔄</div>
+          <div class="summary-title">Rotation matrices</div>
+          <div class="summary-body">R ∈ SO(3): orthogonal, det = +1, inverse = transpose. Elementary rotations R_x, R_y, R_z compose by matrix multiplication — order matters.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">✈️</div>
+          <div class="summary-title">Euler angles — intuitive but singular</div>
+          <div class="summary-body">ZYX (yaw-pitch-roll) is standard in navigation. Gimbal lock at pitch = ±90°. Fine for typical flight and marine applications; use quaternions for full-sphere manoeuvring.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔢</div>
+          <div class="summary-title">Quaternions — no singularity</div>
+          <div class="summary-body">4-parameter unit quaternion, no gimbal lock, efficient multiplication. Standard in INS and robotics. Convert to/from rotation matrix when needed for linear algebra.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🌐</div>
+          <div class="summary-title">ECEF ↔ ENU ↔ geodetic</div>
+          <div class="summary-body">R_ENU rotates ECEF differences to local East-North-Up. Geodetic ↔ ECEF via Bowring iteration (3 steps). Datum shifts via 7-parameter Helmert + grid correction files.</div>
+        </div>
+      </div>
+
+      <!-- Section complete -->
+      <div class="section-complete">
+        <div class="complete-icon">✅</div>
+        <div>
+          <div class="complete-title">Mathematics section complete</div>
+          <div class="complete-body">
+            You now understand the algorithms that run inside every GNSS positioning engine —
+            from least squares through Kalman filtering and integer ambiguity resolution to
+            the coordinate transformations that tie it all together.
+            One section remaining: Timing.
+          </div>
+          <a href="/learn/timing" class="complete-link">Continue to Timing →</a>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/mathematics/ionospheric-models" class="nav-prev">← Ionospheric Models</a>
+        <a href="/learn/timing" class="nav-next">Timing →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Groves, P. D. (2013). <em>Principles of GNSS, Inertial, and Multisensor Integrated Navigation Systems</em>, 2nd ed. Artech House. Appendix A–C.</li>
+          <li>Kuipers, J. B. (1999). <em>Quaternions and Rotation Sequences</em>. Princeton University Press.</li>
+          <li>Bowring, B. R. (1985). The geodesic line and short distances on the surface of an ellipsoid. <em>Survey Review</em>, 28(218), 202–219.</li>
+          <li>Ordnance Survey (2015). A guide to coordinate systems in Great Britain (OSTN15/OSGM15). <a href="https://www.ordnancesurvey.co.uk/documents/resources/guide-coordinate-systems-great-britain.pdf" target="_blank" rel="noopener noreferrer">OS →</a></li>
+          <li>Hofmann-Wellenhof, B., Lichtenegger, H. & Wasle, E. (2008). <em>GNSS — Global Navigation Satellite Systems</em>. Springer. Chapter 3.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; white-space: pre; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.7; margin-top: 10px; }
+
+  /* Rotation matrices */
+  .rotation-matrices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .rm-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .rm-title { font-size: 13px; font-weight: 600; color: var(--accent); font-family: var(--mono); margin-bottom: 12px; }
+  .rm-matrix { font-family: var(--mono); font-size: 12px; margin-bottom: 10px; }
+  .rm-row { display: flex; gap: 8px; justify-content: center; padding: 3px 0; border-bottom: 1px solid var(--border); }
+  .rm-row:last-child { border-bottom: none; }
+  .rm-row span { min-width: 52px; text-align: center; color: var(--text2); }
+  .rm-note { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+  /* Euler angles */
+  .euler-def { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .euler-angle { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .ea-symbol { font-size: 28px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .ea-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .ea-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+  /* Quaternion advantages */
+  .quat-advantages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+  .qa-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .qa-icon { font-size: 18px; margin-bottom: 6px; color: var(--accent); }
+  .qa-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .qa-desc { font-size: 12px; color: var(--text3); line-height: 1.5; }
+
+  /* Helmert example */
+  .helmert-example { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; max-width: 400px; }
+  .he-row { display: grid; grid-template-columns: 60px 120px 80px; gap: 10px; padding: 8px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .he-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .he-row span:first-child { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+  .he-val { font-family: var(--mono); color: var(--text); }
+  .he-row span:last-child { color: var(--text3); font-size: 12px; }
+
+  /* Section complete */
+  .section-complete { display: flex; gap: 16px; align-items: flex-start; background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.2); border-radius: 12px; padding: 24px; margin: 32px 0; }
+  .complete-icon { font-size: 28px; flex-shrink: 0; }
+  .complete-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .complete-body { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .complete-link { font-size: 14px; font-weight: 600; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 900px) {
+    .quat-advantages { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .rotation-matrices { grid-template-columns: 1fr; }
+    .euler-def { grid-template-columns: 1fr; }
+    .quat-advantages { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    h2 { font-size: 20px; }
+    .formula { font-size: 12px; }
+  }
+</style>

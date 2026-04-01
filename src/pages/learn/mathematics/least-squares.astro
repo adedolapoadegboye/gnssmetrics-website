@@ -1,0 +1,482 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Least Squares Estimation">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/mathematics">Mathematics</a>
+        <span>›</span>
+        <span>Least Squares Estimation</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Mathematics · Article 1 of 5</span>
+        <h1>Least Squares Estimation</h1>
+        <p class="lead">
+          Every time your receiver computes a position from satellite pseudoranges, it solves a
+          least squares problem. With more satellites than unknowns, there is no exact solution —
+          least squares finds the position that best fits all the measurements simultaneously,
+          minimising the total squared error. This is the mathematical engine inside every
+          GNSS receiver.
+        </p>
+        <div class="article-meta">
+          <span>14 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#problem">The overdetermined system</a></li>
+          <li><a href="#linear-ls">Linear least squares</a></li>
+          <li><a href="#normal-equations">The normal equations</a></li>
+          <li><a href="#gnss-application">Application to GNSS positioning</a></li>
+          <li><a href="#weighted-ls">Weighted least squares</a></li>
+          <li><a href="#residuals">Residuals and quality control</a></li>
+          <li><a href="#covariance">Covariance of the estimate</a></li>
+          <li><a href="#nonlinear">Nonlinear least squares — iterative solution</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="problem">The overdetermined system</h2>
+      <p>
+        Suppose you measure the pseudorange to 8 satellites but only need 4 to solve for position.
+        You have 8 equations and 4 unknowns — an <strong>overdetermined system</strong>. No single
+        position (x, y, z, δt) satisfies all 8 equations exactly because each measurement contains
+        noise. The question becomes: which position best fits all measurements simultaneously?
+      </p>
+      <p>
+        In matrix form, the observation system is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">y = Ax + ε</div>
+        <div class="formula-desc">
+          <strong>y</strong> (n×1) = vector of observations (e.g. pseudoranges)<br/>
+          <strong>A</strong> (n×m) = design matrix (partial derivatives, n &gt; m)<br/>
+          <strong>x</strong> (m×1) = vector of unknowns (position, clock offset)<br/>
+          <strong>ε</strong> (n×1) = vector of observation errors (noise)<br/>
+          n = number of observations, m = number of unknowns. For overdetermined: n &gt; m.
+        </div>
+      </div>
+
+      <p>
+        Least squares finds the estimate <strong>x̂</strong> that minimises the sum of squared
+        residuals — the squared differences between observed and modelled values:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">minimise J = εᵀε = (y − Ax̂)ᵀ(y − Ax̂)</div>
+        <div class="formula-desc">
+          The cost function J is a quadratic bowl in x̂-space — it has a unique global minimum.
+          Setting ∂J/∂x̂ = 0 gives the normal equations.
+        </div>
+      </div>
+
+      <!-- Visual intuition -->
+      <div class="intuition-box">
+        <div class="ib-title">Geometric intuition</div>
+        <div class="ib-body">
+          Think of each observation as a line in solution space. With n equations and m unknowns
+          (n &gt; m), the lines don't all pass through a single point — they form a cluster.
+          Least squares finds the point that minimises the sum of squared perpendicular distances
+          to all observation lines simultaneously. The result sits at the "centre of gravity"
+          of the cluster of measurement constraints.
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="linear-ls">Linear least squares</h2>
+      <p>
+        When the observations depend linearly on the unknowns (A is constant), the least squares
+        solution is found analytically in one step. Taking the derivative of J with respect to x̂
+        and setting it to zero:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">∂J/∂x̂ = −2Aᵀ(y − Ax̂) = 0</div>
+        <div class="formula">⟹  Aᵀy = AᵀAx̂</div>
+        <div class="formula-desc">
+          This gives the <strong>normal equations</strong>: AᵀAx̂ = Aᵀy.
+          The matrix AᵀA is square (m×m) and — if A has full column rank — invertible.
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="normal-equations">The normal equations</h2>
+      <p>
+        Solving the normal equations gives the least squares estimate:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">x̂ = (AᵀA)⁻¹ Aᵀy</div>
+        <div class="formula-desc">
+          The matrix (AᵀA)⁻¹Aᵀ is called the <strong>pseudo-inverse</strong> of A (also written A⁺).
+          It generalises the matrix inverse to non-square systems.
+          When n = m (exactly determined), A is square and x̂ = A⁻¹y exactly.
+        </div>
+      </div>
+
+      <div class="worked-example">
+        <div class="we-title">Worked example — 2D position from three ranges</div>
+        <div class="we-body">
+          <p>
+            Three known points (beacons) at positions (0,0), (10,0), (5,10) m.
+            Measured ranges: r₁ = 7.1 m, r₂ = 7.2 m, r₃ = 5.2 m.
+            Find the 2D position (x, y).
+          </p>
+          <p>
+            Linearise around initial estimate (x₀, y₀) = (5, 5). The design matrix A has rows:
+          </p>
+          <div class="we-matrix">
+            <code>A = [-(x₀-bx₁)/r₁  -(y₀-by₁)/r₁]   row 1: beacon 1</code>
+            <code>    [-(x₀-bx₂)/r₂  -(y₀-by₂)/r₂]   row 2: beacon 2</code>
+            <code>    [-(x₀-bx₃)/r₃  -(y₀-by₃)/r₃]   row 3: beacon 3</code>
+          </div>
+          <p>
+            Compute AᵀA (2×2), Aᵀy (2×1), solve x̂ = (AᵀA)⁻¹Aᵀy.
+            Iterate 2–3 times until Δx̂ &lt; 1 mm.
+            This is exactly what a GNSS receiver does — in 4D (x, y, z, δt) with 4–40 satellites.
+          </p>
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="gnss-application">Application to GNSS positioning</h2>
+      <p>
+        In GNSS, the observations are pseudoranges ρᵢ and the unknowns are receiver position
+        (x, y, z) and clock offset δt. The pseudorange model for satellite i at position
+        (xˢ, yˢ, zˢ) is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">ρᵢ = √[(x−xˢᵢ)² + (y−yˢᵢ)² + (z−zˢᵢ)²] + c·δt + εᵢ</div>
+        <div class="formula-desc">
+          This is nonlinear — the position appears inside a square root. It must be linearised
+          around an approximate position (x₀, y₀, z₀, δt₀) before applying least squares.
+          Define: Δx = x−x₀, Δy = y−y₀, Δz = z−z₀, Δδt = δt−δt₀.
+        </div>
+      </div>
+
+      <p>
+        The linearised observation equation for satellite i becomes:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">Δρᵢ = −(xˢᵢ−x₀)/r₀ᵢ · Δx − (yˢᵢ−y₀)/r₀ᵢ · Δy − (zˢᵢ−z₀)/r₀ᵢ · Δz + c·Δδt + εᵢ</div>
+        <div class="formula-desc">
+          where r₀ᵢ = √[(x₀−xˢᵢ)² + (y₀−yˢᵢ)² + (z₀−zˢᵢ)²] is the geometric range
+          from approximate position to satellite i, and Δρᵢ = ρᵢ − r₀ᵢ − c·δt₀ is the
+          observed minus computed pseudorange residual.
+        </div>
+      </div>
+
+      <p>
+        For n satellites, this gives the design matrix A (n × 4):
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">A = ⎡−(xˢ₁−x₀)/r₀₁  −(yˢ₁−y₀)/r₀₁  −(zˢ₁−z₀)/r₀₁  1⎤</div>
+        <div class="formula">    ⎢−(xˢ₂−x₀)/r₀₂  −(yˢ₂−y₀)/r₀₂  −(zˢ₂−z₀)/r₀₂  1⎥</div>
+        <div class="formula">    ⎢       ⋮                ⋮                ⋮          ⋮⎥</div>
+        <div class="formula">    ⎣−(xˢₙ−x₀)/r₀ₙ  −(yˢₙ−y₀)/r₀ₙ  −(zˢₙ−z₀)/r₀ₙ  1⎦</div>
+        <div class="formula-desc">
+          Each row contains the unit vector from the approximate receiver position toward
+          satellite i (with sign negated), plus a 1 for the clock column.
+          Note: (AᵀA)⁻¹ = Q is exactly the DOP covariance matrix. HDOP, VDOP and PDOP
+          are extracted from the diagonal of Q — connecting DOP directly to least squares.
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="weighted-ls">Weighted least squares</h2>
+      <p>
+        Standard least squares treats all observations equally. In GNSS, this is unrealistic —
+        a satellite at 5° elevation has far more noise (ionosphere, troposphere, multipath) than
+        one at 70°. <strong>Weighted least squares (WLS)</strong> assigns each observation a
+        weight inversely proportional to its expected variance.
+      </p>
+
+      <p>
+        The weight matrix W (n×n, diagonal) modifies the cost function:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">minimise J = εᵀWε = (y − Ax̂)ᵀ W (y − Ax̂)</div>
+        <div class="formula">⟹  x̂ = (AᵀWA)⁻¹ AᵀWy</div>
+        <div class="formula-desc">
+          W = diag(w₁, w₂, ..., wₙ) where wᵢ = σ₀²/σᵢ² = 1/σᵢ² (if σ₀ = 1).
+          Higher weight = more trusted observation. Lower elevation → higher σᵢ → lower weight.
+        </div>
+      </div>
+
+      <h3>Common GNSS weighting models</h3>
+      <div class="weight-models">
+        <div class="wm-card">
+          <div class="wm-name">Elevation-based</div>
+          <div class="wm-formula">wᵢ = sin²(elᵢ)</div>
+          <div class="wm-desc">Most common. Low elevation satellites get low weight. Simple and effective for most scenarios.</div>
+        </div>
+        <div class="wm-card">
+          <div class="wm-name">SNR-based</div>
+          <div class="wm-formula">wᵢ ∝ 10^(SNRᵢ/10)</div>
+          <div class="wm-desc">Uses actual signal strength. Better in obstructed environments where elevation is a poor proxy for signal quality.</div>
+        </div>
+        <div class="wm-card">
+          <div class="wm-name">Variance model</div>
+          <div class="wm-formula">σᵢ² = a² + b²/sin²(elᵢ)</div>
+          <div class="wm-desc">Combines a noise floor (a) with elevation-dependent term (b). Used in many professional receiver engines.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="residuals">Residuals and quality control</h2>
+      <p>
+        After computing x̂, the <strong>residuals</strong> (post-fit residuals or v-vector) reveal
+        how well the model fits the data:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">v = y − Ax̂ = y − A(AᵀA)⁻¹Aᵀy = (I − A(AᵀA)⁻¹Aᵀ)y</div>
+        <div class="formula-desc">
+          v contains the part of y that cannot be explained by the model.
+          Under the assumption that errors are Gaussian with zero mean, the residuals should
+          also be small, zero-mean and uncorrelated. Large residuals indicate outliers (blunders),
+          unmodelled errors (multipath) or wrong satellite identification.
+        </div>
+      </div>
+
+      <h3>Data snooping — outlier detection</h3>
+      <p>
+        A single large measurement error (blunder) corrupts the entire least squares solution.
+        <strong>Data snooping</strong> (Baarda, 1968) tests each residual against a threshold
+        to detect and remove outliers:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">wᵢ = vᵢ / σ_vᵢ</div>
+        <div class="formula-desc">
+          wᵢ = normalised residual for observation i.
+          σ_vᵢ = √(σ₀² · Qᵥᵥ[i,i]) = standard deviation of residual i from the cofactor matrix.
+          If |wᵢ| &gt; 3.29 (α = 0.001 significance level), observation i is flagged as an outlier
+          and removed. The system is re-solved without it. This is the basis of RAIM
+          (Receiver Autonomous Integrity Monitoring).
+        </div>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="covariance">Covariance of the estimate</h2>
+      <p>
+        The least squares estimate x̂ is a random variable — it has uncertainty because the
+        observations y contain noise. The <strong>covariance matrix</strong> of x̂ quantifies
+        this uncertainty:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">Q_x̂ = σ₀² (AᵀA)⁻¹</div>
+        <div class="formula-desc">
+          σ₀² = a priori variance of unit weight (assumed equal to 1 if observations have
+          been properly scaled by their standard deviations before forming W).
+          The diagonal elements of Q_x̂ are the variances of each estimated parameter:
+          σ²_x, σ²_y, σ²_z, σ²_δt.
+          HDOP = √(Q_x̂[1,1] + Q_x̂[2,2]) — DOP values come directly from this matrix.
+        </div>
+      </div>
+
+      <p>
+        The <strong>a posteriori variance factor</strong> σ̂₀² estimates σ₀² from the data:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">σ̂₀² = vᵀv / (n − m) = vᵀWv / (n − m)</div>
+        <div class="formula-desc">
+          n − m = degrees of freedom (number of observations minus number of unknowns).
+          If σ̂₀² ≈ 1, the assumed noise model is consistent with the data.
+          If σ̂₀² &gt;&gt; 1, the observations are noisier than assumed — check for unmodelled errors.
+          If σ̂₀² &lt;&lt; 1, the assumed sigmas may be too pessimistic.
+        </div>
+      </div>
+
+      <!-- SECTION 8 -->
+      <h2 id="nonlinear">Nonlinear least squares — iterative solution</h2>
+      <p>
+        The GNSS pseudorange equation is nonlinear. The linearisation above is only valid near
+        the expansion point (x₀, y₀, z₀). The full iterative procedure is:
+      </p>
+
+      <ol class="steps">
+        <li>
+          <strong>Initialise:</strong> Set (x₀, y₀, z₀, δt₀) — last known position, or Earth's
+          centre for cold start. Compute satellite positions from ephemeris.
+        </li>
+        <li>
+          <strong>Compute predicted ranges:</strong> r₀ᵢ = ‖position₀ − satelliteᵢ‖ for each
+          satellite. Compute observed-minus-predicted: Δρᵢ = ρᵢ − r₀ᵢ − c·δt₀.
+        </li>
+        <li>
+          <strong>Build design matrix A:</strong> Direction cosines from (x₀, y₀, z₀) to each
+          satellite, plus clock column of ones.
+        </li>
+        <li>
+          <strong>Solve:</strong> Δx̂ = (AᵀWA)⁻¹ AᵀW Δρ. Apply corrections:
+          x₀ ← x₀ + Δx̂.
+        </li>
+        <li>
+          <strong>Check convergence:</strong> If ‖Δx̂‖ &lt; threshold (e.g. 1 mm), stop.
+          Otherwise, go to step 2 with updated position.
+        </li>
+      </ol>
+
+      <p>
+        Convergence typically takes 3–5 iterations from a reasonable starting point.
+        From a cold start (x₀ = Earth's centre), 10–15 iterations may be needed.
+        The algorithm is guaranteed to converge because the GNSS pseudorange function
+        is well-conditioned near the true solution.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">🔗</div>
+        <div>
+          <strong>Connection to DOP:</strong> The matrix Q = (AᵀA)⁻¹ from the unweighted
+          solution is exactly the DOP covariance matrix introduced in the
+          <a href="/learn/fundamentals/dilution-of-precision">DOP article</a>.
+          PDOP = σ₀ √(Q[1,1] + Q[2,2] + Q[3,3]), HDOP = σ₀ √(Q[1,1] + Q[2,2]),
+          VDOP = σ₀ √(Q[3,3]). Everything connects through least squares.
+        </div>
+      </div>
+
+      <!-- SECTION 9 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📐</div>
+          <div class="summary-title">Minimise squared residuals</div>
+          <div class="summary-body">x̂ = (AᵀA)⁻¹Aᵀy. The normal equations have a unique solution when A has full column rank (satellites not all in one plane).</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">⚖️</div>
+          <div class="summary-title">Weight by reliability</div>
+          <div class="summary-body">x̂ = (AᵀWA)⁻¹AᵀWy. Low-elevation and low-SNR satellites get lower weight. Weighted LS is standard in all quality receivers.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔍</div>
+          <div class="summary-title">Residuals reveal problems</div>
+          <div class="summary-body">Post-fit residuals v = y − Ax̂. Large normalised residuals (|w| &gt; 3.29) indicate outliers. Data snooping removes blunders one at a time.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔄</div>
+          <div class="summary-title">Iterate for nonlinear problems</div>
+          <div class="summary-body">GNSS is nonlinear — linearise around current estimate, solve, update. Repeat 3–5 times. Q = (AᵀA)⁻¹ is the DOP matrix — least squares and DOP are one and the same.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/mathematics" class="nav-prev">← Mathematics</a>
+        <a href="/learn/mathematics/kalman-filter" class="nav-next">Kalman Filter →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Teunissen, P. J. G. (2000). <em>Adjustment Theory — An Introduction</em>. Delft University Press.</li>
+          <li>Koch, K. R. (1999). <em>Parameter Estimation and Hypothesis Testing in Linear Models</em>, 2nd ed. Springer.</li>
+          <li>Kaplan, E. D. & Hegarty, C. J. (2017). <em>Understanding GPS/GNSS: Principles and Applications</em>, 3rd ed. Artech House. Chapter 7.</li>
+          <li>Baarda, W. (1968). A testing procedure for use in geodetic networks. <em>Publications on Geodesy</em>, New Series 2(5). Netherlands Geodetic Commission.</li>
+          <li>Misra, P. & Enge, P. (2011). <em>Global Positioning System: Signals, Measurements and Performance</em>, 2nd ed. Chapter 5.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 14px; color: var(--text); margin-bottom: 4px; line-height: 1.8; white-space: pre; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.7; margin-top: 10px; }
+
+  /* Intuition box */
+  .intuition-box { background: rgba(0,212,170,0.04); border: 1px solid rgba(0,212,170,0.2); border-radius: 10px; padding: 18px 20px; margin: 20px 0; }
+  .ib-title { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+  .ib-body { font-size: 14px; color: var(--text2); line-height: 1.7; }
+
+  /* Worked example */
+  .worked-example { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin: 20px 0; }
+  .we-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; font-family: var(--mono); }
+  .we-body p { font-size: 14px; color: var(--text2); margin-bottom: 10px; }
+  .we-matrix { background: var(--bg3); border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+  .we-matrix code { display: block; font-family: var(--mono); font-size: 12px; color: var(--accent2); line-height: 1.8; }
+
+  /* Weight models */
+  .weight-models { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .wm-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .wm-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .wm-formula { font-family: var(--mono); font-size: 12px; color: var(--accent); background: var(--bg3); padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; display: inline-block; }
+  .wm-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+  /* Steps */
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+  .steps li { counter-increment: step; padding: 12px 12px 12px 48px; position: relative; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text2); line-height: 1.7; }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before { content: counter(step); position: absolute; left: 12px; top: 14px; width: 22px; height: 22px; background: rgba(0,212,170,0.12); color: var(--accent); border-radius: 50%; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; font-family: var(--mono); }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 640px) {
+    .weight-models { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    h2 { font-size: 20px; }
+    .formula { font-size: 12px; }
+  }
+</style>

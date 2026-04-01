@@ -1,0 +1,602 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Integer Ambiguity Resolution">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/mathematics">Mathematics</a>
+        <span>›</span>
+        <span>Integer Ambiguity Resolution</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Mathematics · Article 3 of 5</span>
+        <h1>Integer Ambiguity Resolution</h1>
+        <p class="lead">
+          Carrier phase measurements give millimetre ranging precision — but only after the
+          integer ambiguity is correctly resolved. Finding the right integers from a noisy
+          real-valued estimate is an integer least squares problem. LAMBDA, developed by Peter
+          Teunissen in 1993, is the algorithm that made practical RTK possible.
+        </p>
+        <div class="article-meta">
+          <span>12 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#problem">The integer least squares problem</a></li>
+          <li><a href="#float">The float solution</a></li>
+          <li><a href="#search">Naive integer search — why it fails</a></li>
+          <li><a href="#lambda">LAMBDA — the three steps</a></li>
+          <li><a href="#decorrelation">Z-transformation and decorrelation</a></li>
+          <li><a href="#validation">Validation — the ratio test</a></li>
+          <li><a href="#success-rate">Ambiguity success rate</a></li>
+          <li><a href="#widelane">Widelane and narrowlane combinations</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="problem">The integer least squares problem</h2>
+      <p>
+        After double-differencing (see the <a href="/learn/positioning/rtk">RTK article</a>),
+        the carrier phase observation system has the form:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">y = Aa + Bb + ε</div>
+        <div class="formula-desc">
+          <strong>y</strong> = double-differenced carrier phase observations (m)<br/>
+          <strong>A</strong> = design matrix for integer ambiguities (n×m)<br/>
+          <strong>a</strong> = integer ambiguity vector &isin; &integers;<sup>m</sup> (whole cycles — the unknown integers)<br/>
+          <strong>B</strong> = design matrix for baseline (n&times;3)<br/>
+          <strong>b</strong> = baseline vector &isin; &reals;<sup>3</sup> (continuous unknowns)<br/>
+          <strong>ε</strong> = noise, ε ~ N(0, Q_y)<br/><br/>
+          The mixed-integer nature — some unknowns are integers, others are real — is what makes
+          this problem fundamentally harder than ordinary least squares.
+        </div>
+      </div>
+
+      <p>
+        The integer least squares (ILS) solution minimises the weighted squared norm:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">â_ILS = argmin&#123;a&isin;&#8484;&#7504;&#125; ‖â_float − a‖²&#123;Q_â&#125;</div>
+        <div class="formula-desc">
+          Find the integer vector a that is closest to the float estimate â_float in the metric
+          defined by the ambiguity covariance matrix Q_â. This is geometrically equivalent to
+          finding the lattice point closest to â_float in the ellipsoidal metric.
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="float">The float solution</h2>
+      <p>
+        Before integer fixing, a <strong>float solution</strong> is computed by treating the
+        ambiguities as real numbers. Using the Kalman filter or batch least squares:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">⎡â_float⎤ = (MᵀQ_y⁻¹M)⁻¹ MᵀQ_y⁻¹y,   where M = [A  B]</div>
+        <div class="formula">⎣b̂_float⎦</div>
+        <div class="formula-desc">
+          The float ambiguity estimate â_float is a real vector — its elements are not integers.
+          The covariance matrix of the float ambiguities Q_â encodes how uncertain we are about
+          each ambiguity and how correlated they are with each other.
+          Q_â is the critical input to LAMBDA — better float estimates (smaller Q_â) lead
+          to more reliable integer fixing.
+        </div>
+      </div>
+
+      <div class="float-visual">
+        <div class="fv-title">Float vs fixed ambiguity estimate (1D illustration)</div>
+        <div class="fv-number-line">
+          <div class="fv-tick" style="left:15%"><div class="fv-int">-1</div></div>
+          <div class="fv-tick" style="left:35%"><div class="fv-int">0</div></div>
+          <div class="fv-tick" style="left:55%"><div class="fv-int">1</div></div>
+          <div class="fv-tick" style="left:75%"><div class="fv-int">2</div></div>
+          <!-- Float estimate -->
+          <div class="fv-float" style="left:62%">
+            <div class="fv-dist fv-dist-left"></div>
+            <div class="fv-marker">â = 1.38</div>
+            <div class="fv-sigma">±0.4 cycles</div>
+          </div>
+          <!-- Fixed -->
+          <div class="fv-fixed" style="left:55%">
+            <div class="fv-marker-fixed">N = 1 ✓</div>
+          </div>
+        </div>
+        <div class="fv-legend">
+          <span class="fv-l-float">Float estimate (real-valued)</span>
+          <span class="fv-l-fixed">Fixed integer (nearest integer in Q_â metric)</span>
+          <span class="fv-l-int">Integer candidates</span>
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="search">Naive integer search — why it fails</h2>
+      <p>
+        The simplest idea is rounding â_float to the nearest integer vector. This works in 1D
+        but fails completely for multiple correlated ambiguities. Consider two ambiguities
+        N₁ and N₂ with high correlation — their joint probability ellipse is elongated diagonally.
+        Rounding each independently ignores the correlation and often picks the wrong integer pair.
+      </p>
+      <p>
+        The correct approach is to search the ellipsoidal region around â_float in the
+        Q_â metric. The ellipsoidal search region is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">&#123;a &isin; &#8484;&#7504; : (â_float − a)ᵀ Q_â⁻¹ (â_float − a) &le; &chi;²&#125;</div>
+        <div class="formula-desc">
+          All integer candidates within a certain squared Mahalanobis distance χ² from the
+          float estimate. The problem: for m ambiguities with typical GPS precision, this
+          ellipsoid contains thousands of integer candidates. Checking each one takes
+          exponential time in m — completely impractical for m = 10–20 satellites.
+          This is the fundamental challenge LAMBDA solves.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="lambda">LAMBDA — the three steps</h2>
+      <p>
+        LAMBDA (Least-squares AMBiguity Decorrelation Adjustment) was developed by
+        P.J.G. Teunissen at Delft University in 1993. It reduces the integer search from
+        exponential to near-linear time by first transforming the problem into one that
+        is much easier to search.
+      </p>
+
+      <div class="lambda-steps">
+        <div class="ls-step">
+          <div class="ls-num">1</div>
+          <div class="ls-content">
+            <div class="ls-title">Float solution</div>
+            <div class="ls-desc">
+              Compute the float ambiguity estimate â_float and its covariance matrix Q_â
+              from the Kalman filter or batch least squares. This is the input to LAMBDA.
+              Quality of the float solution directly determines LAMBDA's success.
+            </div>
+            <div class="ls-output">Output: â_float &isin; &reals;<sup>m</sup>, Q_â (m&times;m)</div>
+          </div>
+        </div>
+        <div class="ls-arrow">↓</div>
+        <div class="ls-step ls-key">
+          <div class="ls-num">2</div>
+          <div class="ls-content">
+            <div class="ls-title">Z-transformation (decorrelation)</div>
+            <div class="ls-desc">
+              Apply an integer matrix transformation Z to decorrelate the ambiguities.
+              The transformed ambiguities ẑ = Z·â have a nearly diagonal covariance
+              Q_ẑ = Z Q_â Zᵀ — much smaller, more equal variances. The elongated
+              search ellipsoid becomes a near-sphere, reducing the number of candidate
+              integers by orders of magnitude.
+            </div>
+            <div class="ls-formula">ẑ_float = Z · â_float,   Q_ẑ = Z Q_â Zᵀ</div>
+            <div class="ls-output">Output: ẑ_float &isin; &reals;<sup>m</sup>, Q_ẑ (nearly diagonal)</div>
+          </div>
+        </div>
+        <div class="ls-arrow">↓</div>
+        <div class="ls-step">
+          <div class="ls-num">3</div>
+          <div class="ls-content">
+            <div class="ls-title">Integer search</div>
+            <div class="ls-desc">
+              Search the decorrelated space for the two best integer candidates ž₁ and ž₂
+              (best and second-best) that minimise the objective function:
+            </div>
+            <div class="ls-formula">J(ž) = (ẑ_float − ž)ᵀ Q_ẑ⁻¹ (ẑ_float − ž)</div>
+            <div class="ls-desc" style="margin-top:8px;">
+              Because Q_ẑ is nearly diagonal, the search decomposes into sequential 1D
+              searches — polynomial time instead of exponential. Transform back:
+              N̂ = Z⁻ᵀ · ž₁.
+            </div>
+            <div class="ls-output">Output: N̂ (fixed integers), J(ž₁), J(ž₂)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="decorrelation">Z-transformation and decorrelation</h2>
+      <p>
+        The Z-transformation is the mathematical heart of LAMBDA. Z must be an integer matrix
+        with det(Z) = ±1 (a unimodular matrix) — this preserves the integer property of the
+        transformed ambiguities.
+      </p>
+      <p>
+        LAMBDA constructs Z through a sequence of elementary integer operations — essentially
+        an integer version of Gaussian elimination — that progressively reduce the off-diagonal
+        elements of Q_â. The process continues until the ratio of the largest to smallest
+        diagonal element of Q_ẑ is minimised (the decorrelation criterion).
+      </p>
+
+      <div class="decorr-visual">
+        <div class="dv-before">
+          <div class="dv-title">Before decorrelation (Q_â)</div>
+          <div class="dv-matrix">
+            <div class="dv-row"><span class="dv-diag">4.2</span><span class="dv-off">3.8</span><span class="dv-off">3.1</span></div>
+            <div class="dv-row"><span class="dv-off">3.8</span><span class="dv-diag">4.0</span><span class="dv-off">2.9</span></div>
+            <div class="dv-row"><span class="dv-off">3.1</span><span class="dv-off">2.9</span><span class="dv-diag">3.5</span></div>
+          </div>
+          <div class="dv-note">High off-diagonal elements — strong correlations. Elongated search ellipsoid. Search is expensive.</div>
+        </div>
+        <div class="dv-arrow">Z→</div>
+        <div class="dv-after">
+          <div class="dv-title">After decorrelation (Q_ẑ)</div>
+          <div class="dv-matrix">
+            <div class="dv-row"><span class="dv-diag">0.12</span><span class="dv-small">0.01</span><span class="dv-small">0.00</span></div>
+            <div class="dv-row"><span class="dv-small">0.01</span><span class="dv-diag">0.18</span><span class="dv-small">0.02</span></div>
+            <div class="dv-row"><span class="dv-small">0.00</span><span class="dv-small">0.02</span><span class="dv-diag">0.21</span></div>
+          </div>
+          <div class="dv-note">Near-diagonal — small variances, weak correlations. Near-spherical search region. Only a few candidates to check.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="validation">Validation — the ratio test</h2>
+      <p>
+        After fixing, the solution must be <strong>validated</strong> before being used.
+        A wrong fix — integers fixed to incorrect values — introduces a position error
+        of one or more wavelengths (~19 cm for GPS L1). This can be worse than the float
+        solution and must be detected.
+      </p>
+      <p>
+        The standard validation test is the <strong>ratio test</strong>:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">ratio = J(ž₂) / J(ž₁)</div>
+        <div class="formula-desc">
+          J(ž₁) = objective function value of the best integer candidate.<br/>
+          J(ž₂) = objective function value of the second-best candidate.<br/><br/>
+          If ratio ≥ threshold (typically 2.0–3.0), the fix is accepted — the best candidate
+          is clearly better than the runner-up.<br/>
+          If ratio &lt; threshold, the fix is rejected — two candidates are competing and the
+          correct one cannot be reliably identified. The float solution is retained.
+        </div>
+      </div>
+
+      <div class="ratio-visual">
+        <div class="rv-case rv-pass">
+          <div class="rv-title">High ratio — fix accepted</div>
+          <div class="rv-bars">
+            <div class="rv-bar-wrap">
+              <div class="rv-bar-label">Best (ž₁)</div>
+              <div class="rv-bar-track"><div class="rv-bar rv-best" style="width:20%">J = 0.8</div></div>
+            </div>
+            <div class="rv-bar-wrap">
+              <div class="rv-bar-label">2nd best (ž₂)</div>
+              <div class="rv-bar-track"><div class="rv-bar rv-second" style="width:65%">J = 4.2</div></div>
+            </div>
+          </div>
+          <div class="rv-ratio">ratio = 4.2/0.8 = 5.25 ≥ 3.0 ✓ Accept fix</div>
+        </div>
+        <div class="rv-case rv-fail">
+          <div class="rv-title">Low ratio — fix rejected</div>
+          <div class="rv-bars">
+            <div class="rv-bar-wrap">
+              <div class="rv-bar-label">Best (ž₁)</div>
+              <div class="rv-bar-track"><div class="rv-bar rv-best" style="width:38%">J = 1.9</div></div>
+            </div>
+            <div class="rv-bar-wrap">
+              <div class="rv-bar-label">2nd best (ž₂)</div>
+              <div class="rv-bar-track"><div class="rv-bar rv-second" style="width:48%">J = 2.4</div></div>
+            </div>
+          </div>
+          <div class="rv-ratio">ratio = 2.4/1.9 = 1.26 &lt; 3.0 ✗ Reject — retain float</div>
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>Threshold choice matters:</strong> A threshold of 2.0 is liberal — higher
+          fix rate but more wrong fixes. A threshold of 3.0 is conservative — fewer wrong
+          fixes but more rejected (float) solutions. The optimal threshold depends on the
+          application. Safety-critical applications use thresholds of 5.0 or higher with
+          additional integrity tests.
+        </div>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="success-rate">Ambiguity success rate</h2>
+      <p>
+        The <strong>ambiguity success rate</strong> P(â_ILS = a) is the probability that the
+        ILS estimator returns the correct integer vector. Teunissen (1998) derived exact and
+        approximate expressions. The success rate depends on the ambiguity covariance Q_â:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">P_s ≥ P_s,ADOP = (2Φ(1/(2·ADOP)) − 1)ᵐ</div>
+        <div class="formula-desc">
+          ADOP = Ambiguity Dilution of Precision = (det(Q_â))^(1/2m) — the geometric mean
+          of the ambiguity standard deviations after decorrelation.<br/>
+          Φ = standard normal CDF.<br/>
+          m = number of ambiguities.<br/><br/>
+          Rule of thumb: ADOP &lt; 0.12 cycles → P_s &gt; 99.9% (reliable fixing).
+          ADOP &gt; 0.2 cycles → success rate drops below 95% — fixing is unreliable.
+        </div>
+      </div>
+
+      <div class="success-table">
+        <div class="st-row st-header">
+          <span>ADOP (cycles)</span>
+          <span>Success rate (m=5)</span>
+          <span>Success rate (m=10)</span>
+          <span>Interpretation</span>
+        </div>
+        <div class="st-row">
+          <span class="good">0.05</span>
+          <span class="good">&gt;99.99%</span>
+          <span class="good">&gt;99.99%</span>
+          <span>Excellent — fix immediately</span>
+        </div>
+        <div class="st-row">
+          <span class="good">0.10</span>
+          <span class="good">99.97%</span>
+          <span class="good">99.7%</span>
+          <span>Very good</span>
+        </div>
+        <div class="st-row">
+          <span class="ok">0.15</span>
+          <span class="ok">98.1%</span>
+          <span class="warn">90.3%</span>
+          <span>Marginal — dual-frequency helps</span>
+        </div>
+        <div class="st-row">
+          <span class="warn">0.20</span>
+          <span class="warn">89.5%</span>
+          <span class="bad">61.9%</span>
+          <span>Poor — wait for more data or more satellites</span>
+        </div>
+        <div class="st-row">
+          <span class="bad">0.30</span>
+          <span class="bad">54.3%</span>
+          <span class="bad">10.7%</span>
+          <span>Very poor — do not attempt to fix</span>
+        </div>
+      </div>
+
+      <!-- SECTION 8 -->
+      <h2 id="widelane">Widelane and narrowlane combinations</h2>
+      <p>
+        Integer fixing is easier when the ambiguity wavelength is larger — larger wavelengths
+        mean a wider "capture basin" around each integer. Dual and triple-frequency receivers
+        exploit this by forming linear combinations of signals with longer effective wavelengths.
+      </p>
+
+      <div class="combination-cards">
+        <div class="cc-card">
+          <div class="cc-name">Extra-widelane (EWL)</div>
+          <div class="cc-combo">L5 − L2 (GPS) · E5a − E6 (Galileo)</div>
+          <div class="cc-wavelength">λ ≈ 5.86 m</div>
+          <div class="cc-desc">
+            Extremely easy to fix — even a single epoch with reasonable noise. Fixed first
+            in triple-frequency RTK. Noise is amplified but the huge wavelength dominates.
+          </div>
+        </div>
+        <div class="cc-card cc-wide">
+          <div class="cc-name">Widelane (WL)</div>
+          <div class="cc-combo">L1 − L2 (GPS) · E1 − E5a (Galileo)</div>
+          <div class="cc-wavelength">λ ≈ 86.2 cm</div>
+          <div class="cc-desc">
+            Fixed after 1–5 epochs with good geometry. The classic first step in two-frequency
+            RTK. Widelane integer helps constrain the subsequent narrowlane search.
+          </div>
+        </div>
+        <div class="cc-card cc-narrow">
+          <div class="cc-name">Narrowlane (NL)</div>
+          <div class="cc-combo">L1 + L2 (GPS)</div>
+          <div class="cc-wavelength">λ ≈ 10.7 cm</div>
+          <div class="cc-desc">
+            Short wavelength — most sensitive to noise. Fixed last. Once widelane is fixed,
+            the narrowlane search space collapses dramatically.
+          </div>
+        </div>
+        <div class="cc-card">
+          <div class="cc-name">L1 (ionosphere-free)</div>
+          <div class="cc-combo">Direct L1 ambiguity</div>
+          <div class="cc-wavelength">λ = 19.03 cm</div>
+          <div class="cc-desc">
+            Single-frequency RTK uses L1 directly. Larger wavelength than NL but smaller
+            than WL. TTFF is longer — typically minutes rather than seconds.
+          </div>
+        </div>
+      </div>
+
+      <p>
+        The standard dual-frequency RTK strategy is:
+        (1) Fix widelane → (2) use WL fix to constrain narrowlane → (3) fix narrowlane.
+        This cascaded approach dramatically reduces TTFF compared to fixing L1 alone.
+      </p>
+
+      <!-- SECTION 9 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">🔢</div>
+          <div class="summary-title">Integer least squares</div>
+          <div class="summary-body">Find the integer vector closest to â_float in the Q_â metric. Not the same as rounding — correlations between ambiguities must be accounted for.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🔄</div>
+          <div class="summary-title">LAMBDA decorrelates first</div>
+          <div class="summary-body">The Z-transformation converts the correlated, elongated search problem into a near-spherical one. This reduces the search from exponential to polynomial time.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">✅</div>
+          <div class="summary-title">Always validate the fix</div>
+          <div class="summary-body">ratio = J(ž₂)/J(ž₁). Accept if ratio ≥ 3.0. A wrong fix is worse than float. ADOP &lt; 0.12 cycles ensures &gt;99.9% success rate.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">〰️</div>
+          <div class="summary-title">Widelane first, narrowlane second</div>
+          <div class="summary-body">Fix the 86 cm widelane first (easy), then use it to constrain the 10.7 cm narrowlane search. Cascaded fixing dramatically reduces TTFF in dual-frequency RTK.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/mathematics/kalman-filter" class="nav-prev">← Kalman Filter</a>
+        <a href="/learn/mathematics/ionospheric-models" class="nav-next">Ionospheric Models →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Teunissen, P. J. G. (1995). The least-squares ambiguity decorrelation adjustment: a method for fast GPS integer ambiguity estimation. <em>Journal of Geodesy</em>, 70, 65–82.</li>
+          <li>Teunissen, P. J. G. (1998). Success probability of integer GPS ambiguity rounding and bootstrapping. <em>Journal of Geodesy</em>, 72, 606–612.</li>
+          <li>Verhagen, S. & Teunissen, P. J. G. (2013). The ratio test for future GNSS ambiguity resolution. <em>GPS Solutions</em>, 17, 535–548.</li>
+          <li>De Jonge, P. & Tiberius, C. (1996). <em>The LAMBDA Method for Integer Ambiguity Estimation: Implementation Aspects</em>. Delft Geodetic Computing Centre LGR-Series No. 12.</li>
+          <li>Teunissen, P. J. G. & Montenbruck, O. (eds.) (2017). <em>Springer Handbook of Global Navigation Satellite Systems</em>. Chapter 23.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; white-space: pre; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.7; margin-top: 10px; }
+
+  /* Float visual */
+  .float-visual { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 20px 0; }
+  .fv-title { font-size: 12px; font-weight: 600; color: var(--text3); font-family: var(--mono); margin-bottom: 16px; }
+  .fv-number-line { position: relative; height: 60px; background: var(--bg3); border-radius: 6px; margin-bottom: 12px; }
+  .fv-tick { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 6px; }
+  .fv-tick::before { content: ''; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); }
+  .fv-int { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .fv-float { position: absolute; top: 6px; display: flex; flex-direction: column; align-items: center; }
+  .fv-marker { font-family: var(--mono); font-size: 12px; color: #fbbf24; background: rgba(251,191,36,0.15); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+  .fv-sigma { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .fv-fixed { position: absolute; top: 6px; display: flex; flex-direction: column; align-items: center; }
+  .fv-marker-fixed { font-family: var(--mono); font-size: 12px; color: var(--accent); background: rgba(0,212,170,0.15); padding: 2px 6px; border-radius: 4px; white-space: nowrap; margin-top: 24px; }
+  .fv-legend { display: flex; gap: 16px; flex-wrap: wrap; }
+  .fv-l-float { font-size: 11px; color: #fbbf24; }
+  .fv-l-fixed { font-size: 11px; color: var(--accent); }
+  .fv-l-int { font-size: 11px; color: var(--text3); }
+
+  /* LAMBDA steps */
+  .lambda-steps { display: flex; flex-direction: column; gap: 4px; margin: 20px 0; }
+  .ls-step { display: flex; gap: 16px; padding: 16px 18px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; }
+  .ls-key { border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.03); }
+  .ls-num { width: 32px; height: 32px; background: rgba(0,212,170,0.12); color: var(--accent); border-radius: 50%; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: var(--mono); flex-shrink: 0; }
+  .ls-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .ls-desc { font-size: 13px; color: var(--text2); line-height: 1.7; }
+  .ls-formula { font-family: var(--mono); font-size: 12px; color: var(--accent); background: var(--bg3); padding: 6px 10px; border-radius: 4px; margin: 8px 0; }
+  .ls-output { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-top: 6px; }
+  .ls-arrow { text-align: center; font-size: 20px; color: var(--text3); padding: 0 16px; }
+
+  /* Decorrelation visual */
+  .decorr-visual { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; margin: 20px 0; }
+  .dv-before, .dv-after { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .dv-title { font-size: 12px; font-weight: 600; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .dv-matrix { font-family: var(--mono); font-size: 13px; line-height: 2; margin-bottom: 10px; }
+  .dv-row { display: flex; gap: 16px; justify-content: center; }
+  .dv-diag { color: var(--text); font-weight: 600; min-width: 36px; text-align: right; }
+  .dv-off { color: #ff4757; min-width: 36px; text-align: right; }
+  .dv-small { color: var(--accent); min-width: 36px; text-align: right; }
+  .dv-note { font-size: 12px; color: var(--text3); line-height: 1.5; }
+  .dv-arrow { font-size: 20px; color: var(--accent); font-family: var(--mono); font-weight: 700; text-align: center; white-space: nowrap; }
+
+  /* Ratio visual */
+  .ratio-visual { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .rv-case { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .rv-pass { border-color: rgba(0,212,170,0.3); }
+  .rv-fail { border-color: rgba(255,71,87,0.3); }
+  .rv-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+  .rv-bars { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .rv-bar-wrap { display: grid; grid-template-columns: 80px 1fr; gap: 8px; align-items: center; }
+  .rv-bar-label { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .rv-bar-track { background: var(--bg3); border-radius: 3px; height: 22px; }
+  .rv-bar { height: 100%; border-radius: 3px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; font-family: var(--mono); }
+  .rv-best { background: rgba(0,212,170,0.4); color: var(--text); }
+  .rv-second { background: rgba(255,71,87,0.3); color: var(--text); }
+  .rv-ratio { font-size: 12px; font-family: var(--mono); color: var(--text2); padding-top: 8px; border-top: 1px solid var(--border); }
+
+  /* Success table */
+  .success-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .st-row { display: grid; grid-template-columns: 120px 150px 150px 1fr; gap: 10px; padding: 9px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .st-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .good { color: var(--accent); font-family: var(--mono); }
+  .ok { color: #a3e635; font-family: var(--mono); }
+  .warn { color: #fbbf24; font-family: var(--mono); }
+  .bad { color: #ff4757; font-family: var(--mono); }
+
+  /* Combination cards */
+  .combination-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+  .cc-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .cc-wide { border-color: rgba(0,212,170,0.3); }
+  .cc-narrow { border-color: rgba(0,153,255,0.3); }
+  .cc-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .cc-combo { font-size: 11px; font-family: var(--mono); color: var(--accent2); margin-bottom: 6px; }
+  .cc-wavelength { font-size: 18px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 8px; }
+  .cc-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 900px) {
+    .combination-cards { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .decorr-visual { grid-template-columns: 1fr; }
+    .dv-arrow { transform: rotate(90deg); }
+    .ratio-visual { grid-template-columns: 1fr; }
+    .combination-cards { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .st-row { grid-template-columns: 80px 1fr 1fr; }
+    .st-row span:last-child { display: none; }
+    h2 { font-size: 20px; }
+  }
+</style>

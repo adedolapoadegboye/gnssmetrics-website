@@ -1,0 +1,613 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Kalman Filter">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/mathematics">Mathematics</a>
+        <span>›</span>
+        <span>Kalman Filter</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Mathematics · Article 2 of 5</span>
+        <h1>Kalman Filter</h1>
+        <p class="lead">
+          Least squares finds the best estimate from a batch of observations. The Kalman filter
+          does something more powerful — it tracks a changing system in real time, fusing
+          new measurements with a prediction of where the system should be. Every GNSS receiver
+          uses a Kalman filter at its core, and understanding it explains why your position
+          smooths out over time and why it takes seconds to converge after a signal gap.
+        </p>
+        <div class="article-meta">
+          <span>14 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#intuition">Intuition — predict then update</a></li>
+          <li><a href="#state-model">State and measurement models</a></li>
+          <li><a href="#equations">The five Kalman equations</a></li>
+          <li><a href="#noise">Process and measurement noise</a></li>
+          <li><a href="#worked-example">Worked example — 1D position tracking</a></li>
+          <li><a href="#gnss-state">GNSS Kalman filter state vector</a></li>
+          <li><a href="#extended">Extended Kalman filter (EKF)</a></li>
+          <li><a href="#gnss-imu">GNSS/IMU integration</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="intuition">Intuition — predict then update</h2>
+      <p>
+        Imagine tracking a car driving down a motorway. You know it was at position x₀ moving
+        at velocity v₀ one second ago. Even without a new GPS fix, you can predict where it
+        probably is now: x_predicted = x₀ + v₀ · Δt. When a new GPS measurement arrives, you
+        combine your prediction with the measurement — weighting each by how much you trust it.
+        If your motion model is accurate, you trust the prediction. If GPS has good signal,
+        you trust the measurement. The Kalman filter formalises exactly this trade-off.
+      </p>
+
+      <div class="intuition-visual">
+        <div class="iv-step">
+          <div class="iv-num">1</div>
+          <div class="iv-title">Predict</div>
+          <div class="iv-desc">Use motion model to project state forward in time. Uncertainty grows because the model is imperfect.</div>
+          <div class="iv-formula">x̂⁻ = F·x̂ₖ₋₁</div>
+        </div>
+        <div class="iv-arrow">→</div>
+        <div class="iv-step">
+          <div class="iv-num">2</div>
+          <div class="iv-title">Measure</div>
+          <div class="iv-desc">New observation arrives. It is noisy but carries real information about the current state.</div>
+          <div class="iv-formula">z = Hx + r</div>
+        </div>
+        <div class="iv-arrow">→</div>
+        <div class="iv-step iv-update">
+          <div class="iv-num">3</div>
+          <div class="iv-title">Update</div>
+          <div class="iv-desc">Fuse prediction and measurement. Weight each by its uncertainty. Uncertainty shrinks — better than either alone.</div>
+          <div class="iv-formula">x̂ = x̂⁻ + K·(z − Hx̂⁻)</div>
+        </div>
+      </div>
+
+      <p>
+        The key insight is that the Kalman filter is <strong>optimal</strong> — under the
+        assumption of Gaussian noise and a linear model, it produces the minimum variance
+        unbiased estimate. No other linear estimator can do better.
+      </p>
+
+      <!-- SECTION 2 -->
+      <h2 id="state-model">State and measurement models</h2>
+      <p>
+        The Kalman filter operates on two models:
+      </p>
+
+      <div class="model-cards">
+        <div class="model-card">
+          <div class="model-title">State transition model</div>
+          <div class="model-eq">xₖ = Fₖ xₖ₋₁ + wₖ</div>
+          <div class="model-desc">
+            Describes how the state evolves from one epoch to the next.
+            <strong>xₖ</strong> = state vector at time k (position, velocity, clock, ambiguities).
+            <strong>F</strong> = state transition matrix (encodes the motion model).
+            <strong>w</strong> = process noise — unmodelled accelerations, clock drift fluctuations
+            (w ~ N(0, Q), zero-mean Gaussian with covariance Q).
+          </div>
+        </div>
+        <div class="model-card">
+          <div class="model-title">Measurement model</div>
+          <div class="model-eq">zₖ = Hₖ xₖ + rₖ</div>
+          <div class="model-desc">
+            Relates the state to what is actually observed.
+            <strong>z</strong> = measurement vector (pseudoranges, carrier phases).
+            <strong>H</strong> = design matrix (partial derivatives — same as in least squares).
+            <strong>r</strong> = measurement noise (r ~ N(0, R), zero-mean Gaussian with covariance R).
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="equations">The five Kalman equations</h2>
+      <p>
+        The Kalman filter alternates between two phases every epoch: <strong>prediction</strong>
+        and <strong>update</strong>. Each phase has equations for the state estimate and its
+        covariance matrix P (which encodes how uncertain we are about each state element).
+      </p>
+
+      <div class="kalman-equations">
+        <div class="ke-phase">
+          <div class="ke-phase-title">Prediction phase</div>
+          <div class="ke-eq">
+            <div class="ke-num">1</div>
+            <div class="ke-content">
+              <div class="ke-name">State prediction</div>
+              <div class="ke-formula">x̂ₖ⁻ = Fₖ x̂ₖ₋₁</div>
+              <div class="ke-desc">Project the previous state estimate forward using the motion model.</div>
+            </div>
+          </div>
+          <div class="ke-eq">
+            <div class="ke-num">2</div>
+            <div class="ke-content">
+              <div class="ke-name">Covariance prediction</div>
+              <div class="ke-formula">Pₖ⁻ = Fₖ Pₖ₋₁ Fₖᵀ + Qₖ</div>
+              <div class="ke-desc">Propagate uncertainty forward. Adding Q reflects that uncertainty grows between epochs due to unmodelled dynamics.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ke-phase ke-update-phase">
+          <div class="ke-phase-title">Update phase</div>
+          <div class="ke-eq ke-key">
+            <div class="ke-num">3</div>
+            <div class="ke-content">
+              <div class="ke-name">Kalman gain</div>
+              <div class="ke-formula">Kₖ = Pₖ⁻ Hₖᵀ (Hₖ Pₖ⁻ Hₖᵀ + Rₖ)⁻¹</div>
+              <div class="ke-desc">The gain K balances prediction uncertainty Pₖ⁻ against measurement noise Rₖ. High K = trust measurement. Low K = trust prediction.</div>
+            </div>
+          </div>
+          <div class="ke-eq">
+            <div class="ke-num">4</div>
+            <div class="ke-content">
+              <div class="ke-name">State update</div>
+              <div class="ke-formula">x̂ₖ = x̂ₖ⁻ + Kₖ (zₖ − Hₖ x̂ₖ⁻)</div>
+              <div class="ke-desc">Correct the prediction using the innovation (zₖ − Hₖx̂ₖ⁻) — the difference between what was measured and what was predicted.</div>
+            </div>
+          </div>
+          <div class="ke-eq">
+            <div class="ke-num">5</div>
+            <div class="ke-content">
+              <div class="ke-name">Covariance update</div>
+              <div class="ke-formula">Pₖ = (I − Kₖ Hₖ) Pₖ⁻</div>
+              <div class="ke-desc">Uncertainty shrinks after each measurement update. The update always reduces P — the filter becomes more confident.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div>
+          <strong>Innovation — the key diagnostic:</strong> The term (zₖ − Hₖx̂ₖ⁻) is called
+          the <strong>innovation</strong> or measurement residual. If the filter is working
+          correctly, innovations should be zero-mean, white (uncorrelated in time) and Gaussian.
+          Large or correlated innovations indicate model mismatch, outliers or unmodelled errors.
+          Monitoring innovations is the primary filter health diagnostic in production receivers.
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <h2 id="noise">Process and measurement noise</h2>
+      <p>
+        Choosing the noise covariance matrices Q and R is the most important — and most difficult
+        — part of designing a Kalman filter. They control the filter's behaviour:
+      </p>
+
+      <div class="noise-table">
+        <div class="nt-row nt-header">
+          <span>Matrix</span>
+          <span>Meaning</span>
+          <span>Too small</span>
+          <span>Too large</span>
+        </div>
+        <div class="nt-row">
+          <span class="nt-sym">Q</span>
+          <span>Process noise — how much does the true state wander from the model?</span>
+          <span class="warn">Filter too slow to track real dynamics. Position lags during acceleration.</span>
+          <span class="warn">Filter ignores useful information from previous state. Noisy output.</span>
+        </div>
+        <div class="nt-row">
+          <span class="nt-sym">R</span>
+          <span>Measurement noise — how noisy are the observations?</span>
+          <span class="warn">Filter trusts measurements too much. Outliers corrupt the state.</span>
+          <span class="warn">Filter ignores measurements. Slow to respond. Relies too much on model.</span>
+        </div>
+      </div>
+
+      <p>
+        In GNSS receivers, R is typically set from known pseudorange noise models
+        (e.g. σ² = a² + b²/sin²(elevation)). Q depends on the platform dynamics —
+        a pedestrian GNSS device uses a small Q for horizontal velocity; an aircraft
+        needs a much larger Q.
+      </p>
+
+      <!-- SECTION 5 -->
+      <h2 id="worked-example">Worked example — 1D position tracking</h2>
+      <p>
+        Track a vehicle moving at constant velocity. State: x = [position, velocity]ᵀ.
+        Measurement: noisy position from GPS (σ_GPS = 3 m).
+      </p>
+
+      <div class="example-setup">
+        <div class="ex-block">
+          <div class="ex-title">State transition (Δt = 1 s)</div>
+          <div class="ex-eq">F = ⎡1  Δt⎤ = ⎡1  1⎤</div>
+          <div class="ex-eq">    ⎣0   1⎦   ⎣0  1⎦</div>
+          <div class="ex-note">Position integrates velocity. Velocity unchanged (constant velocity model).</div>
+        </div>
+        <div class="ex-block">
+          <div class="ex-title">Measurement (position only)</div>
+          <div class="ex-eq">H = [1  0]</div>
+          <div class="ex-eq">R = [9]  (σ² = 3² = 9 m²)</div>
+          <div class="ex-note">We observe position, not velocity.</div>
+        </div>
+        <div class="ex-block">
+          <div class="ex-title">Process noise</div>
+          <div class="ex-eq">Q = σ_a² ⎡Δt⁴/4  Δt³/2⎤</div>
+          <div class="ex-eq">         ⎣Δt³/2   Δt² ⎦</div>
+          <div class="ex-note">Continuous white noise acceleration model. σ_a = 0.1 m/s² for a car.</div>
+        </div>
+      </div>
+
+      <div class="example-trace">
+        <div class="et-title">Filter evolution over 5 epochs (true position = 0 + 10t m)</div>
+        <div class="et-table">
+          <div class="et-row et-header">
+            <span>k</span>
+            <span>GPS (z, m)</span>
+            <span>Predicted x̂⁻</span>
+            <span>K (gain)</span>
+            <span>Updated x̂</span>
+            <span>P[0,0] (m²)</span>
+          </div>
+          <div class="et-row">
+            <span>0</span>
+            <span>—</span>
+            <span>init: [0, 10]</span>
+            <span>—</span>
+            <span>[0, 10]</span>
+            <span>100.0</span>
+          </div>
+          <div class="et-row">
+            <span>1</span>
+            <span>12.3</span>
+            <span>[10.0, 10]</span>
+            <span>0.918</span>
+            <span>[12.1, 10]</span>
+            <span>8.26</span>
+          </div>
+          <div class="et-row">
+            <span>2</span>
+            <span>19.7</span>
+            <span>[22.1, 10]</span>
+            <span>0.481</span>
+            <span>[20.9, 10]</span>
+            <span>4.71</span>
+          </div>
+          <div class="et-row">
+            <span>3</span>
+            <span>31.5</span>
+            <span>[30.9, 10]</span>
+            <span>0.344</span>
+            <span>[31.1, 10]</span>
+            <span>3.49</span>
+          </div>
+          <div class="et-row">
+            <span>4</span>
+            <span>38.2</span>
+            <span>[41.1, 10]</span>
+            <span>0.279</span>
+            <span>[39.6, 10]</span>
+            <span>2.94</span>
+          </div>
+        </div>
+        <div class="et-note">K decreases as P converges — the filter becomes more confident and relies less on each new measurement.</div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="gnss-state">GNSS Kalman filter state vector</h2>
+      <p>
+        A real GNSS positioning Kalman filter carries many more state variables than the simple
+        example above. The state vector in a typical RTK or PPP engine includes:
+      </p>
+
+      <div class="state-vector">
+        <div class="sv-group sv-position">
+          <div class="sv-group-title">Position and velocity</div>
+          <div class="sv-items">
+            <div class="sv-item"><span class="sv-sym">x, y, z</span><span class="sv-desc">ECEF position (m) — or Δx, Δy, Δz increments</span></div>
+            <div class="sv-item"><span class="sv-sym">ẋ, ẏ, ż</span><span class="sv-desc">Velocity (m/s) — for kinematic receivers</span></div>
+          </div>
+        </div>
+        <div class="sv-group sv-clock">
+          <div class="sv-group-title">Receiver clock</div>
+          <div class="sv-items">
+            <div class="sv-item"><span class="sv-sym">c·δt_r</span><span class="sv-desc">Receiver clock offset (m) — modelled as random walk or white noise</span></div>
+            <div class="sv-item"><span class="sv-sym">c·δṫ_r</span><span class="sv-desc">Clock drift (m/s) — for high-quality oscillators</span></div>
+          </div>
+        </div>
+        <div class="sv-group sv-tropo">
+          <div class="sv-group-title">Troposphere</div>
+          <div class="sv-items">
+            <div class="sv-item"><span class="sv-sym">ZWD</span><span class="sv-desc">Zenith wet delay (m) — modelled as random walk, ~0.1–1 mm/√s</span></div>
+          </div>
+        </div>
+        <div class="sv-group sv-ambiguity">
+          <div class="sv-group-title">Carrier phase ambiguities (PPP/RTK)</div>
+          <div class="sv-items">
+            <div class="sv-item"><span class="sv-sym">N_IF^i</span><span class="sv-desc">Float ambiguity for satellite i — one per satellite, constant when no cycle slip</span></div>
+          </div>
+        </div>
+      </div>
+
+      <p>
+        The state transition for position and velocity uses a constant velocity model
+        (F integrates velocity into position). The receiver clock is typically modelled
+        as a random walk — its value at the next epoch is unpredictable (Q_clock is large).
+        Ambiguities are modelled as constants — their transition is F = I and Q = 0,
+        meaning they do not change unless a cycle slip occurs.
+      </p>
+
+      <!-- SECTION 7 -->
+      <h2 id="extended">Extended Kalman filter (EKF)</h2>
+      <p>
+        The standard Kalman filter requires linear models (F and H are constant matrices).
+        GNSS is fundamentally nonlinear — pseudoranges depend on position through a square root.
+        The <strong>Extended Kalman Filter (EKF)</strong> handles this by linearising the
+        nonlinear functions at the current state estimate each epoch.
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">State transition: xₖ = f(xₖ₋₁) + wₖ  (nonlinear)</div>
+        <div class="formula">Measurement:     zₖ = h(xₖ) + rₖ     (nonlinear)</div>
+        <div class="formula">EKF linearises:  Fₖ = ∂f/∂x|&#8203;_&#123;x̂ₖ₋₁&#125;  (Jacobian of f)</div>
+        <div class="formula">                 Hₖ = ∂h/∂x|&#8203;_&#123;x̂ₖ⁻&#125;   (Jacobian of h)</div>
+        <div class="formula-desc">
+          The Jacobian Hₖ of the pseudorange with respect to position is exactly the direction
+          cosine matrix from the least squares article — confirming that EKF prediction and
+          update use the same design matrix A. The EKF is therefore the sequential
+          (epoch-by-epoch) equivalent of iterative least squares.
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon">⚠️</div>
+        <div>
+          <strong>EKF limitations:</strong> The EKF linearises around the current estimate.
+          If the estimate is far from the truth (e.g. cold start, large dynamics), the
+          linearisation is inaccurate and the filter can diverge. For highly nonlinear
+          systems, the Unscented Kalman Filter (UKF) or Particle Filter may perform better.
+          For GNSS positioning with a reasonable initial estimate, EKF is generally sufficient.
+        </div>
+      </div>
+
+      <!-- SECTION 8 -->
+      <h2 id="gnss-imu">GNSS/IMU integration</h2>
+      <p>
+        An Inertial Measurement Unit (IMU) measures specific force (accelerometers) and angular
+        rate (gyroscopes). Integrating these gives position and attitude — but IMU errors
+        accumulate rapidly. GNSS provides periodic position fixes that prevent IMU drift.
+        The Kalman filter is the natural framework for combining them.
+      </p>
+
+      <div class="integration-modes">
+        <div class="im-card">
+          <div class="im-title">Loosely coupled</div>
+          <div class="im-level">Easiest to implement</div>
+          <div class="im-desc">
+            The GNSS receiver outputs a position solution. The Kalman filter fuses GNSS position
+            with IMU-propagated position. Works as long as GNSS can compute a valid position fix
+            (≥4 satellites). Fails when GNSS is unavailable.
+          </div>
+          <div class="im-state">State: position, velocity, attitude, IMU biases</div>
+        </div>
+        <div class="im-card">
+          <div class="im-title">Tightly coupled</div>
+          <div class="im-level">Most common in professional systems</div>
+          <div class="im-desc">
+            The Kalman filter uses raw GNSS pseudoranges (not a position fix) as measurements.
+            Works with fewer than 4 satellites — even 1–2 satellites provide useful constraints.
+            More robust in urban canyons and under bridges.
+          </div>
+          <div class="im-state">State: position, velocity, attitude, IMU biases, GNSS clock</div>
+        </div>
+        <div class="im-card">
+          <div class="im-title">Deeply coupled</div>
+          <div class="im-level">High-performance / military systems</div>
+          <div class="im-desc">
+            IMU data feeds directly into the receiver tracking loops. Aids signal acquisition
+            under high dynamics or jamming. Complex to implement. Rarely done outside
+            aerospace and defence applications.
+          </div>
+          <div class="im-state">State: all of tightly coupled + tracking loop states</div>
+        </div>
+      </div>
+
+      <p>
+        In tightly coupled GNSS/IMU, the IMU predicts the state between GNSS epochs (at up to
+        1000 Hz), and GNSS pseudoranges update the filter at 1–10 Hz. During a GNSS outage
+        (tunnel, building), the IMU continues to propagate the state — with growing uncertainty
+        (P increases) until GNSS is reacquired.
+      </p>
+
+      <!-- SECTION 9 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">🔄</div>
+          <div class="summary-title">Predict then update</div>
+          <div class="summary-body">Two phases every epoch. Prediction propagates state and grows uncertainty. Update fuses new measurements and shrinks uncertainty. The Kalman gain K controls the balance.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📉</div>
+          <div class="summary-title">P converges over time</div>
+          <div class="summary-body">The covariance matrix P shrinks as measurements accumulate. This is why PPP accuracy improves with time — the filter has more observations to work with.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📊</div>
+          <div class="summary-title">Monitor the innovation</div>
+          <div class="summary-body">zₖ − Hₖx̂ₖ⁻ should be small, zero-mean and white. Large innovations indicate outliers, cycle slips or unmodelled errors. This is the primary filter health check.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🤝</div>
+          <div class="summary-title">GNSS + IMU = robust navigation</div>
+          <div class="summary-body">GNSS prevents IMU drift. IMU bridges GNSS outages and improves dynamics handling. Tightly coupled integration uses raw pseudoranges, working even with &lt;4 satellites.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/mathematics/least-squares" class="nav-prev">← Least Squares</a>
+        <a href="/learn/mathematics/ambiguity-resolution" class="nav-next">Ambiguity Resolution →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Kalman, R. E. (1960). A new approach to linear filtering and prediction problems. <em>Journal of Basic Engineering</em>, 82(1), 35–45.</li>
+          <li>Grewal, M. S. & Andrews, A. P. (2015). <em>Kalman Filtering: Theory and Practice Using MATLAB</em>, 4th ed. Wiley-IEEE Press.</li>
+          <li>Groves, P. D. (2013). <em>Principles of GNSS, Inertial, and Multisensor Integrated Navigation Systems</em>, 2nd ed. Artech House.</li>
+          <li>Teunissen, P. J. G. & Montenbruck, O. (eds.) (2017). <em>Springer Handbook of Global Navigation Satellite Systems</em>. Chapter 12.</li>
+          <li>Welch, G. & Bishop, G. (2006). An Introduction to the Kalman Filter. UNC-Chapel Hill TR 95-041. <a href="https://www.cs.unc.edu/~welch/media/pdf/kalman_intro.pdf" target="_blank" rel="noopener noreferrer">UNC →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout-warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; white-space: pre; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.7; margin-top: 10px; }
+
+  /* Intuition visual */
+  .intuition-visual { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; align-items: start; margin: 20px 0; }
+  .iv-step { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .iv-update { border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.04); }
+  .iv-num { font-size: 11px; font-family: var(--mono); color: var(--accent); margin-bottom: 4px; }
+  .iv-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .iv-desc { font-size: 12px; color: var(--text3); line-height: 1.5; margin-bottom: 8px; }
+  .iv-formula { font-family: var(--mono); font-size: 11px; color: var(--accent2); background: var(--bg3); padding: 4px 8px; border-radius: 4px; }
+  .iv-arrow { font-size: 20px; color: var(--text3); padding-top: 28px; }
+
+  /* Model cards */
+  .model-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .model-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .model-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .model-eq { font-family: var(--mono); font-size: 14px; color: var(--accent); margin-bottom: 10px; background: var(--bg3); padding: 8px 12px; border-radius: 6px; }
+  .model-desc { font-size: 13px; color: var(--text3); line-height: 1.7; }
+
+  /* Kalman equations */
+  .kalman-equations { display: flex; flex-direction: column; gap: 14px; margin: 20px 0; }
+  .ke-phase { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .ke-update-phase { border-color: rgba(0,212,170,0.2); }
+  .ke-phase-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--mono); padding: 10px 16px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  .ke-eq { display: grid; grid-template-columns: 36px 1fr; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); align-items: start; }
+  .ke-eq:last-child { border-bottom: none; }
+  .ke-key { background: rgba(0,212,170,0.03); }
+  .ke-num { width: 28px; height: 28px; background: rgba(0,212,170,0.12); color: var(--accent); border-radius: 50%; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: var(--mono); flex-shrink: 0; margin-top: 2px; }
+  .ke-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .ke-formula { font-family: var(--mono); font-size: 13px; color: var(--accent); margin-bottom: 6px; }
+  .ke-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+  /* Noise table */
+  .noise-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .nt-row { display: grid; grid-template-columns: 50px 1fr 1fr 1fr; gap: 10px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: baseline; }
+  .nt-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .nt-sym { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); }
+  .warn { color: #fbbf24; font-size: 12px; }
+
+  /* Example setup */
+  .example-setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .ex-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .ex-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .ex-eq { font-family: var(--mono); font-size: 11px; color: var(--accent2); line-height: 1.8; }
+  .ex-note { font-size: 11px; color: var(--text3); margin-top: 6px; line-height: 1.5; }
+
+  /* Example trace */
+  .example-trace { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 0; }
+  .et-title { font-size: 11px; font-weight: 600; color: var(--text3); font-family: var(--mono); padding: 8px 14px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  .et-table { display: flex; flex-direction: column; }
+  .et-row { display: grid; grid-template-columns: 30px 80px 120px 70px 100px 80px; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); font-size: 12px; font-family: var(--mono); color: var(--text2); align-items: center; }
+  .et-row:last-child { border-bottom: none; }
+  .et-header { font-size: 10px; font-weight: 600; color: var(--text3); background: var(--bg3); }
+  .et-note { font-size: 11px; color: var(--text3); padding: 8px 14px; }
+
+  /* State vector */
+  .state-vector { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+  .sv-group { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .sv-position { border-left: 3px solid var(--accent); }
+  .sv-clock { border-left: 3px solid #fbbf24; }
+  .sv-tropo { border-left: 3px solid var(--accent2); }
+  .sv-ambiguity { border-left: 3px solid #a3e635; }
+  .sv-group-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); padding: 8px 14px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  .sv-items { padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .sv-item { display: grid; grid-template-columns: 100px 1fr; gap: 12px; font-size: 13px; }
+  .sv-sym { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+  .sv-desc { color: var(--text3); }
+
+  /* Integration modes */
+  .integration-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .im-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .im-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .im-level { font-size: 11px; font-family: var(--mono); color: var(--accent2); margin-bottom: 10px; }
+  .im-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-bottom: 10px; }
+  .im-state { font-size: 11px; font-family: var(--mono); color: var(--text3); background: var(--bg3); padding: 6px 8px; border-radius: 4px; line-height: 1.5; }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .intuition-visual { grid-template-columns: 1fr; }
+    .iv-arrow { display: none; }
+    .model-cards { grid-template-columns: 1fr; }
+    .example-setup { grid-template-columns: 1fr; }
+    .integration-modes { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .nt-row { grid-template-columns: 50px 1fr; }
+    .nt-row span:nth-child(3), .nt-row span:last-child { display: none; }
+    .et-row { grid-template-columns: 30px 1fr 1fr; }
+    .et-row span:nth-child(4), .et-row span:nth-child(5), .et-row span:last-child { display: none; }
+    h2 { font-size: 20px; }
+  }
+</style>

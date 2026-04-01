@@ -1,0 +1,572 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="Ionospheric Models">
+  <section class="section">
+    <div class="container learn-container">
+
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a>
+        <span>›</span>
+        <a href="/learn/mathematics">Mathematics</a>
+        <span>›</span>
+        <span>Ionospheric Models</span>
+      </nav>
+
+      <div class="article-header">
+        <span class="badge">Mathematics · Article 4 of 5</span>
+        <h1>Ionospheric Models</h1>
+        <p class="lead">
+          The ionosphere is the largest single error source in single-frequency GNSS — up to
+          100 metres in extreme conditions. Dual-frequency receivers eliminate it algebraically.
+          Single-frequency receivers must model it. This article explains the physics of
+          ionospheric delay, how the Klobuchar and NeQuick models work, and how the
+          ionosphere-free combination removes it entirely.
+        </p>
+        <div class="article-meta">
+          <span>10 min read</span>
+          <span>·</span>
+          <span>Last updated March 2026</span>
+        </div>
+      </div>
+
+      <div class="toc">
+        <div class="toc-title">Contents</div>
+        <ol>
+          <li><a href="#physics">The physics of ionospheric delay</a></li>
+          <li><a href="#tec">Total Electron Content (TEC)</a></li>
+          <li><a href="#mapping">The mapping function</a></li>
+          <li><a href="#klobuchar">Klobuchar model (GPS)</a></li>
+          <li><a href="#nequick">NeQuick model (Galileo)</a></li>
+          <li><a href="#iono-free">The ionosphere-free combination</a></li>
+          <li><a href="#higher-order">Higher-order effects</a></li>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </div>
+
+      <!-- SECTION 1 -->
+      <h2 id="physics">The physics of ionospheric delay</h2>
+      <p>
+        The ionosphere is a region of the atmosphere between approximately 60 km and 1,000 km
+        altitude where solar ultraviolet and X-ray radiation ionises gas molecules, creating
+        a plasma of free electrons and ions. This plasma is a <strong>dispersive medium</strong>
+        — it slows the group velocity of radio waves (the code pseudorange signal) while
+        advancing the phase velocity (the carrier phase).
+      </p>
+      <p>
+        The refractive index of the ionosphere for a signal at frequency f is:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">n ≈ 1 − 40.3·N_e / f²</div>
+        <div class="formula-desc">
+          N_e = electron density (electrons/m³) · f = signal frequency (Hz)<br/>
+          The refractive index is less than 1 — the phase velocity exceeds the speed of light
+          (this is allowed; information travels at the group velocity, not the phase velocity).
+          For GPS L1 at 1575.42 MHz with N_e = 10¹¹ electrons/m³:
+          n ≈ 1 − 1.62×10⁻⁶ — a tiny but precisely measurable effect.
+        </div>
+      </div>
+
+      <p>
+        Integrating the refractive index along the signal path gives the ionospheric delay
+        on the code pseudorange:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">I = ∫(1 − n)·ds = 40.3/f² · ∫N_e·ds = 40.3·TEC/f²</div>
+        <div class="formula-desc">
+          I = ionospheric delay on pseudorange (m) · TEC = ∫N_e·ds = Total Electron Content
+          (electrons/m²) along the signal path · f = frequency (Hz)<br/><br/>
+          Key result: ionospheric delay is proportional to TEC and inversely proportional to
+          frequency squared. This 1/f² dependence is what enables dual-frequency correction.
+          The carrier phase experiences an equal and opposite advance: Φ_iono = −I/λ cycles.
+        </div>
+      </div>
+
+      <!-- Physics visual -->
+      <div class="diagram-wrap">
+        <div class="diagram-label">Ionospheric effect on code vs carrier</div>
+        <svg viewBox="0 0 680 180" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr7" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+          <!-- Satellite -->
+          <circle cx="60" cy="30" r="10" fill="var(--accent)" opacity="0.8"/>
+          <text x="60" y="16" text-anchor="middle" font-size="11" fill="var(--accent)" font-family="var(--sans)">Satellite</text>
+          <!-- Ionosphere layer -->
+          <rect x="0" y="60" width="680" height="40" fill="rgba(251,191,36,0.08)" rx="0"/>
+          <text x="340" y="84" text-anchor="middle" font-size="11" fill="#fbbf24" font-family="var(--sans)">Ionosphere (60–1000 km)</text>
+          <!-- Receiver -->
+          <rect x="560" y="120" width="60" height="30" rx="4" fill="none" stroke="var(--accent2)" stroke-width="1"/>
+          <text x="590" y="139" text-anchor="middle" font-size="11" fill="var(--accent2)" font-family="var(--sans)">Receiver</text>
+          <!-- Signal path -->
+          <line x1="68" y1="38" x2="558" y2="122" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr7)" opacity="0.7"/>
+          <!-- Code delay annotation -->
+          <text x="250" y="55" font-size="11" fill="#ff4757" font-family="var(--sans)">Code: delayed (slower group velocity)</text>
+          <!-- Phase advance annotation -->
+          <text x="250" y="130" font-size="11" fill="var(--accent)" font-family="var(--sans)">Phase: advanced (faster phase velocity)</text>
+          <!-- Same magnitude -->
+          <text x="340" y="162" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="var(--sans)">|I_code| = |I_phase| — equal magnitude, opposite sign</text>
+        </svg>
+      </div>
+
+      <!-- SECTION 2 -->
+      <h2 id="tec">Total Electron Content (TEC)</h2>
+      <p>
+        TEC is the key ionospheric quantity — the line integral of electron density along the
+        signal path. It is measured in TECU (Total Electron Content Units):
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">1 TECU = 10¹⁶ electrons/m²</div>
+        <div class="formula-desc">
+          1 TECU of TEC causes approximately 0.162 m of delay on GPS L1 (1575.42 MHz)
+          and 0.267 m on GPS L2 (1227.60 MHz).<br/><br/>
+          Typical TEC values:
+          1–5 TECU at night at mid-latitudes (minimal delay, ~0.2–0.8 m on L1),
+          10–50 TECU during daytime at mid-latitudes (1.6–8 m on L1),
+          50–200 TECU at equatorial latitudes near solar maximum (8–32 m on L1).
+        </div>
+      </div>
+
+      <div class="tec-table">
+        <div class="tt-row tt-header">
+          <span>Condition</span>
+          <span>TEC (TECU)</span>
+          <span>L1 delay</span>
+          <span>L2 delay</span>
+        </div>
+        <div class="tt-row">
+          <span>Night, mid-latitude</span>
+          <span>1 – 5</span>
+          <span class="good">0.2 – 0.8 m</span>
+          <span class="good">0.3 – 1.3 m</span>
+        </div>
+        <div class="tt-row">
+          <span>Day, mid-latitude</span>
+          <span>10 – 50</span>
+          <span class="warn">1.6 – 8 m</span>
+          <span class="warn">2.7 – 13 m</span>
+        </div>
+        <div class="tt-row">
+          <span>Equatorial, solar max</span>
+          <span>50 – 200</span>
+          <span class="bad">8 – 32 m</span>
+          <span class="bad">13 – 53 m</span>
+        </div>
+        <div class="tt-row">
+          <span>Geomagnetic storm</span>
+          <span>up to 400+</span>
+          <span class="bad">up to 65 m</span>
+          <span class="bad">up to 107 m</span>
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <h2 id="mapping">The mapping function</h2>
+      <p>
+        TEC is typically modelled in the <strong>vertical</strong> direction above the receiver.
+        A signal to a satellite at elevation angle el passes through more ionosphere than a
+        vertical signal — the slant path is longer. The <strong>mapping function</strong>
+        converts vertical TEC (VTEC) to slant TEC (STEC):
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">STEC = VTEC · MF(el)</div>
+        <div class="formula">MF(el) = 1 / √(1 − (R_E · cos(el) / (R_E + h_IPP))²)</div>
+        <div class="formula-desc">
+          R_E = Earth radius (6371 km) · h_IPP = ionosphere shell height (typically 450 km)<br/>
+          el = satellite elevation angle<br/><br/>
+          At el = 90° (zenith): MF = 1.0 (shortest path)<br/>
+          At el = 10°: MF ≈ 3.0 (three times more ionosphere)<br/>
+          At el = 5°:  MF ≈ 4.5 (four and a half times more)<br/><br/>
+          This is why low-elevation satellites have much larger ionospheric errors — and why
+          elevation masks matter. An elevation mask of 10° keeps MF below ~3.
+        </div>
+      </div>
+
+      <p>
+        The point where the signal path pierces the ionospheric shell is called the
+        <strong>Ionospheric Pierce Point (IPP)</strong>. Ionospheric corrections and models
+        are referenced to IPP coordinates, not the receiver position.
+      </p>
+
+      <!-- SECTION 4 -->
+      <h2 id="klobuchar">Klobuchar model (GPS)</h2>
+      <p>
+        The Klobuchar model (1987) is broadcast by GPS in the navigation message as 8 coefficients
+        (α₀–α₃ and β₀–β₃). It models the ionospheric delay as a half-cosine function that
+        peaks at 14:00 local time and uses a constant night-time value:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">I_v(t) = ⎧ 5×10⁻⁹ + A·cos(2π(t − 50400)/P)   if |t − 50400| &lt; P/4</div>
+        <div class="formula">         ⎩ 5×10⁻⁹                              otherwise</div>
+        <div class="formula-desc">
+          I_v = vertical ionospheric delay (seconds) at the IPP<br/>
+          t = local time at IPP (seconds of day, 0–86400)<br/>
+          A = amplitude = Σ αₙ · φ_mⁿ (φ_m = IPP geomagnetic latitude in semicircles)<br/>
+          P = period = Σ βₙ · φ_mⁿ (clamped to minimum 72,000 s)<br/>
+          50400 s = 14:00 local time (peak of the cosine)<br/>
+          5 ns (5×10⁻⁹ s) ≈ 1.5 m at L1 (night-time floor)<br/><br/>
+          Convert from seconds to metres: I_m = I_v × c × MF(el).
+          The Klobuchar model corrects approximately <strong>50% of the RMS</strong>
+          ionospheric delay — better than nothing, far worse than dual-frequency.
+        </div>
+      </div>
+
+      <div class="klobuchar-shape">
+        <div class="ks-title">Klobuchar delay profile over one day (typical mid-latitude)</div>
+        <svg viewBox="0 0 680 180" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <!-- Grid -->
+          <line x1="60" y1="20" x2="60" y2="150" stroke="var(--border)" stroke-width="0.5"/>
+          <line x1="60" y1="150" x2="640" y2="150" stroke="var(--border)" stroke-width="0.5"/>
+          <!-- Y axis labels -->
+          <text x="50" y="24" text-anchor="end" font-size="10" fill="var(--text3)" font-family="var(--mono)">10 m</text>
+          <text x="50" y="72" text-anchor="end" font-size="10" fill="var(--text3)" font-family="var(--mono)">5 m</text>
+          <text x="50" y="154" text-anchor="end" font-size="10" fill="var(--text3)" font-family="var(--mono)">0 m</text>
+          <!-- X axis labels -->
+          <text x="60" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">00:00</text>
+          <text x="190" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">06:00</text>
+          <text x="330" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">14:00</text>
+          <text x="450" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">18:00</text>
+          <text x="640" y="168" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">24:00</text>
+          <!-- Night floor left -->
+          <polyline points="60,143 190,143" fill="none" stroke="var(--accent2)" stroke-width="1.5"/>
+          <!-- Cosine peak centred at 14:00 (x=330) -->
+          <path d="M190,143 Q240,143 260,100 Q290,40 330,22 Q370,40 400,100 Q420,143 450,143" fill="none" stroke="var(--accent2)" stroke-width="1.5"/>
+          <!-- Night floor right -->
+          <polyline points="450,143 640,143" fill="none" stroke="var(--accent2)" stroke-width="1.5"/>
+          <!-- Fill under curve -->
+          <path d="M190,150 L190,143 Q240,143 260,100 Q290,40 330,22 Q370,40 400,100 Q420,143 450,143 L450,150 Z" fill="rgba(0,153,255,0.08)"/>
+          <!-- Peak label -->
+          <text x="330" y="16" text-anchor="middle" font-size="10" fill="var(--accent2)" font-family="var(--mono)">Peak ≈ 10 m</text>
+          <!-- Night label -->
+          <text x="120" y="137" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--mono)">1.5 m (night)</text>
+        </svg>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div>
+          <strong>Klobuchar correction quality:</strong> The model was designed to correct 50%
+          of the RMS delay at mid-latitudes. It performs poorly near the equatorial anomaly
+          (±15° magnetic latitude) where the ionosphere is most variable and structured.
+          During geomagnetic storms it may actually make things worse. Despite its limitations,
+          it is free, simple and available to all GPS receivers worldwide.
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <h2 id="nequick">NeQuick model (Galileo)</h2>
+      <p>
+        Galileo uses the <strong>NeQuick-G</strong> ionospheric model, an adaptation of the
+        NeQuick 2 research model. It is more physically realistic than Klobuchar because it
+        models the full 3D electron density profile of the ionosphere — not just a single
+        shell approximation.
+      </p>
+
+      <p>
+        Galileo broadcasts 3 coefficients (a₀, a₁, a₂) that define an effective ionisation
+        level parameter <em>Az</em>:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">Az = a₀ + a₁·μ + a₂·μ²</div>
+        <div class="formula-desc">
+          μ = modified dip latitude at the receiver (related to magnetic inclination)<br/>
+          Az is clamped to [0, 400] TECU and used as input to the NeQuick-G algorithm,
+          which numerically integrates the electron density profile along the signal path
+          to compute STEC directly — no mapping function required.
+        </div>
+      </div>
+
+      <div class="model-compare">
+        <div class="mc-row mc-header">
+          <span>Property</span>
+          <span>Klobuchar (GPS)</span>
+          <span>NeQuick-G (Galileo)</span>
+        </div>
+        <div class="mc-row">
+          <span>Broadcast coefficients</span>
+          <span>8 (α₀–α₃, β₀–β₃)</span>
+          <span>3 (a₀, a₁, a₂)</span>
+        </div>
+        <div class="mc-row">
+          <span>Ionosphere model</span>
+          <span>Single thin-shell at 350 km</span>
+          <span>Full 3D electron density profile</span>
+        </div>
+        <div class="mc-row">
+          <span>STEC computation</span>
+          <span>VTEC × mapping function</span>
+          <span>Direct numerical integration</span>
+        </div>
+        <div class="mc-row">
+          <span>Typical correction quality</span>
+          <span class="warn">~50% RMS reduction</span>
+          <span class="ok">~60–70% RMS reduction</span>
+        </div>
+        <div class="mc-row">
+          <span>Performance at low latitudes</span>
+          <span class="bad">Poor</span>
+          <span class="warn">Moderate</span>
+        </div>
+        <div class="mc-row">
+          <span>Computation complexity</span>
+          <span class="good">Simple arithmetic</span>
+          <span class="warn">Numerical integration</span>
+        </div>
+      </div>
+
+      <!-- SECTION 6 -->
+      <h2 id="iono-free">The ionosphere-free combination</h2>
+      <p>
+        For dual-frequency receivers, ionospheric delay is eliminated entirely — not modelled
+        but removed algebraically. Because the delay is proportional to 1/f², measurements
+        on two frequencies can be combined to cancel it:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">ρ_IF = (f₁² · ρ₁ − f₂² · ρ₂) / (f₁² − f₂²)</div>
+        <div class="formula-desc">
+          ρ_IF = ionosphere-free pseudorange (m)<br/>
+          ρ₁, ρ₂ = pseudoranges on frequency f₁ and f₂ (m)<br/>
+          f₁, f₂ = signal frequencies (Hz)<br/><br/>
+          For GPS L1/L2: f₁ = 1575.42 MHz, f₂ = 1227.60 MHz<br/>
+          Coefficients: α₁ = f₁²/(f₁²−f₂²) ≈ 2.546, α₂ = f₂²/(f₁²−f₂²) ≈ 1.546<br/>
+          ρ_IF = 2.546·ρ₁ − 1.546·ρ₂<br/><br/>
+          First-order ionospheric delay (the 40.3·TEC/f² term) is eliminated completely.
+          Second-order terms remain but are typically &lt;1 cm.
+        </div>
+      </div>
+
+      <h3>Noise amplification</h3>
+      <p>
+        The ionosphere-free combination amplifies measurement noise by a factor that depends on
+        the frequency ratio:
+      </p>
+
+      <div class="formula-block">
+        <div class="formula">σ_IF = √(α₁² + α₂²) · σ_single ≈ 2.98 · σ_single  (GPS L1/L2)</div>
+        <div class="formula-desc">
+          For GPS L1/L5: f₁ = 1575.42 MHz, f₂ = 1176.45 MHz → noise factor ≈ 2.59<br/>
+          The noise amplification is the price of eliminating the ionosphere.
+          For a pseudorange noise of 0.3 m, the ionosphere-free combination has noise of ~0.9 m.
+          This is still vastly better than the 5–30 m ionospheric delay it eliminates.
+        </div>
+      </div>
+
+      <div class="if-tradeoff">
+        <div class="if-col">
+          <div class="if-title">Single frequency L1</div>
+          <div class="if-errors">
+            <div class="if-err err-bad">Ionosphere: 3 – 30 m ❌</div>
+            <div class="if-err err-ok">Code noise: ~0.3 m</div>
+          </div>
+          <div class="if-total">Total error dominated by iono</div>
+        </div>
+        <div class="if-arrow">→ IF combination →</div>
+        <div class="if-col">
+          <div class="if-title">Dual frequency (IF)</div>
+          <div class="if-errors">
+            <div class="if-err err-good">Ionosphere: &lt;0.01 m ✓</div>
+            <div class="if-err err-warn">IF noise: ~0.9 m (amplified)</div>
+          </div>
+          <div class="if-total">Noise-limited, not iono-limited</div>
+        </div>
+      </div>
+
+      <!-- SECTION 7 -->
+      <h2 id="higher-order">Higher-order effects</h2>
+      <p>
+        The ionospheric delay expression I = 40.3·TEC/f² is the first-order approximation.
+        Higher-order terms become significant for centimetre-level positioning:
+      </p>
+
+      <div class="higher-order-table">
+        <div class="ho-row ho-header">
+          <span>Order</span>
+          <span>Term</span>
+          <span>Magnitude (L1)</span>
+          <span>Relevance</span>
+        </div>
+        <div class="ho-row">
+          <span>1st</span>
+          <span>40.3·TEC / f²</span>
+          <span class="bad">~1–30 m</span>
+          <span>Eliminated by IF combination</span>
+        </div>
+        <div class="ho-row">
+          <span>2nd</span>
+          <span>∝ TEC · B_geomagnetic / f³</span>
+          <span class="warn">~1–10 cm</span>
+          <span>Important for PPP at sub-cm level</span>
+        </div>
+        <div class="ho-row">
+          <span>3rd</span>
+          <span>∝ TEC² / f⁴</span>
+          <span class="good">&lt;1 mm</span>
+          <span>Negligible for most applications</span>
+        </div>
+      </div>
+
+      <p>
+        The second-order term depends on the Earth's magnetic field strength and orientation —
+        it cannot be eliminated by the standard ionosphere-free combination. For geodetic
+        applications requiring sub-centimetre accuracy, second-order ionospheric corrections
+        are applied using geomagnetic field models (IGRF) and precise TEC maps.
+      </p>
+
+      <!-- SECTION 8 - SUMMARY -->
+      <h2 id="summary">Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon">📡</div>
+          <div class="summary-title">Delay ∝ TEC/f²</div>
+          <div class="summary-body">Ionospheric delay is proportional to Total Electron Content and inversely proportional to frequency squared. Code is delayed; carrier phase is advanced by the same magnitude.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🌐</div>
+          <div class="summary-title">Klobuchar — free, ~50% correction</div>
+          <div class="summary-body">GPS broadcasts 8 Klobuchar coefficients. Half-cosine diurnal model. Corrects ~50% of RMS delay at mid-latitudes. Free, simple, but poor at equatorial latitudes and during storms.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">🛰️</div>
+          <div class="summary-title">NeQuick — Galileo's improvement</div>
+          <div class="summary-body">3-coefficient 3D model with direct STEC integration. ~60–70% RMS correction. Better than Klobuchar, especially at low latitudes. Still single-frequency limited.</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">2️⃣</div>
+          <div class="summary-title">IF combination — full elimination</div>
+          <div class="summary-body">ρ_IF = (f₁²·ρ₁ − f₂²·ρ₂)/(f₁²−f₂²). Eliminates first-order iono completely. Noise amplified ~3×. Still the best option — removes 30 m of error at the cost of 0.6 m of extra noise.</div>
+        </div>
+      </div>
+
+      <div class="nav-footer">
+        <a href="/learn/mathematics/ambiguity-resolution" class="nav-prev">← Ambiguity Resolution</a>
+        <a href="/learn/mathematics/coordinate-transforms" class="nav-next">Coordinate Transforms →</a>
+      </div>
+
+      <div class="references" id="references">
+        <h3>References and further reading</h3>
+        <ul>
+          <li>Klobuchar, J. A. (1987). Ionospheric time-delay algorithm for single-frequency GPS users. <em>IEEE Transactions on Aerospace and Electronic Systems</em>, 23(3), 325–331.</li>
+          <li>Nava, B., Coïsson, P. & Radicella, S. M. (2008). A new version of the NeQuick ionosphere electron density model. <em>Journal of Atmospheric and Solar-Terrestrial Physics</em>, 70(15), 1856–1862.</li>
+          <li>Galileo OS SIS ICD — NeQuick-G ionospheric model specification. <a href="https://www.gsc-europa.eu" target="_blank" rel="noopener noreferrer">GSC Europa →</a></li>
+          <li>Hofmann-Wellenhof, B., Lichtenegger, H. & Wasle, E. (2008). <em>GNSS — Global Navigation Satellite Systems</em>. Springer. Chapter 5.</li>
+          <li>Teunissen, P. J. G. & Montenbruck, O. (eds.) (2017). <em>Springer Handbook of Global Navigation Satellite Systems</em>. Chapter 19.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .learn-container { max-width: 820px; }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); margin-bottom: 28px; flex-wrap: wrap; }
+  .breadcrumb a { color: var(--text2); transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .article-header { margin-bottom: 36px; }
+  h1 { font-size: clamp(24px, 4vw, 38px); font-weight: 700; margin: 10px 0 16px; line-height: 1.2; }
+  h2 { font-size: 22px; font-weight: 700; margin: 40px 0 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+  .lead { font-size: 17px; color: var(--text2); line-height: 1.8; margin-bottom: 12px; max-width: 720px; }
+  .article-meta { font-size: 12px; color: var(--text3); font-family: var(--mono); display: flex; gap: 8px; }
+  p { font-size: 15px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  ul { font-size: 15px; color: var(--text2); line-height: 1.8; padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 600; }
+  em { font-style: italic; }
+  a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .callout { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 24px 0; font-size: 14px; line-height: 1.7; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-info { background: rgba(0,153,255,0.06); border: 1px solid rgba(0,153,255,0.18); color: var(--text2); }
+  .callout strong { color: var(--text); }
+
+  .formula-block { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; overflow-x: auto; }
+  .formula { font-family: var(--mono); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.8; white-space: pre; }
+  .formula-desc { font-size: 13px; color: var(--text3); line-height: 1.7; margin-top: 10px; }
+
+  .diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 24px 0; }
+  .diagram-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* TEC table */
+  .tec-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .tt-row { display: grid; grid-template-columns: 200px 100px 1fr 1fr; gap: 10px; padding: 9px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .tt-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .good { color: var(--accent); }
+  .ok { color: #a3e635; }
+  .warn { color: #fbbf24; }
+  .bad { color: #ff4757; }
+
+  /* Klobuchar shape */
+  .klobuchar-shape { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 20px 0; }
+  .ks-title { font-size: 12px; font-weight: 600; color: var(--text3); font-family: var(--mono); margin-bottom: 8px; }
+
+  /* Model compare */
+  .model-compare { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .mc-row { display: grid; grid-template-columns: 200px 1fr 1fr; gap: 10px; padding: 9px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: baseline; }
+  .mc-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .mc-row span:first-child { font-weight: 500; color: var(--text); }
+
+  /* IF tradeoff */
+  .if-tradeoff { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin: 16px 0; }
+  .if-col { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .if-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  .if-errors { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .if-err { font-size: 13px; font-family: var(--mono); padding: 4px 8px; border-radius: 4px; }
+  .err-bad { background: rgba(255,71,87,0.1); color: #ff4757; }
+  .err-ok { background: var(--bg3); color: var(--text3); }
+  .err-good { background: rgba(0,212,170,0.1); color: var(--accent); }
+  .err-warn { background: rgba(251,191,36,0.1); color: #fbbf24; }
+  .if-total { font-size: 12px; color: var(--text3); padding-top: 8px; border-top: 1px solid var(--border); }
+  .if-arrow { font-size: 13px; color: var(--accent2); text-align: center; font-family: var(--mono); white-space: nowrap; }
+
+  /* Higher order table */
+  .higher-order-table { display: flex; flex-direction: column; gap: 2px; margin: 16px 0; }
+  .ho-row { display: grid; grid-template-columns: 60px 200px 120px 1fr; gap: 10px; padding: 9px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: baseline; }
+  .ho-header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); background: var(--bg3); }
+  .ho-row span:nth-child(2) { font-family: var(--mono); font-size: 12px; color: var(--accent2); }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0; }
+  .summary-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .summary-icon { font-size: 22px; margin-bottom: 10px; }
+  .summary-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .summary-body { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+  .nav-footer { display: flex; justify-content: space-between; margin: 48px 0 32px; flex-wrap: wrap; gap: 12px; }
+  .nav-prev, .nav-next { font-size: 14px; color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+
+  .references { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 8px; }
+  .references h3 { font-size: 14px; font-weight: 600; color: var(--text3); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .references ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .references li { font-size: 13px; color: var(--text3); line-height: 1.6; padding-left: 16px; border-left: 2px solid var(--border); }
+  .references a { color: var(--accent2); }
+
+  @media (max-width: 640px) {
+    .if-tradeoff { grid-template-columns: 1fr; }
+    .if-arrow { transform: none; }
+    .tt-row { grid-template-columns: 1fr 1fr; }
+    .tt-row span:nth-child(3), .tt-row span:last-child { display: none; }
+    .mc-row { grid-template-columns: 1fr 1fr; }
+    .ho-row { grid-template-columns: 50px 1fr; }
+    .ho-row span:nth-child(3), .ho-row span:last-child { display: none; }
+    .summary-grid { grid-template-columns: 1fr; }
+    h2 { font-size: 20px; }
+  }
+</style>
