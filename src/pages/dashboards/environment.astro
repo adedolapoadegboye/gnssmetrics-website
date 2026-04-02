@@ -319,17 +319,17 @@ const chartScript = document.createElement('script');
     try {
       return JSON.parse(text);
     } catch (e) {
-      throw new Error(`Invalid JSON from ${url}: ${text.slice(0, 120)}`);
+      throw new Error(`Invalid JSON from ${url}: ${text.slice(0, 200)}`);
     }
   }
 
   function kpToStormLevel(kp) {
-    if (kp >= 9) return { level: 5, label: 'G5 — Extreme',   color: '#ff4757' };
-    if (kp >= 8) return { level: 4, label: 'G4 — Severe',    color: '#f87171' };
-    if (kp >= 7) return { level: 3, label: 'G3 — Strong',    color: '#f0a500' };
-    if (kp >= 6) return { level: 2, label: 'G2 — Moderate',  color: '#fbbf24' };
-    if (kp >= 5) return { level: 1, label: 'G1 — Minor',     color: '#a3e635' };
-    return              { level: 0, label: 'G0 — Quiet',     color: '#00d4aa' };
+    if (kp >= 9) return { level: 5, label: 'G5 — Extreme',  color: '#ff4757' };
+    if (kp >= 8) return { level: 4, label: 'G4 — Severe',   color: '#f87171' };
+    if (kp >= 7) return { level: 3, label: 'G3 — Strong',   color: '#f0a500' };
+    if (kp >= 6) return { level: 2, label: 'G2 — Moderate', color: '#fbbf24' };
+    if (kp >= 5) return { level: 1, label: 'G1 — Minor',    color: '#a3e635' };
+    return              { level: 0, label: 'G0 — Quiet',    color: '#00d4aa' };
   }
 
   function kpToGnssImpact(kp) {
@@ -353,18 +353,52 @@ const chartScript = document.createElement('script');
     return '#00d4aa';
   }
 
+  // Extract Kp value from a row — handles both old array format and new object format
+  function rowKp(row) {
+    if (Array.isArray(row)) {
+      // Old format: ["2026-01-14 00:00:00.000", "1.67", ...]
+      if (row[0] === 'time_tag') return NaN; // header row
+      return parseFloat(row[1]);
+    }
+    // New format: {"time_tag": "...", "Kp": 2.67, ...}
+    return parseFloat(row.Kp ?? row.kp ?? NaN);
+  }
+
+  // Extract timestamp string from a row
+  function rowTime(row) {
+    if (Array.isArray(row)) return String(row[0]);
+    return String(row.time_tag ?? row.time ?? '');
+  }
+
+  // Normalise: remove header row if present (old format only)
+  function normaliseKpData(data) {
+    if (!Array.isArray(data) || data.length === 0) return [];
+    // Old format has a header array as first element
+    if (Array.isArray(data[0]) && data[0][0] === 'time_tag') return data.slice(1);
+    // New format — all rows are objects, no header to remove
+    return data;
+  }
+
   function dailyMaxKp(rows) {
     const byDay = {};
     for (const row of rows) {
-      if (!Array.isArray(row) || row.length < 2) continue;
-      const day = String(row[0]).slice(0, 10);
-      const kp = parseFloat(row[1]);
+      const kp = rowKp(row);
       if (isNaN(kp)) continue;
+      const day = rowTime(row).slice(0, 10);
+      if (!day) continue;
       if (!byDay[day] || kp > byDay[day]) byDay[day] = kp;
     }
     return Object.entries(byDay)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .slice(-7);
+  }
+
+  function getLatestKp(rows) {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const kp = rowKp(rows[i]);
+      if (!isNaN(kp)) return kp;
+    }
+    return null;
   }
 
   function formatDay(dateStr) {
@@ -374,46 +408,29 @@ const chartScript = document.createElement('script');
 
   function extractFlux(row) {
     if (!row) return 0;
-    const val = row.flux ?? row.flux_long ?? row.observed_flux ?? row.electron_flux ?? 0;
+    const val = row.flux ?? row.flux_long ?? row.observed_flux ?? 0;
     const parsed = parseFloat(val);
     return isNaN(parsed) ? 0 : parsed;
   }
 
-  // Find the most recent valid Kp row — scan backward from the end
-  function getLatestKp(rows) {
-    for (let i = rows.length - 1; i >= 0; i--) {
-      const row = rows[i];
-      if (!Array.isArray(row) || row.length < 2) continue;
-      // Skip the header row
-      if (row[0] === 'time_tag') continue;
-      const kp = parseFloat(row[1]);
-      if (!isNaN(kp)) return kp;
-    }
-    return null;
-  }
-
   async function initDashboard() {
     try {
-      const [kpData, xrayData] = await Promise.all([
+      const [kpRaw, xrayData] = await Promise.all([
         fetchJSON('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
         fetchJSON('https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json'),
       ]);
 
-      // Validate Kp
-      if (!Array.isArray(kpData) || kpData.length < 2) {
-        throw new Error(`Unexpected Kp response type: ${typeof kpData}`);
+      if (!Array.isArray(kpRaw) || kpRaw.length === 0) {
+        throw new Error(`Unexpected Kp format: ${JSON.stringify(kpRaw).slice(0, 100)}`);
+      }
+      if (!Array.isArray(xrayData) || xrayData.length === 0) {
+        throw new Error(`Unexpected X-ray format: ${typeof xrayData}`);
       }
 
-      // Skip header row — find most recent valid Kp
-      const kpRows = kpData.slice(1);
+      const kpRows = normaliseKpData(kpRaw);
       const currentKp = getLatestKp(kpRows);
       if (currentKp === null) {
-        throw new Error(`No valid Kp values found in ${kpRows.length} rows`);
-      }
-
-      // Validate X-ray
-      if (!Array.isArray(xrayData) || xrayData.length === 0) {
-        throw new Error(`Unexpected X-ray response type: ${typeof xrayData}`);
+        throw new Error(`No valid Kp in ${kpRows.length} rows. Sample: ${JSON.stringify(kpRows.slice(-2))}`);
       }
 
       // Show dashboard
@@ -458,7 +475,6 @@ const chartScript = document.createElement('script');
       if (dailyKp.length > 0) {
         const kpLabels = dailyKp.map(d => formatDay(d[0]));
         const kpValues = dailyKp.map(d => d[1]);
-
         new Chart(document.getElementById('kpChart'), {
           type: 'bar',
           data: {
@@ -494,11 +510,10 @@ const chartScript = document.createElement('script');
         });
       }
 
-      // X-ray latest value
+      // X-ray latest
       const latestXrayRow = xrayData[xrayData.length - 1];
       const latestXray = extractFlux(latestXrayRow);
       const xClass = xrayToClass(latestXray);
-
       document.getElementById('xrayFlux').textContent = latestXray > 0 ? latestXray.toExponential(1) : 'N/A';
       document.getElementById('xrayFlux').style.color = xClass.color;
       document.getElementById('xrayClassLabel').textContent = `Class ${xClass.label} — ${
@@ -513,14 +528,12 @@ const chartScript = document.createElement('script');
       // X-ray chart
       const step = Math.max(1, Math.floor(xrayData.length / 120));
       const xraySample = xrayData.filter((_, i) => i % step === 0);
-
       const xrayLabels = xraySample.map(r => {
         const ts = r.time_tag || r.time || '';
         const d = new Date(ts);
         if (isNaN(d)) return '';
         return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${d.getUTCHours().toString().padStart(2,'0')}:00`;
       });
-
       new Chart(document.getElementById('xrayChart'), {
         type: 'line',
         data: {

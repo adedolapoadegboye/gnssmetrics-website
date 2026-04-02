@@ -1,0 +1,567 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="GNSS Time Converter">
+  <section class="section">
+    <div class="container">
+
+      <a href="/tools" class="back">← All tools</a>
+
+      <div class="tool-header">
+        <span class="badge">Tool</span>
+        <h1>GNSS Time Converter</h1>
+        <p class="sub">
+          Convert between any GNSS time format. Enter a value in any field — all others update instantly.
+          Handles leap seconds, GPS week rollover, and all constellation epochs.
+        </p>
+      </div>
+
+      <!-- CURRENT TIME BANNER -->
+      <div class="now-banner">
+        <div class="now-label">Current time</div>
+        <div class="now-values" id="nowValues">Loading...</div>
+        <button class="now-btn" id="loadNowBtn">Load current time</button>
+      </div>
+
+      <!-- INPUT GRID -->
+      <div class="converter-grid">
+
+        <!-- LEFT: GNSS formats -->
+        <div class="conv-group">
+          <div class="group-title">GNSS Time Formats</div>
+
+          <div class="conv-section">
+            <div class="section-label">GPS / Galileo / QZSS</div>
+            <div class="field-row">
+              <label>Week Number (WN)</label>
+              <input type="number" id="gpsWN" placeholder="e.g. 2310" min="0" max="9999" />
+            </div>
+            <div class="field-row">
+              <label>Time of Week (TOW)</label>
+              <input type="number" id="gpsTOW" placeholder="0 – 604799 s" min="0" max="604799" step="1" />
+            </div>
+            <div class="field-note">GPS epoch: Jan 6, 1980 · Galileo epoch: Aug 22, 1999 (GST = GPST + 0 s nominally)</div>
+          </div>
+
+          <div class="conv-section">
+            <div class="section-label">BeiDou (BDT)</div>
+            <div class="field-row">
+              <label>BDT Week Number</label>
+              <input type="number" id="bdsWN" placeholder="e.g. 954" min="0" max="9999" />
+            </div>
+            <div class="field-row">
+              <label>BDT Time of Week</label>
+              <input type="number" id="bdsTOW" placeholder="0 – 604799 s" min="0" max="604799" step="1" />
+            </div>
+            <div class="field-note">BDT epoch: Jan 1, 2006 · BDT = GPS − 14 s</div>
+          </div>
+
+          <div class="conv-section">
+            <div class="section-label">GLONASS</div>
+            <div class="field-row">
+              <label>4-year cycle number (N4)</label>
+              <input type="number" id="gloN4" placeholder="e.g. 8" min="1" />
+            </div>
+            <div class="field-row">
+              <label>Day within 4-year cycle (NT)</label>
+              <input type="number" id="gloNT" placeholder="1 – 1461" min="1" max="1461" />
+            </div>
+            <div class="field-row">
+              <label>Seconds of day (UTC + 3h)</label>
+              <input type="number" id="gloTOD" placeholder="0 – 86399 s" min="0" max="86399" step="1" />
+            </div>
+            <div class="field-note">GLONASS epoch: Jan 1, 1996 · GLONASST = UTC + 3h (includes leap seconds)</div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Calendar / standard formats -->
+        <div class="conv-group">
+          <div class="group-title">Calendar &amp; Standard Formats</div>
+
+          <div class="conv-section">
+            <div class="section-label">UTC (Coordinated Universal Time)</div>
+            <div class="field-row">
+              <label>UTC Date &amp; Time</label>
+              <input type="datetime-local" id="utcDatetime" step="1" />
+            </div>
+            <div class="field-note">UTC = GPS − 18 s (as of 2024) · Includes leap seconds</div>
+          </div>
+
+          <div class="conv-section">
+            <div class="section-label">Unix &amp; Julian</div>
+            <div class="field-row">
+              <label>Unix Timestamp (s)</label>
+              <input type="number" id="unixTs" placeholder="e.g. 1735689600" step="1" />
+            </div>
+            <div class="field-row">
+              <label>Julian Date (JD)</label>
+              <input type="number" id="jd" placeholder="e.g. 2460310.5" step="0.000001" />
+            </div>
+            <div class="field-row">
+              <label>Modified Julian Date (MJD)</label>
+              <input type="number" id="mjd" placeholder="e.g. 60310.0" step="0.000001" />
+            </div>
+          </div>
+
+          <div class="conv-section">
+            <div class="section-label">Day of Year</div>
+            <div class="field-row">
+              <label>Year</label>
+              <input type="number" id="doyYear" placeholder="e.g. 2026" min="1980" max="2099" />
+            </div>
+            <div class="field-row">
+              <label>Day of Year (DOY)</label>
+              <input type="number" id="doy" placeholder="1 – 365/366" min="1" max="366" />
+            </div>
+            <div class="field-row">
+              <label>Second of day (UTC)</label>
+              <input type="number" id="doySOD" placeholder="0 – 86399 s" min="0" max="86399" step="1" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CONTROLS -->
+      <div class="controls">
+        <button class="btn-clear" id="clearBtn">Clear all</button>
+        <div class="leap-info" id="leapInfo"></div>
+      </div>
+
+      <!-- REFERENCE TABLE -->
+      <div class="ref-section">
+        <div class="ref-title">Constellation Epoch Reference</div>
+        <div class="ref-table">
+          <div class="ref-row ref-header">
+            <span>System</span>
+            <span>Epoch (UTC)</span>
+            <span>Leap seconds</span>
+            <span>Offset from GPS</span>
+            <span>Week rollover</span>
+          </div>
+          <div class="ref-row">
+            <span class="ref-sys">GPS</span>
+            <span>Jan 6, 1980 00:00:00</span>
+            <span class="bad">No</span>
+            <span class="mono">reference</span>
+            <span>10-bit: ~19.7 yr · CNAV 13-bit: safe to 2137</span>
+          </div>
+          <div class="ref-row">
+            <span class="ref-sys">Galileo (GST)</span>
+            <span>Aug 22, 1999 00:00:00</span>
+            <span class="bad">No</span>
+            <span class="mono">GPS + 0 s (nominally)</span>
+            <span>12-bit WN, no near-term rollover</span>
+          </div>
+          <div class="ref-row">
+            <span class="ref-sys">BeiDou (BDT)</span>
+            <span>Jan 1, 2006 00:00:00</span>
+            <span class="bad">No</span>
+            <span class="mono">GPS − 14 s</span>
+            <span>13-bit WN, safe to ~2157</span>
+          </div>
+          <div class="ref-row">
+            <span class="ref-sys">GLONASS</span>
+            <span>Jan 1, 1996 00:00:00</span>
+            <span class="good">Yes</span>
+            <span class="mono">UTC + 3h (Moscow)</span>
+            <span>4-year cycle (NT = 1–1461)</span>
+          </div>
+          <div class="ref-row">
+            <span class="ref-sys">QZSS</span>
+            <span>Jan 6, 1980 00:00:00</span>
+            <span class="bad">No</span>
+            <span class="mono">GPS + 0 s (identical)</span>
+            <span>Same as GPS</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEAP SECOND HISTORY -->
+      <div class="ref-section">
+        <div class="ref-title">GPS–UTC Leap Second History</div>
+        <div class="leap-grid" id="leapGrid"></div>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<script>
+// ─── Leap second table ────────────────────────────────────────────────────────
+// Each entry: [UTC date when leap second takes effect, GPS-UTC offset after that date]
+const LEAP_SECONDS = [
+  ['1980-01-06', 0],
+  ['1981-07-01', 1],
+  ['1982-07-01', 2],
+  ['1983-07-01', 3],
+  ['1985-07-01', 4],
+  ['1988-01-01', 5],
+  ['1990-01-01', 6],
+  ['1991-01-01', 7],
+  ['1992-07-01', 8],
+  ['1993-07-01', 9],
+  ['1994-07-01', 10],
+  ['1996-01-01', 11],
+  ['1997-07-01', 12],
+  ['1999-01-01', 13],
+  ['2006-01-01', 14],
+  ['2009-01-01', 15],
+  ['2012-07-01', 16],
+  ['2015-07-01', 17],
+  ['2017-01-01', 18],
+];
+
+const GPS_EPOCH_MS    = Date.UTC(1980, 0, 6, 0, 0, 0);  // Jan 6, 1980
+const GALILEO_EPOCH_MS = Date.UTC(1999, 7, 22, 0, 0, 0); // Aug 22, 1999
+const BDS_EPOCH_MS    = Date.UTC(2006, 0, 1, 0, 0, 0);   // Jan 1, 2006
+const GLONASS_EPOCH_MS = Date.UTC(1996, 0, 1, 0, 0, 0);  // Jan 1, 1996
+const JD_UNIX_OFFSET  = 2440587.5;  // JD of Unix epoch (Jan 1, 1970 00:00:00 UTC)
+const GPS_JD_EPOCH    = 2444244.5;  // JD of GPS epoch
+const SECS_PER_WEEK   = 604800;
+const MS_PER_WEEK     = SECS_PER_WEEK * 1000;
+
+// Get GPS-UTC offset (leap seconds) for a given UTC timestamp (ms)
+function leapSecondsAtUtcMs(utcMs) {
+  let ls = 0;
+  for (const [dateStr, offset] of LEAP_SECONDS) {
+    if (utcMs >= Date.parse(dateStr + 'T00:00:00Z')) ls = offset;
+    else break;
+  }
+  return ls;
+}
+
+// Convert UTC ms to GPS ms (GPS time = UTC + leap seconds, no leap second discontinuities)
+function utcMsToGpsMs(utcMs) {
+  const ls = leapSecondsAtUtcMs(utcMs);
+  return utcMs - GPS_EPOCH_MS + ls * 1000;
+}
+
+// Convert GPS ms (since GPS epoch) to UTC ms
+function gpsMsToUtcMs(gpsMs) {
+  // GPS ms is continuous — find leap seconds by iteration
+  // Estimate UTC first, then refine
+  let utcMs = gpsMs + GPS_EPOCH_MS;
+  const ls = leapSecondsAtUtcMs(utcMs);
+  utcMs = gpsMs + GPS_EPOCH_MS - ls * 1000;
+  // Verify (could be right at a leap second boundary)
+  const ls2 = leapSecondsAtUtcMs(utcMs);
+  if (ls2 !== ls) utcMs = gpsMs + GPS_EPOCH_MS - ls2 * 1000;
+  return utcMs;
+}
+
+// GPS week + TOW from GPS ms
+function gpsMsToWeekTow(gpsMs) {
+  const wn = Math.floor(gpsMs / MS_PER_WEEK);
+  const tow = (gpsMs % MS_PER_WEEK) / 1000;
+  return { wn, tow };
+}
+
+// GPS ms from week + TOW
+function weekTowToGpsMs(wn, tow) {
+  return wn * MS_PER_WEEK + tow * 1000;
+}
+
+// Day of year from UTC Date
+function utcToDoy(d) {
+  const start = Date.UTC(d.getUTCFullYear(), 0, 1);
+  return Math.floor((d.getTime() - start) / 86400000) + 1;
+}
+
+// UTC ms from year + DOY + SOD
+function doyToUtcMs(year, doy, sod) {
+  const jan1 = Date.UTC(year, 0, 1);
+  return jan1 + (doy - 1) * 86400000 + sod * 1000;
+}
+
+// Julian Date from UTC ms
+function utcMsToJd(utcMs) {
+  return utcMs / 86400000 + JD_UNIX_OFFSET;
+}
+
+// UTC ms from JD
+function jdToUtcMs(jd) {
+  return (jd - JD_UNIX_OFFSET) * 86400000;
+}
+
+// BDT WN + TOW from UTC ms (BDT = GPS − 14 s)
+function utcMsToBdt(utcMs) {
+  const ls = leapSecondsAtUtcMs(utcMs);
+  const gpsMs = utcMs - GPS_EPOCH_MS + ls * 1000;
+  const bdtMs = gpsMs - (BDS_EPOCH_MS - GPS_EPOCH_MS) - 14000; // BDT = GPS - 14s
+  const wn = Math.floor(bdtMs / MS_PER_WEEK);
+  const tow = (bdtMs % MS_PER_WEEK) / 1000;
+  return { wn: Math.max(0, wn), tow: Math.max(0, tow) };
+}
+
+// UTC ms from BDT WN + TOW
+function bdtToUtcMs(wn, tow) {
+  const bdtMs = wn * MS_PER_WEEK + tow * 1000;
+  // BDT ms since BDT epoch → GPS ms since GPS epoch
+  const gpsMs = bdtMs + (BDS_EPOCH_MS - GPS_EPOCH_MS) + 14000;
+  return gpsMsToUtcMs(gpsMs);
+}
+
+// GLONASS N4 + NT + TOD from UTC ms
+function utcMsToGlonass(utcMs) {
+  // GLONASS time = UTC + 3 hours (Moscow Standard Time)
+  const moscowMs = utcMs + 3 * 3600000;
+  const gloEpochMs = GLONASS_EPOCH_MS + 3 * 3600000; // GLONASS epoch in Moscow time
+  const diffMs = moscowMs - gloEpochMs;
+  const totalDays = Math.floor(diffMs / 86400000);
+  const n4 = Math.floor(totalDays / 1461) + 1; // 4-year cycles (1-indexed)
+  const nt = (totalDays % 1461) + 1;           // day within cycle (1-indexed)
+  const tod = ((diffMs % 86400000) / 1000);     // seconds of day
+  return { n4, nt, tod: Math.floor(tod) };
+}
+
+// UTC ms from GLONASS N4 + NT + TOD
+function glonassToUtcMs(n4, nt, tod) {
+  const gloEpochMs = GLONASS_EPOCH_MS + 3 * 3600000;
+  const totalDays = (n4 - 1) * 1461 + (nt - 1);
+  const moscowMs = gloEpochMs + totalDays * 86400000 + tod * 1000;
+  return moscowMs - 3 * 3600000;
+}
+
+// Format UTC ms as datetime-local string (YYYY-MM-DDTHH:MM:SS)
+function utcMsToDatetimeLocal(utcMs) {
+  const d = new Date(utcMs);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+}
+
+// ─── DOM helpers ──────────────────────────────────────────────────────────────
+function val(id) { return document.getElementById(id)?.value?.trim() ?? ''; }
+function setVal(id, v) { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = v; }
+function numVal(id) { const v = parseFloat(val(id)); return isNaN(v) ? null : v; }
+
+// ─── Fill all fields from a UTC timestamp in ms ───────────────────────────────
+function fillFromUtcMs(utcMs) {
+  if (!isFinite(utcMs) || utcMs < GPS_EPOCH_MS) return;
+
+  const ls = leapSecondsAtUtcMs(utcMs);
+  const gpsMs = utcMs - GPS_EPOCH_MS + ls * 1000;
+  const { wn: gpsWN, tow: gpsTOW } = gpsMsToWeekTow(gpsMs);
+  const bdt = utcMsToBdt(utcMs);
+  const glo = utcMsToGlonass(utcMs);
+  const jd = utcMsToJd(utcMs);
+  const d = new Date(utcMs);
+  const doy = utcToDoy(d);
+  const sod = d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds();
+
+  setVal('gpsWN', gpsWN);
+  setVal('gpsTOW', gpsTOW.toFixed(0));
+  setVal('bdsWN', bdt.wn);
+  setVal('bdsTOW', bdt.tow.toFixed(0));
+  setVal('gloN4', glo.n4);
+  setVal('gloNT', glo.nt);
+  setVal('gloTOD', glo.tod);
+  setVal('utcDatetime', utcMsToDatetimeLocal(utcMs));
+  setVal('unixTs', Math.floor(utcMs / 1000));
+  setVal('jd', jd.toFixed(6));
+  setVal('mjd', (jd - 2400000.5).toFixed(6));
+  setVal('doyYear', d.getUTCFullYear());
+  setVal('doy', doy);
+  setVal('doySOD', sod);
+
+  // Update leap second info
+  const infoEl = document.getElementById('leapInfo');
+  if (infoEl) {
+    infoEl.textContent = `GPS−UTC offset: ${ls} s · TAI−UTC offset: ${ls + 19} s`;
+  }
+
+  // Check for week rollover warning
+  const warnEl = document.getElementById('rolloverWarn');
+  if (warnEl) {
+    if (gpsWN > 1023) {
+      const rollovers = Math.floor(gpsWN / 1024);
+      warnEl.textContent = `⚠️ GPS week ${gpsWN} has experienced ${rollovers} rollover${rollovers > 1 ? 's' : ''} since 1980. Legacy 10-bit receivers would read WN as ${gpsWN % 1024}.`;
+      warnEl.style.display = 'block';
+    } else {
+      warnEl.style.display = 'none';
+    }
+  }
+}
+
+// ─── Event listeners ──────────────────────────────────────────────────────────
+let busy = false;
+
+function handleChange(sourceId) {
+  if (busy) return;
+  busy = true;
+
+  try {
+    let utcMs = null;
+
+    if (sourceId === 'gpsWN' || sourceId === 'gpsTOW') {
+      const wn = numVal('gpsWN'), tow = numVal('gpsTOW');
+      if (wn !== null && tow !== null) {
+        const gpsMs = weekTowToGpsMs(wn, tow);
+        utcMs = gpsMsToUtcMs(gpsMs);
+      }
+    } else if (sourceId === 'bdsWN' || sourceId === 'bdsTOW') {
+      const wn = numVal('bdsWN'), tow = numVal('bdsTOW');
+      if (wn !== null && tow !== null) utcMs = bdtToUtcMs(wn, tow);
+    } else if (sourceId === 'gloN4' || sourceId === 'gloNT' || sourceId === 'gloTOD') {
+      const n4 = numVal('gloN4'), nt = numVal('gloNT'), tod = numVal('gloTOD');
+      if (n4 !== null && nt !== null && tod !== null) utcMs = glonassToUtcMs(n4, nt, tod);
+    } else if (sourceId === 'utcDatetime') {
+      const v = val('utcDatetime');
+      if (v) utcMs = new Date(v + 'Z').getTime();
+    } else if (sourceId === 'unixTs') {
+      const v = numVal('unixTs');
+      if (v !== null) utcMs = v * 1000;
+    } else if (sourceId === 'jd') {
+      const v = numVal('jd');
+      if (v !== null) utcMs = jdToUtcMs(v);
+    } else if (sourceId === 'mjd') {
+      const v = numVal('mjd');
+      if (v !== null) utcMs = jdToUtcMs(v + 2400000.5);
+    } else if (sourceId === 'doyYear' || sourceId === 'doy' || sourceId === 'doySOD') {
+      const year = numVal('doyYear'), doy = numVal('doy'), sod = numVal('doySOD') ?? 0;
+      if (year !== null && doy !== null) utcMs = doyToUtcMs(year, doy, sod);
+    }
+
+    if (utcMs !== null && isFinite(utcMs)) fillFromUtcMs(utcMs);
+  } catch(e) {
+    // silently ignore conversion errors from partially-typed input
+  }
+
+  busy = false;
+}
+
+// Attach listeners
+const inputIds = ['gpsWN','gpsTOW','bdsWN','bdsTOW','gloN4','gloNT','gloTOD',
+                  'utcDatetime','unixTs','jd','mjd','doyYear','doy','doySOD'];
+
+document.addEventListener('DOMContentLoaded', () => {
+  inputIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => handleChange(id));
+  });
+
+  // Clear button
+  document.getElementById('clearBtn')?.addEventListener('click', () => {
+    inputIds.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const leapEl = document.getElementById('leapInfo');
+    if (leapEl) leapEl.textContent = '';
+    const warnEl = document.getElementById('rolloverWarn');
+    if (warnEl) warnEl.style.display = 'none';
+  });
+
+  // Load now button
+  document.getElementById('loadNowBtn')?.addEventListener('click', () => {
+    fillFromUtcMs(Date.now());
+  });
+
+  // Update the "now" banner every second
+  function updateNow() {
+    const now = Date.now();
+    const ls = leapSecondsAtUtcMs(now);
+    const gpsMs = now - GPS_EPOCH_MS + ls * 1000;
+    const { wn, tow } = gpsMsToWeekTow(gpsMs);
+    const d = new Date(now);
+    const pad = n => String(n).padStart(2, '0');
+    const utcStr = `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
+    const gpsStr = `GPS WN ${wn} TOW ${Math.floor(tow)} s`;
+    const unixStr = `Unix ${Math.floor(now/1000)}`;
+    const el = document.getElementById('nowValues');
+    if (el) el.innerHTML = `<span>${utcStr}</span><span class="sep">·</span><span>${gpsStr}</span><span class="sep">·</span><span>${unixStr}</span>`;
+  }
+  updateNow();
+  setInterval(updateNow, 1000);
+
+  // Build leap second grid
+  const grid = document.getElementById('leapGrid');
+  if (grid) {
+    grid.innerHTML = LEAP_SECONDS.slice(1).map(([date, offset]) => `
+      <div class="ls-item">
+        <div class="ls-date">${date}</div>
+        <div class="ls-offset">GPS−UTC = ${offset} s</div>
+      </div>
+    `).join('');
+  }
+});
+</script>
+
+<!-- Rollover warning (injected by JS) -->
+<div id="rolloverWarn" class="rollover-warn" style="display:none;"></div>
+
+<style>
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; transition: color 0.2s; }
+  .back:hover { color: var(--accent); }
+
+  .tool-header { margin-bottom: 28px; }
+  h1 { font-size: clamp(24px, 4vw, 36px); font-weight: 700; margin: 10px 0 12px; }
+  .sub { color: var(--text2); max-width: 600px; font-size: 15px; line-height: 1.7; }
+
+  /* Now banner */
+  .now-banner { display: flex; align-items: center; gap: 16px; background: var(--bg2); border: 1px solid rgba(0,212,170,0.2); border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; flex-wrap: wrap; }
+  .now-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-family: var(--mono); flex-shrink: 0; }
+  .now-values { font-size: 13px; font-family: var(--mono); color: var(--text2); flex: 1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .now-values .sep { color: var(--text3); }
+  .now-btn { font-size: 12px; padding: 6px 14px; background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.3); border-radius: 6px; color: var(--accent); cursor: pointer; font-family: var(--mono); transition: background 0.15s; flex-shrink: 0; }
+  .now-btn:hover { background: rgba(0,212,170,0.2); }
+
+  /* Converter grid */
+  .converter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px; }
+  .conv-group { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+  .group-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-family: var(--mono); padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+
+  .conv-section { display: flex; flex-direction: column; gap: 8px; }
+  .section-label { font-size: 12px; font-weight: 600; color: var(--text); }
+  .field-row { display: grid; grid-template-columns: 180px 1fr; gap: 10px; align-items: center; }
+  .field-row label { font-size: 12px; color: var(--text3); }
+  .field-note { font-size: 11px; color: var(--text3); font-family: var(--mono); opacity: 0.7; padding-top: 2px; }
+
+  input[type="number"], input[type="datetime-local"] {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--text);
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+  input:focus { outline: none; border-color: rgba(0,212,170,0.5); }
+  input:not(:placeholder-shown) { border-color: rgba(0,212,170,0.3); color: var(--accent); }
+  input[type="datetime-local"]:not([value=""]) { color: var(--accent); }
+
+  /* Controls */
+  .controls { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+  .btn-clear { font-size: 12px; padding: 7px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text3); cursor: pointer; font-family: var(--mono); transition: color 0.15s, border-color 0.15s; }
+  .btn-clear:hover { color: #ff4757; border-color: rgba(255,71,87,0.4); }
+  .leap-info { font-size: 12px; font-family: var(--mono); color: var(--accent2); }
+
+  /* Rollover warning */
+  .rollover-warn { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #fbbf24; font-family: var(--mono); margin-bottom: 20px; line-height: 1.5; }
+
+  /* Reference table */
+  .ref-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .ref-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); font-family: var(--mono); margin-bottom: 14px; }
+  .ref-table { display: flex; flex-direction: column; gap: 2px; }
+  .ref-row { display: grid; grid-template-columns: 110px 180px 80px 140px 1fr; gap: 10px; padding: 8px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; align-items: center; }
+  .ref-header { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); font-family: var(--mono); }
+  .ref-sys { font-family: var(--mono); font-weight: 600; color: var(--accent); }
+  .mono { font-family: var(--mono); color: var(--accent2); font-size: 11px; }
+  .good { color: var(--accent); font-weight: 600; }
+  .bad { color: var(--text3); }
+
+  /* Leap second grid */
+  .leap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+  .ls-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+  .ls-date { font-family: var(--mono); font-size: 12px; color: var(--text); margin-bottom: 2px; }
+  .ls-offset { font-family: var(--mono); font-size: 11px; color: var(--accent2); }
+
+  @media (max-width: 768px) {
+    .converter-grid { grid-template-columns: 1fr; }
+    .field-row { grid-template-columns: 1fr; gap: 4px; }
+    .ref-row { grid-template-columns: 90px 1fr; }
+    .ref-row span:nth-child(3), .ref-row span:nth-child(4), .ref-row span:last-child { display: none; }
+    .now-values { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .now-values .sep { display: none; }
+  }
+</style>

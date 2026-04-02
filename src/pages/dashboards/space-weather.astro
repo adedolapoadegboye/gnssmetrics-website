@@ -239,7 +239,7 @@ import Layout from '../../layouts/Layout.astro';
 </Layout>
 
 <script>
-  const chartScript = document.createElement('script');
+const chartScript = document.createElement('script');
   chartScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
   chartScript.onload = initDashboard;
   document.head.appendChild(chartScript);
@@ -247,7 +247,9 @@ import Layout from '../../layouts/Layout.astro';
   async function fetchJSON(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+    const text = await res.text();
+    try { return JSON.parse(text); }
+    catch(e) { throw new Error(`Invalid JSON: ${text.slice(0, 120)}`); }
   }
 
   function kpToStorm(kp) {
@@ -273,14 +275,44 @@ import Layout from '../../layouts/Layout.astro';
     return '#00d4aa';
   }
 
+  // Works for both old array format and new object format
+  function rowKp(row) {
+    if (Array.isArray(row)) return parseFloat(row[1]);
+    return parseFloat(row.Kp ?? row.kp ?? NaN);
+  }
+
+  function rowTime(row) {
+    if (Array.isArray(row)) return String(row[0]);
+    return String(row.time_tag ?? row.time ?? '');
+  }
+
+  // Remove header row for old array format; new object format has no header
+  function normaliseKpData(data) {
+    if (!Array.isArray(data) || data.length === 0) return [];
+    if (Array.isArray(data[0]) && data[0][0] === 'time_tag') return data.slice(1);
+    return data;
+  }
+
+  function getLatestKp(rows) {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const kp = rowKp(rows[i]);
+      if (!isNaN(kp)) return kp;
+    }
+    return 0;
+  }
+
   function dailyMaxKp(rows) {
     const byDay = {};
     for (const row of rows) {
-      const day = row[0].slice(0, 10);
-      const kp = parseFloat(row[1]);
+      const kp = rowKp(row);
+      if (isNaN(kp)) continue;
+      const day = rowTime(row).slice(0, 10);
+      if (!day) continue;
       if (!byDay[day] || kp > byDay[day]) byDay[day] = kp;
     }
-    return Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-7);
+    return Object.entries(byDay)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-7);
   }
 
   function formatDay(dateStr) {
@@ -290,27 +322,25 @@ import Layout from '../../layouts/Layout.astro';
 
   async function initDashboard() {
     try {
-      // Use same CORS-friendly endpoints as the environment dashboard
       const [kpData, xrayData] = await Promise.all([
         fetchJSON('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
         fetchJSON('https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json'),
       ]);
 
-      // Also try alerts — non-critical, wrap in try/catch
       let alerts = [];
       try {
         alerts = await fetchJSON('https://services.swpc.noaa.gov/products/alerts.json');
-      } catch(e) { /* alerts unavailable — not critical */ }
+      } catch(e) { /* non-critical */ }
 
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('dashContent').style.display = 'block';
       document.getElementById('lastUpdated').textContent = new Date().toUTCString();
 
       // ── Kp metrics ─────────────────────────────────────────────────────────
-      const kpRows = kpData.slice(1);
-      const currentKp = parseFloat(kpRows[kpRows.length - 1][1]);
+      const kpRows = normaliseKpData(kpData);
+      const currentKp = getLatestKp(kpRows);
       const last24h = kpRows.slice(-8);
-      const kp24Max = Math.max(...last24h.map(r => parseFloat(r[1])));
+      const kp24Max = Math.max(...last24h.map(r => rowKp(r)).filter(k => !isNaN(k)), 0);
       const storm = kpToStorm(currentKp);
 
       document.getElementById('currentKp').textContent = currentKp.toFixed(1);
@@ -319,12 +349,13 @@ import Layout from '../../layouts/Layout.astro';
       document.getElementById('kp24Max').style.color = kpToStorm(kp24Max).color;
 
       // ── X-ray metrics ──────────────────────────────────────────────────────
-      const latestXray = parseFloat(xrayData[xrayData.length - 1]?.flux || 0);
+      const latestXrayRow = xrayData[xrayData.length - 1];
+      const latestXray = parseFloat(latestXrayRow?.flux ?? latestXrayRow?.flux_long ?? 0) || 0;
       const xClass = xrayToClass(latestXray);
 
       document.getElementById('xrayClass').textContent = xClass.label + '-class';
       document.getElementById('xrayClass').style.color = xClass.color;
-      document.getElementById('xrayFluxVal').textContent = latestXray.toExponential(1) + ' W/m²';
+      document.getElementById('xrayFluxVal').textContent = latestXray > 0 ? latestXray.toExponential(1) + ' W/m²' : 'N/A';
 
       // Combined GNSS outlook
       const isFlareRisk = latestXray >= 1e-5;
@@ -350,12 +381,11 @@ import Layout from '../../layouts/Layout.astro';
       ).slice(0, 3);
 
       const banner = document.getElementById('alertsBanner');
-if (activeAlerts.length > 0) {
+      if (activeAlerts.length > 0) {
         banner.innerHTML = `
           <div class="alerts-box">
             <div class="alerts-label">🚨 Active NOAA Space Weather Alerts</div>
             ${activeAlerts.map(a => {
-              // Parse key fields from message text
               const msg = a.message || '';
               const codeMatch = msg.match(/Message Code:\s*(\w+)/);
               const serialMatch = msg.match(/Serial Number:\s*(\d+)/);
@@ -393,7 +423,9 @@ if (activeAlerts.length > 0) {
       const step = Math.max(1, Math.floor(xrayData.length / 120));
       const xraySample = xrayData.filter((_, i) => i % step === 0);
       const xrayLabels = xraySample.map(r => {
-        const d = new Date(r.time_tag);
+        const ts = r.time_tag || r.time || '';
+        const d = new Date(ts);
+        if (isNaN(d)) return '';
         return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${d.getUTCHours().toString().padStart(2,'0')}h`;
       });
 
@@ -404,13 +436,13 @@ if (activeAlerts.length > 0) {
           datasets: [
             {
               label: 'Short (0.05–0.4nm)',
-              data: xraySample.map(r => parseFloat(r.flux || 0)),
+              data: xraySample.map(r => { const v = parseFloat(r.flux ?? 0); return (!isNaN(v) && v > 0) ? v : null; }),
               borderColor: '#0099ff', backgroundColor: 'rgba(0,153,255,0.05)',
               borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
             },
             {
               label: 'Long (0.1–0.8nm)',
-              data: xraySample.map(r => parseFloat(r.flux_long || r.flux || 0)),
+              data: xraySample.map(r => { const v = parseFloat(r.flux_long ?? r.flux ?? 0); return (!isNaN(v) && v > 0) ? v : null; }),
               borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,0.05)',
               borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
             }
@@ -467,10 +499,10 @@ if (activeAlerts.length > 0) {
       });
 
       // ── 3-day forecast cards ───────────────────────────────────────────────
-      // Derive simple forecast from recent trend
-      const recentKp = kpRows.slice(-16).map(r => parseFloat(r[1]));
-      const avgRecent = recentKp.reduce((a, b) => a + b, 0) / recentKp.length;
-      // Simple heuristic: forecast based on current conditions with slight regression to mean
+      const recentKp = kpRows.slice(-16).map(r => rowKp(r)).filter(k => !isNaN(k));
+      const avgRecent = recentKp.length > 0
+        ? recentKp.reduce((a, b) => a + b, 0) / recentKp.length
+        : currentKp;
       const f = [
         Math.min(9, Math.max(0, currentKp * 0.9)),
         Math.min(9, Math.max(0, avgRecent * 0.85)),
