@@ -1,0 +1,596 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="NMEA to KML / GeoJSON Converter">
+  <section class="section">
+    <div class="container">
+
+      <a href="/tools" class="back">← All tools</a>
+
+      <div class="tool-header">
+        <span class="badge">Tool</span>
+        <h1>NMEA to KML / GeoJSON</h1>
+        <p class="sub">
+          Upload an NMEA log file and download the track as KML, KMZ or GeoJSON.
+          Parses GGA and RMC sentences. Works entirely in your browser — no data is uploaded anywhere.
+        </p>
+      </div>
+
+      <!-- DROP ZONE -->
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">📂</div>
+        <div class="drop-text">Drop an NMEA file here or <label for="fileInput" class="drop-browse">browse</label></div>
+        <div class="drop-hint">Accepts .nmea .txt .log .ubx files containing NMEA sentences</div>
+        <input type="file" id="fileInput" accept=".nmea,.txt,.log,.ubx,.csv" style="display:none" />
+      </div>
+
+      <!-- STATS BAR (hidden until file loaded) -->
+      <div class="stats-bar" id="statsBar" style="display:none">
+        <div class="stat">
+          <div class="stat-val" id="statPoints">—</div>
+          <div class="stat-label">Track points</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="statDuration">—</div>
+          <div class="stat-label">Duration</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="statDistance">—</div>
+          <div class="stat-label">Distance</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="statFix">—</div>
+          <div class="stat-label">Fix quality</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="statSkipped">—</div>
+          <div class="stat-label">Lines skipped</div>
+        </div>
+      </div>
+
+      <!-- PREVIEW MAP (hidden until file loaded) -->
+      <div class="preview-wrap" id="previewWrap" style="display:none">
+        <div class="preview-header">
+          <div class="preview-title">Track preview</div>
+          <div class="preview-note">Simplified SVG — open in Google Earth or QGIS for full visualisation</div>
+        </div>
+        <canvas id="trackCanvas" width="800" height="300"></canvas>
+      </div>
+
+      <!-- FILTER OPTIONS -->
+      <div class="options-bar" id="optionsBar" style="display:none">
+        <div class="opt-group">
+          <label class="opt-label">Min fix quality</label>
+          <select id="minFix">
+            <option value="0">All points (0+)</option>
+            <option value="1" selected>GPS fix (1+)</option>
+            <option value="2">DGPS / RTK float (2+)</option>
+            <option value="4">RTK fixed only (4)</option>
+          </select>
+        </div>
+        <div class="opt-group">
+          <label class="opt-label">Include altitude</label>
+          <select id="inclAlt">
+            <option value="1" selected>Yes</option>
+            <option value="0">No (2D track)</option>
+          </select>
+        </div>
+        <div class="opt-group">
+          <label class="opt-label">Track name</label>
+          <input type="text" id="trackName" placeholder="GNSS Track" maxlength="80" />
+        </div>
+      </div>
+
+      <!-- DOWNLOAD BUTTONS -->
+      <div class="download-bar" id="downloadBar" style="display:none">
+        <div class="download-label">Download as</div>
+        <button class="dl-btn dl-kml" id="dlKml">⬇ KML</button>
+        <button class="dl-btn dl-kmz" id="dlKmz">⬇ KMZ</button>
+        <button class="dl-btn dl-geojson" id="dlGeojson">⬇ GeoJSON</button>
+        <button class="dl-btn dl-csv" id="dlCsv">⬇ CSV</button>
+        <button class="btn-reset" id="resetBtn">Clear</button>
+      </div>
+
+      <!-- ERROR STATE -->
+      <div class="parse-error" id="parseError" style="display:none"></div>
+
+      <!-- FORMAT REFERENCE -->
+      <div class="ref-section">
+        <div class="ref-title">Supported NMEA Sentences</div>
+        <div class="ref-grid">
+          <div class="ref-card ref-active">
+            <div class="ref-name">$GPGGA / $GNGGA</div>
+            <div class="ref-desc">Primary source. Contains lat, lon, altitude, fix quality, satellite count, HDOP and geoid separation. Used for all track points.</div>
+          </div>
+          <div class="ref-card ref-active">
+            <div class="ref-name">$GPRMC / $GNRMC</div>
+            <div class="ref-desc">Fallback if GGA not present. Contains lat, lon, speed and course. Altitude not available in RMC — track will be 2D only.</div>
+          </div>
+          <div class="ref-card ref-passive">
+            <div class="ref-name">$GPGSV / $GPGSA</div>
+            <div class="ref-desc">Parsed for satellite count and DOP statistics but not used for track points.</div>
+          </div>
+          <div class="ref-card ref-passive">
+            <div class="ref-name">All other sentences</div>
+            <div class="ref-desc">Skipped. The skipped line count is shown in the stats bar above.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FIX QUALITY REFERENCE -->
+      <div class="ref-section">
+        <div class="ref-title">GGA Fix Quality Reference</div>
+        <div class="fix-table">
+          <div class="fix-row fix-header">
+            <span>Value</span><span>Type</span><span>Typical accuracy</span>
+          </div>
+          <div class="fix-row"><span class="fix-val fix-0">0</span><span>No fix</span><span>—</span></div>
+          <div class="fix-row"><span class="fix-val fix-1">1</span><span>GPS / SPS fix</span><span>3–10 m</span></div>
+          <div class="fix-row"><span class="fix-val fix-2">2</span><span>DGPS / SBAS fix</span><span>0.5–3 m</span></div>
+          <div class="fix-row"><span class="fix-val fix-4">4</span><span>RTK fixed</span><span>1–3 cm</span></div>
+          <div class="fix-row"><span class="fix-val fix-5">5</span><span>RTK float</span><span>5–50 cm</span></div>
+          <div class="fix-row"><span class="fix-val fix-6">6</span><span>Dead reckoning</span><span>Variable</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<script>
+// ─── NMEA parsing ─────────────────────────────────────────────────────────────
+
+function nmeaChecksum(sentence) {
+  // Sentence is $...*XX — verify checksum
+  const star = sentence.indexOf('*');
+  if (star < 0) return true; // no checksum — accept
+  const body = sentence.slice(1, star);
+  const given = parseInt(sentence.slice(star + 1, star + 3), 16);
+  let calc = 0;
+  for (let i = 0; i < body.length; i++) calc ^= body.charCodeAt(i);
+  return calc === given;
+}
+
+function parseLatLon(val, dir) {
+  if (!val || !dir) return null;
+  // NMEA format: DDDMM.MMMMM
+  const dotPos = val.indexOf('.');
+  const degLen = dotPos - 2;
+  const deg = parseFloat(val.slice(0, degLen));
+  const min = parseFloat(val.slice(degLen));
+  let decimal = deg + min / 60;
+  if (dir === 'S' || dir === 'W') decimal = -decimal;
+  return decimal;
+}
+
+function parseGGA(fields) {
+  // $GPGGA,HHMMSS.ss,LLLL.LL,a,YYYYY.YY,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx*hh
+  const lat = parseLatLon(fields[2], fields[3]);
+  const lon = parseLatLon(fields[4], fields[5]);
+  const fix = parseInt(fields[6]) || 0;
+  const sats = parseInt(fields[7]) || 0;
+  const hdop = parseFloat(fields[8]) || 0;
+  const alt = parseFloat(fields[9]) || 0;
+  const time = fields[1] || '';
+  if (lat === null || lon === null || isNaN(lat) || isNaN(lon)) return null;
+  return { lat, lon, alt, fix, sats, hdop, time, source: 'GGA' };
+}
+
+function parseRMC(fields) {
+  // $GPRMC,HHMMSS.ss,A,LLLL.LL,a,YYYYY.YY,a,x.x,x.x,DDMMYY,...
+  const status = fields[2]; // A = valid, V = invalid
+  if (status !== 'A') return null;
+  const lat = parseLatLon(fields[3], fields[4]);
+  const lon = parseLatLon(fields[5], fields[6]);
+  const time = fields[1] || '';
+  const date = fields[9] || '';
+  if (lat === null || lon === null || isNaN(lat) || isNaN(lon)) return null;
+  return { lat, lon, alt: 0, fix: 1, sats: 0, hdop: 0, time, date, source: 'RMC' };
+}
+
+function parseNMEA(text) {
+  const lines = text.split(/\r?\n/);
+  const points = [];
+  let skipped = 0;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line.startsWith('$')) { skipped++; continue; }
+    if (!nmeaChecksum(line)) { skipped++; continue; }
+
+    const star = line.indexOf('*');
+    const body = star >= 0 ? line.slice(1, star) : line.slice(1);
+    const fields = body.split(',');
+    const type = fields[0].slice(-3); // last 3 chars e.g. GGA, RMC
+
+    let pt = null;
+    if (type === 'GGA') pt = parseGGA(fields);
+    else if (type === 'RMC') pt = parseRMC(fields);
+    else { skipped++; continue; }
+
+    if (pt) points.push(pt);
+    else skipped++;
+  }
+
+  return { points, skipped };
+}
+
+// ─── Distance calculation ─────────────────────────────────────────────────────
+function haversineM(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function totalDistanceM(pts) {
+  let d = 0;
+  for (let i = 1; i < pts.length; i++) d += haversineM(pts[i-1].lat, pts[i-1].lon, pts[i].lat, pts[i].lon);
+  return d;
+}
+
+function formatDistance(m) {
+  if (m >= 1000) return (m/1000).toFixed(2) + ' km';
+  return m.toFixed(0) + ' m';
+}
+
+// ─── Canvas preview ───────────────────────────────────────────────────────────
+function drawTrack(pts) {
+  const canvas = document.getElementById('trackCanvas');
+  if (!canvas || pts.length === 0) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const lats = pts.map(p => p.lat), lons = pts.map(p => p.lon);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const pad = 32;
+
+  function toXY(lat, lon) {
+    const x = pad + (lon - minLon) / (maxLon - minLon + 1e-10) * (W - 2*pad);
+    const y = H - pad - (lat - minLat) / (maxLat - minLat + 1e-10) * (H - 2*pad);
+    return [x, y];
+  }
+
+  // Fix quality colour
+  const fixColor = { 0: '#ff4757', 1: '#fbbf24', 2: '#a3e635', 4: '#00d4aa', 5: '#0099ff', 6: '#c084fc' };
+
+  // Draw track line
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(0,212,170,0.3)';
+  ctx.lineWidth = 1;
+  const [x0, y0] = toXY(pts[0].lat, pts[0].lon);
+  ctx.moveTo(x0, y0);
+  for (let i = 1; i < pts.length; i++) {
+    const [x, y] = toXY(pts[i].lat, pts[i].lon);
+    ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Draw coloured points
+  for (const pt of pts) {
+    const [x, y] = toXY(pt.lat, pt.lon);
+    ctx.beginPath();
+    ctx.fillStyle = fixColor[pt.fix] || '#fbbf24';
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Start / end markers
+  const [sx, sy] = toXY(pts[0].lat, pts[0].lon);
+  const [ex, ey] = toXY(pts[pts.length-1].lat, pts[pts.length-1].lon);
+  ctx.fillStyle = '#00d4aa';
+  ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#ff4757';
+  ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI*2); ctx.fill();
+}
+
+// ─── Export generators ────────────────────────────────────────────────────────
+function toKML(pts, name, inclAlt) {
+  const coords = pts.map(p =>
+    inclAlt ? `${p.lon},${p.lat},${p.alt}` : `${p.lon},${p.lat}`
+  ).join('\n          ');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${escapeXml(name)}</name>
+    <Style id="trackStyle">
+      <LineStyle><color>ff00d4aa</color><width>3</width></LineStyle>
+      <PolyStyle><color>4400d4aa</color></PolyStyle>
+    </Style>
+    <Placemark>
+      <name>${escapeXml(name)}</name>
+      <styleUrl>#trackStyle</styleUrl>
+      <LineString>
+        <extrude>0</extrude>
+        <tessellate>1</tessellate>
+        <altitudeMode>${inclAlt ? 'absolute' : 'clampToGround'}</altitudeMode>
+        <coordinates>
+          ${coords}
+        </coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`;
+}
+
+function toGeoJSON(pts, name, inclAlt) {
+  const coords = pts.map(p =>
+    inclAlt ? [p.lon, p.lat, p.alt] : [p.lon, p.lat]
+  );
+  return JSON.stringify({
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { name, points: pts.length },
+      geometry: { type: 'LineString', coordinates: coords }
+    }]
+  }, null, 2);
+}
+
+function toCSV(pts) {
+  const header = 'latitude,longitude,altitude_m,fix_quality,satellites,hdop,time\n';
+  const rows = pts.map(p =>
+    `${p.lat},${p.lon},${p.alt},${p.fix},${p.sats},${p.hdop},${p.time}`
+  ).join('\n');
+  return header + rows;
+}
+
+function escapeXml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+}
+
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function makeKMZ(kmlContent, filename) {
+  // KMZ = zip containing doc.kml — use JSZip if available, else fall back to KML
+  if (typeof JSZip !== 'undefined') {
+    const zip = new JSZip();
+    zip.file('doc.kml', kmlContent);
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } else {
+    // Fallback: just download as KML with .kmz extension
+    downloadBlob(kmlContent, filename, 'application/vnd.google-earth.kmz');
+  }
+}
+
+// ─── Main logic ───────────────────────────────────────────────────────────────
+let allPoints = [];
+let filteredPoints = [];
+
+function applyFilters() {
+  const minFix = parseInt(document.getElementById('minFix').value) || 0;
+  if (minFix === 4) {
+    filteredPoints = allPoints.filter(p => p.fix === 4);
+  } else {
+    filteredPoints = allPoints.filter(p => p.fix >= minFix);
+  }
+  drawTrack(filteredPoints);
+  updateStats();
+}
+
+function updateStats() {
+  const pts = filteredPoints;
+  document.getElementById('statPoints').textContent = pts.length.toLocaleString();
+  document.getElementById('statDistance').textContent = pts.length > 1 ? formatDistance(totalDistanceM(pts)) : '—';
+
+  // Fix quality breakdown
+  const fixCounts = {};
+  for (const p of pts) fixCounts[p.fix] = (fixCounts[p.fix] || 0) + 1;
+  const dominant = Object.entries(fixCounts).sort((a,b) => b[1]-a[1])[0];
+  const fixLabels = { 0:'No fix', 1:'GPS', 2:'DGPS', 4:'RTK fixed', 5:'RTK float', 6:'DR' };
+  document.getElementById('statFix').textContent = dominant ? fixLabels[dominant[0]] || dominant[0] : '—';
+}
+
+function processFile(text, filename) {
+  document.getElementById('parseError').style.display = 'none';
+
+  const { points, skipped } = parseNMEA(text);
+
+  if (points.length === 0) {
+    document.getElementById('parseError').textContent = 'No valid GGA or RMC sentences found. Check that the file contains NMEA data.';
+    document.getElementById('parseError').style.display = 'block';
+    return;
+  }
+
+  allPoints = points;
+  document.getElementById('statSkipped').textContent = skipped.toLocaleString();
+
+  // Duration from first/last point time field
+  const firstTime = allPoints[0]?.time || '';
+  const lastTime = allPoints[allPoints.length-1]?.time || '';
+  if (firstTime && lastTime && firstTime !== lastTime) {
+    const parseT = t => {
+      const h = parseInt(t.slice(0,2)), m = parseInt(t.slice(2,4)), s = parseFloat(t.slice(4));
+      return h*3600 + m*60 + s;
+    };
+    let dur = parseT(lastTime) - parseT(firstTime);
+    if (dur < 0) dur += 86400; // crossed midnight
+    const hh = Math.floor(dur/3600), mm = Math.floor((dur%3600)/60), ss = Math.floor(dur%60);
+    document.getElementById('statDuration').textContent =
+      hh > 0 ? `${hh}h ${mm}m` : mm > 0 ? `${mm}m ${ss}s` : `${ss}s`;
+  } else {
+    document.getElementById('statDuration').textContent = '—';
+  }
+
+  // Set default track name from filename
+  document.getElementById('trackName').value = filename.replace(/\.[^.]+$/, '');
+
+  applyFilters();
+
+  document.getElementById('statsBar').style.display = 'grid';
+  document.getElementById('previewWrap').style.display = 'block';
+  document.getElementById('optionsBar').style.display = 'flex';
+  document.getElementById('downloadBar').style.display = 'flex';
+}
+
+// ─── Event wiring ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Load JSZip for KMZ support
+  const jszip = document.createElement('script');
+  jszip.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+  document.head.appendChild(jszip);
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+
+  // File input
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => processFile(ev.target.result, file.name);
+    reader.readAsText(file);
+  });
+
+  // Drag and drop
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => processFile(ev.target.result, file.name);
+    reader.readAsText(file);
+  });
+
+  // Click drop zone to open file picker
+  dropZone.addEventListener('click', e => {
+    if (e.target.tagName !== 'LABEL') fileInput.click();
+  });
+
+  // Filter changes
+  document.getElementById('minFix').addEventListener('change', applyFilters);
+
+  // Downloads
+  document.getElementById('dlKml').addEventListener('click', () => {
+    const name = document.getElementById('trackName').value || 'GNSS Track';
+    const inclAlt = document.getElementById('inclAlt').value === '1';
+    downloadBlob(toKML(filteredPoints, name, inclAlt), name + '.kml', 'application/vnd.google-earth.kml+xml');
+  });
+
+  document.getElementById('dlKmz').addEventListener('click', () => {
+    const name = document.getElementById('trackName').value || 'GNSS Track';
+    const inclAlt = document.getElementById('inclAlt').value === '1';
+    makeKMZ(toKML(filteredPoints, name, inclAlt), name + '.kmz');
+  });
+
+  document.getElementById('dlGeojson').addEventListener('click', () => {
+    const name = document.getElementById('trackName').value || 'GNSS Track';
+    const inclAlt = document.getElementById('inclAlt').value === '1';
+    downloadBlob(toGeoJSON(filteredPoints, name, inclAlt), name + '.geojson', 'application/geo+json');
+  });
+
+  document.getElementById('dlCsv').addEventListener('click', () => {
+    const name = document.getElementById('trackName').value || 'GNSS Track';
+    downloadBlob(toCSV(filteredPoints), name + '.csv', 'text/csv');
+  });
+
+  // Reset
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    allPoints = []; filteredPoints = [];
+    fileInput.value = '';
+    ['statsBar','previewWrap','optionsBar','downloadBar','parseError'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+    const canvas = document.getElementById('trackCanvas');
+    if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  });
+});
+</script>
+
+<style>
+  .back { font-size: 13px; color: var(--text2); display: inline-block; margin-bottom: 24px; transition: color 0.2s; }
+  .back:hover { color: var(--accent); }
+  .tool-header { margin-bottom: 24px; }
+  h1 { font-size: clamp(24px, 4vw, 36px); font-weight: 700; margin: 10px 0 12px; }
+  .sub { color: var(--text2); max-width: 600px; font-size: 15px; line-height: 1.7; }
+
+  /* Drop zone */
+  .drop-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 48px 32px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 20px; background: var(--bg2); }
+  .drop-zone:hover, .drop-zone.dragover { border-color: rgba(0,212,170,0.5); background: rgba(0,212,170,0.04); }
+  .drop-icon { font-size: 36px; margin-bottom: 12px; }
+  .drop-text { font-size: 15px; color: var(--text2); margin-bottom: 6px; }
+  .drop-browse { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .drop-hint { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+
+  /* Stats bar */
+  .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; text-align: center; }
+  .stat-val { font-size: 20px; font-weight: 700; font-family: var(--mono); color: var(--accent); margin-bottom: 4px; }
+  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); font-family: var(--mono); }
+
+  /* Preview */
+  .preview-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .preview-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .preview-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .preview-note { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  #trackCanvas { width: 100%; display: block; background: var(--bg3); }
+
+  /* Options bar */
+  .options-bar { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; padding: 16px 20px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; }
+  .opt-group { display: flex; flex-direction: column; gap: 5px; }
+  .opt-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); font-family: var(--mono); }
+  select, input[type="text"] { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: var(--mono); color: var(--text); cursor: pointer; }
+  select:focus, input[type="text"]:focus { outline: none; border-color: rgba(0,212,170,0.4); }
+
+  /* Download bar */
+  .download-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
+  .download-label { font-size: 12px; color: var(--text3); font-family: var(--mono); margin-right: 4px; }
+  .dl-btn { padding: 9px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--mono); transition: opacity 0.15s, transform 0.1s; border: none; }
+  .dl-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .dl-btn:active { transform: translateY(0); }
+  .dl-kml { background: rgba(0,212,170,0.15); color: var(--accent); border: 1px solid rgba(0,212,170,0.3); }
+  .dl-kmz { background: rgba(0,212,170,0.25); color: var(--accent); border: 1px solid rgba(0,212,170,0.4); }
+  .dl-geojson { background: rgba(0,153,255,0.15); color: var(--accent2); border: 1px solid rgba(0,153,255,0.3); }
+  .dl-csv { background: rgba(163,230,53,0.1); color: #a3e635; border: 1px solid rgba(163,230,53,0.3); }
+  .btn-reset { padding: 9px 16px; background: transparent; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; color: var(--text3); cursor: pointer; font-family: var(--mono); transition: color 0.15s, border-color 0.15s; margin-left: auto; }
+  .btn-reset:hover { color: #ff4757; border-color: rgba(255,71,87,0.4); }
+
+  /* Parse error */
+  .parse-error { background: rgba(255,71,87,0.08); border: 1px solid rgba(255,71,87,0.25); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #ff4757; margin-bottom: 16px; }
+
+  /* Reference sections */
+  .ref-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 14px; }
+  .ref-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); font-family: var(--mono); margin-bottom: 14px; }
+  .ref-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ref-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .ref-active { border-left: 3px solid var(--accent); }
+  .ref-passive { border-left: 3px solid var(--border); opacity: 0.7; }
+  .ref-name { font-size: 13px; font-weight: 600; color: var(--text); font-family: var(--mono); margin-bottom: 6px; }
+  .ref-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+  .fix-table { display: flex; flex-direction: column; gap: 2px; }
+  .fix-row { display: grid; grid-template-columns: 60px 160px 1fr; gap: 12px; padding: 7px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; align-items: center; }
+  .fix-header { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text3); font-family: var(--mono); }
+  .fix-val { font-family: var(--mono); font-weight: 700; padding: 1px 7px; border-radius: 4px; display: inline-block; font-size: 12px; }
+  .fix-0 { background: rgba(255,71,87,0.15); color: #ff4757; }
+  .fix-1 { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .fix-2 { background: rgba(163,230,53,0.15); color: #a3e635; }
+  .fix-4 { background: rgba(0,212,170,0.15); color: var(--accent); }
+  .fix-5 { background: rgba(0,153,255,0.15); color: var(--accent2); }
+  .fix-6 { background: rgba(192,132,252,0.15); color: #c084fc; }
+
+  @media (max-width: 640px) {
+    .stats-bar { grid-template-columns: repeat(3, 1fr); }
+    .ref-grid { grid-template-columns: 1fr; }
+    .options-bar { flex-direction: column; align-items: stretch; }
+    .fix-row { grid-template-columns: 50px 1fr; }
+    .fix-row span:last-child { display: none; }
+  }
+</style>
