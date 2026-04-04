@@ -1,0 +1,350 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="NMEA Sentence Decoder">
+  <section class="section">
+    <div class="container">
+
+      <a href="/tools" class="back">← All tools</a>
+
+      <div class="tool-header">
+        <span class="badge">Tool</span>
+        <h1>NMEA Sentence Decoder</h1>
+        <p class="sub">
+          Paste any NMEA 0183 sentence and get a field-by-field breakdown with labels,
+          values, units and checksum validation.
+        </p>
+      </div>
+
+      <div class="input-area">
+        <textarea id="nmeaInput" rows="3" placeholder="$GPGGA,092750.000,5321.6802,N,00630.3372,W,1,8,1.03,61.7,M,55.2,M,,*76"></textarea>
+        <div class="input-controls">
+          <button class="btn-decode" id="decodeBtn">Decode</button>
+          <button class="btn-clear" id="clearBtn">Clear</button>
+          <div class="examples-label">Examples:</div>
+          <div class="example-btns">
+            <button class="eg-btn" data-s="$GPGGA,092750.000,5321.6802,N,00630.3372,W,1,8,1.03,61.7,M,55.2,M,,*76">GGA</button>
+            <button class="eg-btn" data-s="$GPRMC,092750.000,A,5321.6802,N,00630.3372,W,0.02,31.66,280511,,,A*43">RMC</button>
+            <button class="eg-btn" data-s="$GPGSA,A,3,04,05,,09,12,,,24,,,,2.5,1.3,2.1*39">GSA</button>
+            <button class="eg-btn" data-s="$GPGSV,3,1,11,03,03,111,00,04,15,270,00,06,01,010,00,13,06,292,00*74">GSV</button>
+            <button class="eg-btn" data-s="$GPZDA,092750.000,28,05,2011,00,00*51">ZDA</button>
+            <button class="eg-btn" data-s="$GPVTG,360.0,T,348.7,M,000.0,N,000.0,K*76">VTG</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="decodeResult"></div>
+
+    </div>
+  </section>
+</Layout>
+
+<script>
+// ─── Field definitions for each sentence type ─────────────────────────────────
+const SENTENCES = {
+  GGA: {
+    name: 'Global Positioning System Fix Data',
+    fields: [
+      { label: 'Sentence ID',        unit: '',      note: 'Talker + sentence type' },
+      { label: 'UTC Time',           unit: 'HHMMSS.ss', note: 'Time of fix in UTC' },
+      { label: 'Latitude',           unit: 'DDMM.MMMMM', note: 'Degrees and decimal minutes' },
+      { label: 'N/S indicator',      unit: '',      note: 'N = North, S = South' },
+      { label: 'Longitude',          unit: 'DDDMM.MMMMM', note: 'Degrees and decimal minutes' },
+      { label: 'E/W indicator',      unit: '',      note: 'E = East, W = West' },
+      { label: 'Fix quality',        unit: '',      note: '0=No fix, 1=GPS, 2=DGPS, 4=RTK fixed, 5=RTK float, 6=DR' },
+      { label: 'Satellites in use',  unit: 'count', note: '' },
+      { label: 'HDOP',               unit: '',      note: 'Horizontal Dilution of Precision' },
+      { label: 'Altitude',           unit: 'M',     note: 'Above mean sea level' },
+      { label: 'Altitude unit',      unit: '',      note: 'M = metres' },
+      { label: 'Geoid separation',   unit: 'M',     note: 'Geoid height above WGS84 ellipsoid' },
+      { label: 'Geoid sep. unit',    unit: '',      note: 'M = metres' },
+      { label: 'DGPS age',           unit: 's',     note: 'Seconds since last DGPS update' },
+      { label: 'DGPS station ID',    unit: '',      note: 'Reference station ID' },
+    ]
+  },
+  RMC: {
+    name: 'Recommended Minimum Specific GNSS Data',
+    fields: [
+      { label: 'Sentence ID',        unit: '', note: '' },
+      { label: 'UTC Time',           unit: 'HHMMSS.ss', note: '' },
+      { label: 'Status',             unit: '', note: 'A = valid, V = warning/invalid' },
+      { label: 'Latitude',           unit: 'DDMM.MMMMM', note: '' },
+      { label: 'N/S indicator',      unit: '', note: '' },
+      { label: 'Longitude',          unit: 'DDDMM.MMMMM', note: '' },
+      { label: 'E/W indicator',      unit: '', note: '' },
+      { label: 'Speed over ground',  unit: 'knots', note: '' },
+      { label: 'Course over ground', unit: '°', note: 'True north reference' },
+      { label: 'Date',               unit: 'DDMMYY', note: '' },
+      { label: 'Magnetic variation', unit: '°', note: '' },
+      { label: 'Mag. var. direction',unit: '', note: 'E or W' },
+      { label: 'Mode indicator',     unit: '', note: 'A=Autonomous, D=Differential, E=DR, N=Not valid' },
+    ]
+  },
+  GSA: {
+    name: 'GNSS DOP and Active Satellites',
+    fields: [
+      { label: 'Sentence ID',  unit: '', note: '' },
+      { label: 'Mode',         unit: '', note: 'M = manual, A = automatic' },
+      { label: 'Fix type',     unit: '', note: '1=No fix, 2=2D, 3=3D' },
+      { label: 'PRN 1',        unit: '', note: 'Satellite PRN used in fix' },
+      { label: 'PRN 2',        unit: '', note: '' },
+      { label: 'PRN 3',        unit: '', note: '' },
+      { label: 'PRN 4',        unit: '', note: '' },
+      { label: 'PRN 5',        unit: '', note: '' },
+      { label: 'PRN 6',        unit: '', note: '' },
+      { label: 'PRN 7',        unit: '', note: '' },
+      { label: 'PRN 8',        unit: '', note: '' },
+      { label: 'PRN 9',        unit: '', note: '' },
+      { label: 'PRN 10',       unit: '', note: '' },
+      { label: 'PRN 11',       unit: '', note: '' },
+      { label: 'PRN 12',       unit: '', note: '' },
+      { label: 'PDOP',         unit: '', note: 'Position Dilution of Precision' },
+      { label: 'HDOP',         unit: '', note: 'Horizontal Dilution of Precision' },
+      { label: 'VDOP',         unit: '', note: 'Vertical Dilution of Precision' },
+    ]
+  },
+  GSV: {
+    name: 'GNSS Satellites in View',
+    fields: [
+      { label: 'Sentence ID',      unit: '', note: '' },
+      { label: 'Total sentences',  unit: '', note: 'Total GSV sentences for this group' },
+      { label: 'Sentence number',  unit: '', note: 'This sentence number' },
+      { label: 'Total satellites', unit: '', note: 'Total satellites in view' },
+      { label: 'PRN (sat 1)',      unit: '', note: '' },
+      { label: 'Elevation (sat 1)',unit: '°', note: '0–90' },
+      { label: 'Azimuth (sat 1)',  unit: '°', note: '0–359' },
+      { label: 'SNR (sat 1)',      unit: 'dB-Hz', note: 'Signal-to-noise ratio' },
+      { label: 'PRN (sat 2)',      unit: '', note: '' },
+      { label: 'Elevation (sat 2)',unit: '°', note: '' },
+      { label: 'Azimuth (sat 2)',  unit: '°', note: '' },
+      { label: 'SNR (sat 2)',      unit: 'dB-Hz', note: '' },
+      { label: 'PRN (sat 3)',      unit: '', note: '' },
+      { label: 'Elevation (sat 3)',unit: '°', note: '' },
+      { label: 'Azimuth (sat 3)',  unit: '°', note: '' },
+      { label: 'SNR (sat 3)',      unit: 'dB-Hz', note: '' },
+      { label: 'PRN (sat 4)',      unit: '', note: '' },
+      { label: 'Elevation (sat 4)',unit: '°', note: '' },
+      { label: 'Azimuth (sat 4)',  unit: '°', note: '' },
+      { label: 'SNR (sat 4)',      unit: 'dB-Hz', note: '' },
+    ]
+  },
+  ZDA: {
+    name: 'Time and Date',
+    fields: [
+      { label: 'Sentence ID',      unit: '', note: '' },
+      { label: 'UTC Time',         unit: 'HHMMSS.ss', note: '' },
+      { label: 'Day',              unit: '', note: '01–31' },
+      { label: 'Month',            unit: '', note: '01–12' },
+      { label: 'Year',             unit: '', note: 'Four digit year' },
+      { label: 'Local zone hours', unit: 'h', note: 'Offset from UTC, −13 to +13' },
+      { label: 'Local zone mins',  unit: 'min', note: '' },
+    ]
+  },
+  VTG: {
+    name: 'Course Over Ground and Ground Speed',
+    fields: [
+      { label: 'Sentence ID',        unit: '', note: '' },
+      { label: 'Course (true)',       unit: '°', note: 'True north reference' },
+      { label: 'True indicator',      unit: '', note: 'T' },
+      { label: 'Course (magnetic)',   unit: '°', note: 'Magnetic north reference' },
+      { label: 'Magnetic indicator',  unit: '', note: 'M' },
+      { label: 'Speed over ground',   unit: 'knots', note: '' },
+      { label: 'Knots indicator',     unit: '', note: 'N' },
+      { label: 'Speed over ground',   unit: 'km/h', note: '' },
+      { label: 'km/h indicator',      unit: '', note: 'K' },
+      { label: 'Mode indicator',      unit: '', note: 'A=Autonomous, D=Differential, N=Not valid' },
+    ]
+  },
+};
+
+const TALKERS = {
+  GP: 'GPS', GL: 'GLONASS', GA: 'Galileo', GB: 'BeiDou', GN: 'Combined GNSS',
+  GQ: 'QZSS', II: 'Integrated Instrumentation', P: 'Proprietary',
+};
+
+function verifyChecksum(sentence) {
+  const star = sentence.indexOf('*');
+  if (star < 0) return { valid: false, given: null, computed: null };
+  const body = sentence.slice(1, star);
+  const given = parseInt(sentence.slice(star + 1, star + 3), 16);
+  let computed = 0;
+  for (let i = 0; i < body.length; i++) computed ^= body.charCodeAt(i);
+  return { valid: computed === given, given: given.toString(16).toUpperCase().padStart(2,'0'), computed: computed.toString(16).toUpperCase().padStart(2,'0') };
+}
+
+function parseLatLonDecimal(val, dir) {
+  if (!val) return null;
+  const dot = val.indexOf('.');
+  const degLen = dot - 2;
+  const deg = parseFloat(val.slice(0, degLen));
+  const min = parseFloat(val.slice(degLen));
+  let dd = deg + min / 60;
+  if (dir === 'S' || dir === 'W') dd = -dd;
+  return dd.toFixed(7);
+}
+
+function decode(raw) {
+  const sentence = raw.trim();
+  if (!sentence.startsWith('$')) return { error: 'Sentence must start with $' };
+
+  const star = sentence.indexOf('*');
+  const body = star >= 0 ? sentence.slice(1, star) : sentence.slice(1);
+  const fields = body.split(',');
+  const id = fields[0]; // e.g. GPGGA
+
+  const talkerCode = id.slice(0, -3);
+  const typeCode = id.slice(-3);
+  const talker = TALKERS[talkerCode] || talkerCode;
+  const definition = SENTENCES[typeCode];
+  const checksum = verifyChecksum(sentence);
+
+  // Derived values for GGA
+  const derived = [];
+  if (typeCode === 'GGA' && fields[2] && fields[3] && fields[4] && fields[5]) {
+    const lat = parseLatLonDecimal(fields[2], fields[3]);
+    const lon = parseLatLonDecimal(fields[4], fields[5]);
+    if (lat && lon) {
+      derived.push({ label: 'Decimal latitude', value: lat + '°' });
+      derived.push({ label: 'Decimal longitude', value: lon + '°' });
+    }
+  }
+  if (typeCode === 'RMC' && fields[3] && fields[4] && fields[5] && fields[6]) {
+    const lat = parseLatLonDecimal(fields[3], fields[4]);
+    const lon = parseLatLonDecimal(fields[5], fields[6]);
+    if (lat && lon) {
+      derived.push({ label: 'Decimal latitude', value: lat + '°' });
+      derived.push({ label: 'Decimal longitude', value: lon + '°' });
+    }
+    if (fields[7]) derived.push({ label: 'Speed (km/h)', value: (parseFloat(fields[7]) * 1.852).toFixed(2) + ' km/h' });
+  }
+
+  return { sentence, id, talker, typeCode, fields, definition, checksum, derived };
+}
+
+function render(r) {
+  if (r.error) return `<div class="dec-error">${r.error}</div>`;
+
+  const cs = r.checksum;
+  const csHtml = cs.given
+    ? `<span class="cs-tag ${cs.valid ? 'cs-ok' : 'cs-bad'}">${cs.valid ? '✓ Valid' : '✗ Invalid'} (*${cs.given}${cs.valid ? '' : ' expected *' + cs.computed})</span>`
+    : `<span class="cs-tag cs-warn">No checksum</span>`;
+
+  let derivedHtml = '';
+  if (r.derived.length > 0) {
+    derivedHtml = `<div class="derived-section">
+      <div class="derived-title">Derived values</div>
+      ${r.derived.map(d => `<div class="derived-row"><span>${d.label}</span><span class="derived-val">${d.value}</span></div>`).join('')}
+    </div>`;
+  }
+
+  const fieldsHtml = r.fields.map((val, i) => {
+    const def = r.definition?.fields[i];
+    const label = def ? def.label : `Field ${i}`;
+    const unit = def?.unit || '';
+    const note = def?.note || '';
+    const empty = val === '' || val === null || val === undefined;
+    return `<div class="field-row ${empty ? 'field-empty' : ''}">
+      <div class="f-idx">${i}</div>
+      <div class="f-label">${label}</div>
+      <div class="f-value ${empty ? 'f-empty' : ''}">${empty ? '(empty)' : val}${unit && !empty ? `<span class="f-unit"> ${unit}</span>` : ''}</div>
+      ${note ? `<div class="f-note">${note}</div>` : '<div></div>'}
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="dec-header">
+      <div class="dec-id">${r.id}</div>
+      <div class="dec-name">${r.definition?.name || 'Unknown sentence type'}</div>
+      <div class="dec-talker">Talker: ${r.talker}</div>
+      ${csHtml}
+    </div>
+    ${derivedHtml}
+    <div class="fields-table">
+      <div class="field-row field-header">
+        <div class="f-idx">#</div>
+        <div class="f-label">Field</div>
+        <div class="f-value">Value</div>
+        <div class="f-note">Notes</div>
+      </div>
+      ${fieldsHtml}
+    </div>`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('nmeaInput');
+  const result = document.getElementById('decodeResult');
+
+  const run = () => {
+    const text = input.value.trim();
+    if (!text) { result.innerHTML = ''; return; }
+    result.innerHTML = render(decode(text));
+  };
+
+  document.getElementById('decodeBtn').addEventListener('click', run);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); run(); } });
+  document.getElementById('clearBtn').addEventListener('click', () => { input.value = ''; result.innerHTML = ''; });
+
+  document.querySelectorAll('.eg-btn').forEach(btn => {
+    btn.addEventListener('click', () => { input.value = btn.dataset.s; run(); });
+  });
+
+  // Decode the default example on load
+  run();
+});
+</script>
+
+<style>
+  .back { font-size:13px; color:var(--text2); display:inline-block; margin-bottom:24px; transition:color 0.2s; }
+  .back:hover { color:var(--accent); }
+  .tool-header { margin-bottom:20px; }
+  h1 { font-size:clamp(24px,4vw,36px); font-weight:700; margin:10px 0 12px; }
+  .sub { color:var(--text2); max-width:600px; font-size:15px; line-height:1.7; }
+
+  .input-area { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
+  textarea { width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:10px 12px; font-size:13px; font-family:var(--mono); color:var(--text); resize:vertical; box-sizing:border-box; margin-bottom:10px; }
+  textarea:focus { outline:none; border-color:rgba(0,212,170,0.3); }
+  .input-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .btn-decode { font-size:13px; padding:7px 18px; background:rgba(0,212,170,0.1); border:1px solid rgba(0,212,170,0.3); border-radius:6px; color:var(--accent); cursor:pointer; font-family:var(--mono); transition:background 0.15s; }
+  .btn-decode:hover { background:rgba(0,212,170,0.2); }
+  .btn-clear { font-size:12px; padding:7px 14px; background:transparent; border:1px solid var(--border); border-radius:6px; color:var(--text3); cursor:pointer; font-family:var(--mono); }
+  .btn-clear:hover { color:#ff4757; border-color:rgba(255,71,87,0.3); }
+  .examples-label { font-size:11px; color:var(--text3); font-family:var(--mono); margin-left:8px; }
+  .example-btns { display:flex; gap:5px; flex-wrap:wrap; }
+  .eg-btn { font-size:11px; padding:4px 10px; background:var(--bg3); border:1px solid var(--border); border-radius:20px; color:var(--text2); cursor:pointer; font-family:var(--mono); transition:border-color 0.15s, color 0.15s; }
+  .eg-btn:hover { border-color:rgba(0,212,170,0.4); color:var(--accent); }
+
+  .dec-error { background:rgba(255,71,87,0.08); border:1px solid rgba(255,71,87,0.25); border-radius:8px; padding:12px 16px; font-size:13px; color:#ff4757; }
+
+  .dec-header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:14px 16px; background:var(--bg2); border:1px solid var(--border); border-radius:10px 10px 0 0; border-bottom:none; margin-bottom:0; }
+  .dec-id { font-size:18px; font-weight:700; font-family:var(--mono); color:var(--accent); }
+  .dec-name { font-size:13px; color:var(--text2); flex:1; }
+  .dec-talker { font-size:11px; font-family:var(--mono); color:var(--text3); background:var(--bg3); padding:2px 8px; border-radius:4px; }
+  .cs-tag { font-size:11px; font-family:var(--mono); padding:3px 9px; border-radius:4px; }
+  .cs-ok { background:rgba(0,212,170,0.12); color:var(--accent); }
+  .cs-bad { background:rgba(255,71,87,0.12); color:#ff4757; }
+  .cs-warn { background:rgba(251,191,36,0.12); color:#fbbf24; }
+
+  .derived-section { background:rgba(0,153,255,0.05); border:1px solid rgba(0,153,255,0.15); border-radius:0; padding:10px 16px; border-top:none; border-bottom:none; }
+  .derived-title { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--accent2); font-family:var(--mono); margin-bottom:6px; letter-spacing:0.08em; }
+  .derived-row { display:flex; gap:12px; font-size:12px; color:var(--text3); padding:2px 0; }
+  .derived-val { font-family:var(--mono); color:var(--accent2); }
+
+  .fields-table { background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px; overflow:hidden; }
+  .field-row { display:grid; grid-template-columns:36px 200px 1fr 1fr; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border); font-size:13px; align-items:baseline; }
+  .field-row:last-child { border-bottom:none; }
+  .field-header { font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text3); font-family:var(--mono); background:var(--bg3); }
+  .field-empty { opacity:0.4; }
+  .f-idx { font-size:10px; font-family:var(--mono); color:var(--text3); text-align:center; }
+  .f-label { font-size:12px; color:var(--text2); }
+  .f-value { font-family:var(--mono); font-size:12px; color:var(--accent); word-break:break-all; }
+  .f-empty { color:var(--text3); font-style:italic; }
+  .f-unit { color:var(--text3); font-size:11px; }
+  .f-note { font-size:11px; color:var(--text3); }
+
+  @media (max-width:640px) {
+    .field-row { grid-template-columns:28px 1fr; }
+    .f-label { grid-column:2; }
+    .f-value { grid-column:2; }
+    .f-note { display:none; }
+  }
+</style>

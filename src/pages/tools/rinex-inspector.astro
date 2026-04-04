@@ -1,0 +1,301 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="RINEX Header Inspector">
+  <section class="section">
+    <div class="container">
+
+      <a href="/tools" class="back">← All tools</a>
+
+      <div class="tool-header">
+        <span class="badge">Tool</span>
+        <h1>RINEX Header Inspector</h1>
+        <p class="sub">
+          Upload a RINEX 2 or 3 observation file and inspect the header metadata instantly —
+          receiver, antenna, observables, time system and epoch range — without any software.
+        </p>
+      </div>
+
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">📄</div>
+        <div class="drop-text">Drop a RINEX file here or <label for="fileInput" class="drop-browse">browse</label></div>
+        <div class="drop-hint">Accepts .rnx .obs .25o .24o .23o .22o .21o .20o and similar observation files</div>
+        <input type="file" id="fileInput" accept=".rnx,.obs,.21o,.22o,.23o,.24o,.25o,.20o,.19o,.18o,.17o,.16o" style="display:none" />
+      </div>
+
+      <div class="parse-error" id="parseError" style="display:none"></div>
+
+      <div id="results" style="display:none">
+
+        <!-- Version badge -->
+        <div class="version-bar" id="versionBar"></div>
+
+        <!-- Header field groups -->
+        <div class="field-groups" id="fieldGroups"></div>
+
+        <!-- Observable types -->
+        <div class="obs-section" id="obsSection" style="display:none">
+          <div class="section-title">Observable Types</div>
+          <div class="obs-grid" id="obsGrid"></div>
+        </div>
+
+        <!-- Raw header preview -->
+        <div class="raw-section">
+          <div class="raw-title">Raw header lines</div>
+          <pre class="raw-pre" id="rawPre"></pre>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<script>
+function parseRinexHeader(text) {
+  const lines = text.split(/\r?\n/);
+  const header = [];
+  const fields = {};
+  let version = null, type = null;
+
+  for (const line of lines) {
+    if (line.includes('END OF HEADER')) { header.push(line); break; }
+    header.push(line);
+    const label = line.slice(60).trim();
+    const value = line.slice(0, 60);
+
+    if (label === 'RINEX VERSION / TYPE') {
+      version = value.slice(0, 9).trim();
+      type = value.slice(20, 21).trim();
+    }
+    if (!fields[label]) fields[label] = [];
+    fields[label].push(value.trimEnd());
+  }
+
+  return { fields, header, version, type };
+}
+
+function get(fields, label) {
+  return (fields[label] || [])[0] || null;
+}
+
+function getAll(fields, label) {
+  return fields[label] || [];
+}
+
+function safe(val, start, len) {
+  if (!val) return '—';
+  const s = val.slice(start, start + len).trim();
+  return s || '—';
+}
+
+function renderGroup(title, rows) {
+  const filled = rows.filter(r => r[1] && r[1] !== '—');
+  if (filled.length === 0) return '';
+  return `
+    <div class="field-group">
+      <div class="group-title">${title}</div>
+      <div class="field-rows">
+        ${rows.map(([label, value, note]) => value && value !== '—' ? `
+          <div class="field-row">
+            <div class="field-label">${label}</div>
+            <div class="field-value">${value}${note ? `<span class="field-note"> ${note}</span>` : ''}</div>
+          </div>` : '').join('')}
+      </div>
+    </div>`;
+}
+
+function processFile(text, filename) {
+  const errEl = document.getElementById('parseError');
+  errEl.style.display = 'none';
+
+  const { fields, header, version, type } = parseRinexHeader(text);
+
+  if (!version) {
+    errEl.textContent = 'Could not find RINEX VERSION / TYPE line. Check this is a valid RINEX observation file.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const isV3 = parseFloat(version) >= 3;
+
+  // Version bar
+  const typeLabel = type === 'O' ? 'Observation' : type === 'N' ? 'Navigation' : type === 'M' ? 'Mixed' : type || 'Unknown';
+  document.getElementById('versionBar').innerHTML = `
+    <span class="vb-version">RINEX ${version}</span>
+    <span class="vb-type">${typeLabel}</span>
+    <span class="vb-file">${filename}</span>
+  `;
+
+  // Station / receiver
+  const markerLine  = get(fields, 'MARKER NAME');
+  const markerNum   = get(fields, 'MARKER NUMBER');
+  const markerType  = get(fields, 'MARKER TYPE');
+  const obsAgency   = get(fields, 'OBSERVER / AGENCY');
+  const recLine     = get(fields, 'REC # / TYPE / VERS');
+  const antLine     = get(fields, 'ANT # / TYPE');
+  const approxLine  = get(fields, 'APPROX POSITION XYZ');
+  const deltaLine   = get(fields, 'ANTENNA: DELTA H/E/N');
+  const timeLine    = get(fields, 'TIME OF FIRST OBS');
+  const timeLastLine= get(fields, 'TIME OF LAST OBS');
+  const intervalLine= get(fields, 'INTERVAL');
+  const leapLine    = get(fields, 'LEAP SECONDS');
+  const numSatLine  = get(fields, '# OF SATELLITES');
+  const sysLine     = get(fields, 'SYS / # / OBS TYPES') || get(fields, '# / TYPES OF OBSERV');
+  const commentLines= getAll(fields, 'COMMENT');
+
+  document.getElementById('fieldGroups').innerHTML = [
+    renderGroup('Station', [
+      ['Marker name',   safe(markerLine, 0, 60)],
+      ['Marker number', safe(markerNum, 0, 20)],
+      ['Marker type',   safe(markerType, 0, 20)],
+    ]),
+    renderGroup('Observer', [
+      ['Observer',      safe(obsAgency, 0, 20)],
+      ['Agency',        safe(obsAgency, 20, 40)],
+    ]),
+    renderGroup('Receiver', [
+      ['Serial number', safe(recLine, 0, 20)],
+      ['Type',          safe(recLine, 20, 20)],
+      ['Firmware',      safe(recLine, 40, 20)],
+    ]),
+    renderGroup('Antenna', [
+      ['Serial number', safe(antLine, 0, 20)],
+      ['Type',          safe(antLine, 20, 20)],
+      ['dH (m)',        safe(deltaLine, 0, 14)],
+      ['dE (m)',        safe(deltaLine, 14, 14)],
+      ['dN (m)',        safe(deltaLine, 28, 14)],
+    ]),
+    renderGroup('Approximate Position (ECEF)', [
+      ['X (m)', safe(approxLine, 0, 14)],
+      ['Y (m)', safe(approxLine, 14, 14)],
+      ['Z (m)', safe(approxLine, 28, 14)],
+    ]),
+    renderGroup('Time', [
+      ['First observation', safe(timeLine, 0, 43)],
+      ['Last observation',  safe(timeLastLine, 0, 43)],
+      ['Interval (s)',      intervalLine ? intervalLine.trim() : '—'],
+      ['Leap seconds',      leapLine ? leapLine.trim() : '—'],
+      ['Time system',       safe(timeLine, 48, 3) || '—'],
+    ]),
+    renderGroup('Data', [
+      ['Satellites', numSatLine ? numSatLine.trim() : '—'],
+      ['Comments',   commentLines.length > 0 ? commentLines.map(l => l.trim()).join(' · ') : '—'],
+    ]),
+  ].join('');
+
+  // Observable types
+  const obsLines = isV3
+    ? getAll(fields, 'SYS / # / OBS TYPES')
+    : getAll(fields, '# / TYPES OF OBSERV');
+
+  if (obsLines.length > 0) {
+    document.getElementById('obsSection').style.display = 'block';
+    let obsHtml = '';
+    if (isV3) {
+      // RINEX 3: each line starts with system identifier
+      const sysGroups = {};
+      for (const line of obsLines) {
+        const sys = line[0];
+        if (!sys || sys === ' ') continue;
+        if (!sysGroups[sys]) sysGroups[sys] = [];
+        // Each obs code is 4 chars starting at col 7, repeating every 4 chars
+        const codes = line.slice(7).match(/.{1,4}/g) || [];
+        codes.forEach(c => { const t = c.trim(); if (t) sysGroups[sys].push(t); });
+      }
+      const sysNames = { G:'GPS', R:'GLONASS', E:'Galileo', C:'BeiDou', J:'QZSS', S:'SBAS', I:'NavIC' };
+      for (const [sys, codes] of Object.entries(sysGroups)) {
+        obsHtml += `<div class="obs-group">
+          <div class="obs-sys">${sysNames[sys] || sys}</div>
+          <div class="obs-codes">${codes.map(c => `<span class="obs-code">${c}</span>`).join('')}</div>
+        </div>`;
+      }
+    } else {
+      // RINEX 2: all codes on one or more continuation lines
+      const allCodes = [];
+      for (const line of obsLines) {
+        const count = parseInt(line.slice(0, 6)) || 0;
+        const codes = line.slice(6).match(/.{1,6}/g) || [];
+        codes.forEach(c => { const t = c.trim(); if (t) allCodes.push(t); });
+      }
+      obsHtml = `<div class="obs-group">
+        <div class="obs-sys">All constellations</div>
+        <div class="obs-codes">${allCodes.map(c => `<span class="obs-code">${c}</span>`).join('')}</div>
+      </div>`;
+    }
+    document.getElementById('obsGrid').innerHTML = obsHtml;
+  }
+
+  // Raw header
+  document.getElementById('rawPre').textContent = header.join('\n');
+  document.getElementById('results').style.display = 'block';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+
+  const readFile = file => {
+    const reader = new FileReader();
+    reader.onload = e => processFile(e.target.result, file.name);
+    reader.readAsText(file);
+  };
+
+  fileInput.addEventListener('change', e => { if (e.target.files[0]) readFile(e.target.files[0]); });
+  dropZone.addEventListener('click', e => { if (e.target.tagName !== 'LABEL') fileInput.click(); });
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+  });
+});
+</script>
+
+<style>
+  .back { font-size:13px; color:var(--text2); display:inline-block; margin-bottom:24px; transition:color 0.2s; }
+  .back:hover { color:var(--accent); }
+  .tool-header { margin-bottom:24px; }
+  h1 { font-size:clamp(24px,4vw,36px); font-weight:700; margin:10px 0 12px; }
+  .sub { color:var(--text2); max-width:600px; font-size:15px; line-height:1.7; }
+
+  .drop-zone { border:2px dashed var(--border); border-radius:12px; padding:48px 32px; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s; margin-bottom:20px; background:var(--bg2); }
+  .drop-zone:hover, .drop-zone.dragover { border-color:rgba(0,212,170,0.5); background:rgba(0,212,170,0.04); }
+  .drop-icon { font-size:36px; margin-bottom:12px; }
+  .drop-text { font-size:15px; color:var(--text2); margin-bottom:6px; }
+  .drop-browse { color:var(--accent); text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+  .drop-hint { font-size:12px; color:var(--text3); font-family:var(--mono); }
+
+  .parse-error { background:rgba(255,71,87,0.08); border:1px solid rgba(255,71,87,0.25); border-radius:8px; padding:12px 16px; font-size:13px; color:#ff4757; margin-bottom:16px; }
+
+  .version-bar { display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+  .vb-version { font-size:22px; font-weight:700; font-family:var(--mono); color:var(--accent); }
+  .vb-type { font-size:13px; font-family:var(--mono); background:rgba(0,212,170,0.1); color:var(--accent); padding:3px 10px; border-radius:20px; border:1px solid rgba(0,212,170,0.25); }
+  .vb-file { font-size:13px; font-family:var(--mono); color:var(--text3); }
+
+  .field-groups { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:16px; }
+  .field-group { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; }
+  .group-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--accent); font-family:var(--mono); margin-bottom:10px; }
+  .field-rows { display:flex; flex-direction:column; gap:6px; }
+  .field-row { display:grid; grid-template-columns:140px 1fr; gap:8px; font-size:13px; }
+  .field-label { color:var(--text3); font-size:12px; }
+  .field-value { color:var(--text); font-family:var(--mono); font-size:12px; word-break:break-all; }
+  .field-note { color:var(--text3); font-size:11px; }
+
+  .obs-section { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+  .section-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); font-family:var(--mono); margin-bottom:12px; }
+  .obs-grid { display:flex; flex-direction:column; gap:10px; }
+  .obs-group { display:flex; align-items:flex-start; gap:12px; }
+  .obs-sys { font-size:12px; font-weight:700; color:var(--accent2); font-family:var(--mono); min-width:70px; padding-top:4px; }
+  .obs-codes { display:flex; flex-wrap:wrap; gap:5px; }
+  .obs-code { font-size:11px; font-family:var(--mono); padding:2px 8px; background:var(--bg3); border:1px solid var(--border); border-radius:4px; color:var(--text2); }
+
+  .raw-section { background:var(--bg2); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .raw-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); font-family:var(--mono); padding:10px 14px; border-bottom:1px solid var(--border); }
+  .raw-pre { font-size:11px; font-family:var(--mono); color:var(--text3); padding:14px; overflow-x:auto; white-space:pre; margin:0; max-height:320px; overflow-y:auto; }
+
+  @media (max-width:640px) {
+    .field-groups { grid-template-columns:1fr; }
+    .field-row { grid-template-columns:1fr; }
+  }
+</style>

@@ -1,0 +1,282 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="Coordinate Converter">
+  <section class="section">
+    <div class="container">
+
+      <a href="/tools" class="back">← All tools</a>
+
+      <div class="tool-header">
+        <span class="badge">Tool</span>
+        <h1>Coordinate Converter</h1>
+        <p class="sub">
+          Convert between ECEF Cartesian, Geodetic (latitude, longitude, ellipsoidal height)
+          and local ENU. Supports WGS84 and GRS80 ellipsoids. Enter any format — all others update instantly.
+        </p>
+      </div>
+
+      <div class="ellipsoid-bar">
+        <div class="ell-label">Ellipsoid</div>
+        <label class="ell-opt"><input type="radio" name="ellipsoid" value="wgs84" checked /> WGS84 (GPS)</label>
+        <label class="ell-opt"><input type="radio" name="ellipsoid" value="grs80" /> GRS80 (Galileo / ETRS89)</label>
+      </div>
+
+      <div class="conv-grid">
+
+        <!-- ECEF -->
+        <div class="conv-panel">
+          <div class="conv-panel-title">ECEF Cartesian</div>
+          <div class="conv-note">Earth-Centred Earth-Fixed. Origin at Earth's centre of mass.</div>
+          <div class="field-row"><label>X (m)</label><input type="number" id="ecefX" placeholder="e.g. 3980000" step="0.001" /></div>
+          <div class="field-row"><label>Y (m)</label><input type="number" id="ecefY" placeholder="e.g. -10000" step="0.001" /></div>
+          <div class="field-row"><label>Z (m)</label><input type="number" id="ecefZ" placeholder="e.g. 4970000" step="0.001" /></div>
+        </div>
+
+        <!-- Geodetic -->
+        <div class="conv-panel">
+          <div class="conv-panel-title">Geodetic</div>
+          <div class="conv-note">Latitude and longitude on the reference ellipsoid. Height above ellipsoid (not sea level).</div>
+          <div class="field-row"><label>Latitude (°)</label><input type="number" id="geoLat" placeholder="−90 to +90" min="-90" max="90" step="0.0000001" /></div>
+          <div class="field-row"><label>Longitude (°)</label><input type="number" id="geoLon" placeholder="−180 to +180" min="-180" max="180" step="0.0000001" /></div>
+          <div class="field-row"><label>Height (m)</label><input type="number" id="geoH" placeholder="Ellipsoidal height" step="0.001" /></div>
+          <div class="dms-display" id="dmsDisplay"></div>
+        </div>
+
+        <!-- ENU -->
+        <div class="conv-panel conv-enu">
+          <div class="conv-panel-title">Local ENU</div>
+          <div class="conv-note">East-North-Up relative to a reference point. Set the reference point below.</div>
+          <div class="field-row enu-ref-row">
+            <label>Ref Lat (°)</label><input type="number" id="refLat" placeholder="Reference latitude" step="0.0000001" />
+          </div>
+          <div class="field-row enu-ref-row">
+            <label>Ref Lon (°)</label><input type="number" id="refLon" placeholder="Reference longitude" step="0.0000001" />
+          </div>
+          <div class="field-row enu-ref-row">
+            <label>Ref H (m)</label><input type="number" id="refH" placeholder="Reference height" step="0.001" />
+          </div>
+          <div class="enu-divider"></div>
+          <div class="field-row"><label>East (m)</label><input type="number" id="enuE" placeholder="—" step="0.001" /></div>
+          <div class="field-row"><label>North (m)</label><input type="number" id="enuN" placeholder="—" step="0.001" /></div>
+          <div class="field-row"><label>Up (m)</label><input type="number" id="enuU" placeholder="—" step="0.001" /></div>
+        </div>
+
+      </div>
+
+      <div class="controls">
+        <button class="btn-clear" id="clearBtn">Clear all</button>
+        <div class="ellipsoid-info" id="ellInfo"></div>
+      </div>
+
+      <!-- Reference -->
+      <div class="ref-section">
+        <div class="ref-title">Ellipsoid Parameters</div>
+        <div class="ell-table">
+          <div class="ell-row ell-header"><span>Parameter</span><span>WGS84</span><span>GRS80</span></div>
+          <div class="ell-row"><span>Semi-major axis (a)</span><span class="mono">6 378 137.0 m</span><span class="mono">6 378 137.0 m</span></div>
+          <div class="ell-row"><span>Flattening (1/f)</span><span class="mono">298.257 223 563</span><span class="mono">298.257 222 101</span></div>
+          <div class="ell-row"><span>Semi-minor axis (b)</span><span class="mono">6 356 752.314 m</span><span class="mono">6 356 752.314 m</span></div>
+          <div class="ell-row"><span>Eccentricity² (e²)</span><span class="mono">0.006 694 379 990</span><span class="mono">0.006 694 380 023</span></div>
+          <div class="ell-row"><span>Used by</span><span>GPS, WGS84</span><span>Galileo, ETRS89, GDA2020</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<script>
+const ELLIPSOIDS = {
+  wgs84: { a: 6378137.0, f: 1 / 298.257223563 },
+  grs80: { a: 6378137.0, f: 1 / 298.257222101 },
+};
+
+function getEll() {
+  const sel = document.querySelector('input[name="ellipsoid"]:checked');
+  const key = sel ? sel.value : 'wgs84';
+  const { a, f } = ELLIPSOIDS[key];
+  const b = a * (1 - f);
+  const e2 = 2 * f - f * f;
+  return { a, b, e2 };
+}
+
+const DEG = Math.PI / 180;
+const RAD = 180 / Math.PI;
+
+function geodeticToECEF(lat, lon, h) {
+  const { a, e2 } = getEll();
+  const phi = lat * DEG, lam = lon * DEG;
+  const N = a / Math.sqrt(1 - e2 * Math.sin(phi) ** 2);
+  return {
+    X: (N + h) * Math.cos(phi) * Math.cos(lam),
+    Y: (N + h) * Math.cos(phi) * Math.sin(lam),
+    Z: (N * (1 - e2) + h) * Math.sin(phi),
+  };
+}
+
+function ecefToGeodetic(X, Y, Z) {
+  const { a, e2 } = getEll();
+  const p = Math.sqrt(X * X + Y * Y);
+  const lon = Math.atan2(Y, X) * RAD;
+  let lat = Math.atan2(Z, p * (1 - e2));
+  for (let i = 0; i < 10; i++) {
+    const N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2);
+    lat = Math.atan2(Z + e2 * N * Math.sin(lat), p);
+  }
+  const N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2);
+  const h = p / Math.cos(lat) - N;
+  return { lat: lat * RAD, lon, h };
+}
+
+function ecefToENU(X, Y, Z, refLat, refLon, refH) {
+  const ref = geodeticToECEF(refLat, refLon, refH);
+  const dX = X - ref.X, dY = Y - ref.Y, dZ = Z - ref.Z;
+  const phi = refLat * DEG, lam = refLon * DEG;
+  const sinPhi = Math.sin(phi), cosPhi = Math.cos(phi);
+  const sinLam = Math.sin(lam), cosLam = Math.cos(lam);
+  return {
+    E:  -sinLam * dX + cosLam * dY,
+    N:  -sinPhi * cosLam * dX - sinPhi * sinLam * dY + cosPhi * dZ,
+    U:   cosPhi * cosLam * dX + cosPhi * sinLam * dY + sinPhi * dZ,
+  };
+}
+
+function enuToECEF(E, N, U, refLat, refLon, refH) {
+  const ref = geodeticToECEF(refLat, refLon, refH);
+  const phi = refLat * DEG, lam = refLon * DEG;
+  const sinPhi = Math.sin(phi), cosPhi = Math.cos(phi);
+  const sinLam = Math.sin(lam), cosLam = Math.cos(lam);
+  return {
+    X: ref.X - sinLam * E - sinPhi * cosLam * N + cosPhi * cosLam * U,
+    Y: ref.Y + cosLam * E - sinPhi * sinLam * N + cosPhi * sinLam * U,
+    Z: ref.Z + cosPhi * N + sinPhi * U,
+  };
+}
+
+function toDMS(dd, isLat) {
+  const abs = Math.abs(dd);
+  const deg = Math.floor(abs);
+  const min = Math.floor((abs - deg) * 60);
+  const sec = ((abs - deg) * 60 - min) * 60;
+  const dir = isLat ? (dd >= 0 ? 'N' : 'S') : (dd >= 0 ? 'E' : 'W');
+  return `${deg}° ${min}' ${sec.toFixed(4)}" ${dir}`;
+}
+
+function setVal(id, v) {
+  const el = document.getElementById(id);
+  if (el && document.activeElement !== el) el.value = typeof v === 'number' ? v.toFixed(4) : v;
+}
+
+function numVal(id) { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? null : v; }
+
+let busy = false;
+
+function fillFromECEF(X, Y, Z) {
+  setVal('ecefX', X); setVal('ecefY', Y); setVal('ecefZ', Z);
+
+  const geo = ecefToGeodetic(X, Y, Z);
+  setVal('geoLat', geo.lat.toFixed(8));
+  setVal('geoLon', geo.lon.toFixed(8));
+  setVal('geoH', geo.h.toFixed(4));
+
+  const dms = document.getElementById('dmsDisplay');
+  if (dms) dms.innerHTML = `<span>${toDMS(geo.lat, true)}</span><br/><span>${toDMS(geo.lon, false)}</span>`;
+
+  const rLat = numVal('refLat'), rLon = numVal('refLon'), rH = numVal('refH') ?? 0;
+  if (rLat !== null && rLon !== null) {
+    const enu = ecefToENU(X, Y, Z, rLat, rLon, rH);
+    setVal('enuE', enu.E.toFixed(4));
+    setVal('enuN', enu.N.toFixed(4));
+    setVal('enuU', enu.U.toFixed(4));
+  }
+}
+
+function handleInput(source) {
+  if (busy) return;
+  busy = true;
+  try {
+    if (source === 'ecef') {
+      const X = numVal('ecefX'), Y = numVal('ecefY'), Z = numVal('ecefZ');
+      if (X !== null && Y !== null && Z !== null) fillFromECEF(X, Y, Z);
+    } else if (source === 'geo') {
+      const lat = numVal('geoLat'), lon = numVal('geoLon'), h = numVal('geoH') ?? 0;
+      if (lat !== null && lon !== null) {
+        const { X, Y, Z } = geodeticToECEF(lat, lon, h);
+        fillFromECEF(X, Y, Z);
+      }
+    } else if (source === 'enu') {
+      const E = numVal('enuE'), N = numVal('enuN'), U = numVal('enuU');
+      const rLat = numVal('refLat'), rLon = numVal('refLon'), rH = numVal('refH') ?? 0;
+      if (E !== null && N !== null && U !== null && rLat !== null && rLon !== null) {
+        const { X, Y, Z } = enuToECEF(E, N, U, rLat, rLon, rH);
+        fillFromECEF(X, Y, Z);
+      }
+    }
+  } catch(e) {}
+  busy = false;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  ['ecefX','ecefY','ecefZ'].forEach(id => document.getElementById(id)?.addEventListener('input', () => handleInput('ecef')));
+  ['geoLat','geoLon','geoH'].forEach(id => document.getElementById(id)?.addEventListener('input', () => handleInput('geo')));
+  ['enuE','enuN','enuU','refLat','refLon','refH'].forEach(id => document.getElementById(id)?.addEventListener('input', () => handleInput('enu')));
+
+  document.querySelectorAll('input[name="ellipsoid"]').forEach(r => r.addEventListener('change', () => {
+    const lat = numVal('geoLat'), lon = numVal('geoLon'), h = numVal('geoH') ?? 0;
+    if (lat !== null && lon !== null) handleInput('geo');
+    const { a, e2 } = getEll();
+    const el = document.getElementById('ellInfo');
+    if (el) el.textContent = `a = ${a.toLocaleString()} m · e² = ${e2.toFixed(12)}`;
+  }));
+
+  document.getElementById('clearBtn')?.addEventListener('click', () => {
+    ['ecefX','ecefY','ecefZ','geoLat','geoLon','geoH','enuE','enuN','enuU'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    const dms = document.getElementById('dmsDisplay'); if (dms) dms.innerHTML = '';
+  });
+});
+</script>
+
+<style>
+  .back { font-size:13px; color:var(--text2); display:inline-block; margin-bottom:24px; transition:color 0.2s; }
+  .back:hover { color:var(--accent); }
+  .tool-header { margin-bottom:20px; }
+  h1 { font-size:clamp(24px,4vw,36px); font-weight:700; margin:10px 0 12px; }
+  .sub { color:var(--text2); max-width:600px; font-size:15px; line-height:1.7; }
+
+  .ellipsoid-bar { display:flex; align-items:center; gap:16px; margin-bottom:20px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px 16px; flex-wrap:wrap; }
+  .ell-label { font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text3); font-family:var(--mono); margin-right:4px; }
+  .ell-opt { font-size:13px; color:var(--text2); display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .ell-opt input { accent-color:var(--accent); }
+
+  .conv-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:16px; }
+  .conv-panel { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:10px; }
+  .conv-enu { border-color:rgba(0,153,255,0.2); }
+  .conv-panel-title { font-size:12px; font-weight:700; color:var(--accent); font-family:var(--mono); text-transform:uppercase; letter-spacing:0.08em; }
+  .conv-note { font-size:11px; color:var(--text3); line-height:1.5; }
+  .field-row { display:flex; flex-direction:column; gap:3px; }
+  .field-row label { font-size:11px; color:var(--text3); font-family:var(--mono); }
+  input[type="number"] { background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-size:13px; font-family:var(--mono); color:var(--text); width:100%; box-sizing:border-box; transition:border-color 0.15s; }
+  input[type="number"]:focus { outline:none; border-color:rgba(0,212,170,0.4); }
+  input:not(:placeholder-shown) { border-color:rgba(0,212,170,0.2); color:var(--accent); }
+  .enu-ref-row input { border-color:rgba(0,153,255,0.2); }
+  .enu-divider { height:1px; background:var(--border); margin:4px 0; }
+  .dms-display { font-size:11px; font-family:var(--mono); color:var(--accent2); line-height:1.7; min-height:28px; }
+
+  .controls { display:flex; align-items:center; gap:16px; margin-bottom:20px; }
+  .btn-clear { font-size:12px; padding:7px 16px; background:var(--bg2); border:1px solid var(--border); border-radius:6px; color:var(--text3); cursor:pointer; font-family:var(--mono); transition:color 0.15s; }
+  .btn-clear:hover { color:#ff4757; border-color:rgba(255,71,87,0.3); }
+  .ellipsoid-info { font-size:12px; font-family:var(--mono); color:var(--text3); }
+
+  .ref-section { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:18px; }
+  .ref-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); font-family:var(--mono); margin-bottom:12px; }
+  .ell-table { display:flex; flex-direction:column; gap:2px; }
+  .ell-row { display:grid; grid-template-columns:200px 1fr 1fr; gap:10px; padding:7px 12px; background:var(--bg3); border:1px solid var(--border); border-radius:6px; font-size:12px; align-items:center; }
+  .ell-header { font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text3); font-family:var(--mono); }
+  .mono { font-family:var(--mono); color:var(--accent2); }
+
+  @media (max-width:900px) { .conv-grid { grid-template-columns:1fr; } }
+  @media (max-width:640px) { .ell-row { grid-template-columns:1fr 1fr; } .ell-row span:last-child { display:none; } }
+</style>

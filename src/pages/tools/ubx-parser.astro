@@ -1,0 +1,343 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="UBX Frame Parser">
+  <section class="section">
+    <div class="container">
+
+      <a href="/tools" class="back">← All tools</a>
+
+      <div class="tool-header">
+        <span class="badge">Tool</span>
+        <h1>UBX Frame Parser</h1>
+        <p class="sub">
+          Paste u-blox UBX protocol bytes as hex and decode the frame header, class, ID,
+          payload length, payload fields and Fletcher-8 checksum.
+        </p>
+      </div>
+
+      <div class="input-area">
+        <div class="input-label">Hex bytes (space, comma or no separator)</div>
+        <textarea id="hexInput" rows="4" placeholder="B5 62 01 07 5C 00 E8 A7 E3 15 00 00 00 00 C0 37 42 15 E0 07 09 1D 0C 2C 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 47 20"></textarea>
+        <div class="input-controls">
+          <button class="btn-parse" id="parseBtn">Parse</button>
+          <button class="btn-clear" id="clearBtn">Clear</button>
+          <div class="examples-label">Examples:</div>
+          <div class="example-btns">
+            <button class="eg-btn" data-msg="B5 62 01 07 5C 00 E8 A7 E3 15 00 00 00 00 C0 37 42 15 E0 07 09 1D 0C 2C 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 47 20">NAV-PVT</button>
+            <button class="eg-btn" data-msg="B5 62 0A 04 00 00 0E 34">MON-VER (poll)</button>
+            <button class="eg-btn" data-msg="B5 62 06 00 14 00 01 00 00 00 C0 08 00 00 00 4B 00 00 07 00 03 00 00 00 00 00 CB 59">CFG-PRT</button>
+            <button class="eg-btn" data-msg="B5 62 05 01 02 00 06 01 0F 38">ACK-ACK</button>
+            <button class="eg-btn" data-msg="B5 62 05 00 02 00 06 01 0E 37">ACK-NAK</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="parseError" class="parse-error" style="display:none"></div>
+      <div id="parseResult"></div>
+
+      <!-- UBX class reference -->
+      <div class="ref-section">
+        <div class="ref-title">UBX Message Class Reference</div>
+        <div class="class-table">
+          <div class="ct-row ct-header"><span>Class</span><span>Hex</span><span>Description</span><span>Common IDs</span></div>
+          <div class="ct-row"><span class="ct-cls nav">NAV</span><span class="mono">0x01</span><span>Navigation results — position, velocity, time</span><span class="mono">0x07 PVT · 0x03 STATUS · 0x35 SAT</span></div>
+          <div class="ct-row"><span class="ct-cls rxm">RXM</span><span class="mono">0x02</span><span>Receiver manager — raw measurements</span><span class="mono">0x15 RAWX · 0x13 SFRBX</span></div>
+          <div class="ct-row"><span class="ct-cls inf">INF</span><span class="mono">0x04</span><span>Information strings (ASCII text messages)</span><span class="mono">0x00 ERROR · 0x02 WARNING</span></div>
+          <div class="ct-row"><span class="ct-cls ack">ACK</span><span class="mono">0x05</span><span>Acknowledge / Not-acknowledge responses to CFG</span><span class="mono">0x01 ACK · 0x00 NAK</span></div>
+          <div class="ct-row"><span class="ct-cls cfg">CFG</span><span class="mono">0x06</span><span>Configuration input — receiver settings</span><span class="mono">0x00 PRT · 0x09 CFG · 0x86 VALSET</span></div>
+          <div class="ct-row"><span class="ct-cls mon">MON</span><span class="mono">0x0A</span><span>Monitoring — system status, hardware</span><span class="mono">0x04 VER · 0x09 HW · 0x36 COMMS</span></div>
+          <div class="ct-row"><span class="ct-cls tim">TIM</span><span class="mono">0x0D</span><span>Timing — pulse and time information</span><span class="mono">0x01 TP · 0x06 VRFY</span></div>
+          <div class="ct-row"><span class="ct-cls esf">ESF</span><span class="mono">0x10</span><span>External sensor fusion (dead reckoning)</span><span class="mono">0x10 MEAS · 0x02 STATUS</span></div>
+          <div class="ct-row"><span class="ct-cls sec">SEC</span><span class="mono">0x27</span><span>Security (SPARTN, AssistNow encryption)</span><span class="mono">0x01 UNIQID</span></div>
+        </div>
+      </div>
+
+      <!-- Frame structure -->
+      <div class="ref-section">
+        <div class="ref-title">UBX Frame Structure</div>
+        <div class="frame-diagram">
+          <div class="fd-byte fd-sync1"><div class="fd-val">B5</div><div class="fd-label">Sync 1</div></div>
+          <div class="fd-byte fd-sync2"><div class="fd-val">62</div><div class="fd-label">Sync 2</div></div>
+          <div class="fd-byte fd-class"><div class="fd-val">CLS</div><div class="fd-label">Class</div></div>
+          <div class="fd-byte fd-id"><div class="fd-val">ID</div><div class="fd-label">ID</div></div>
+          <div class="fd-byte fd-len"><div class="fd-val">L1 L2</div><div class="fd-label">Length (LE)</div></div>
+          <div class="fd-byte fd-payload"><div class="fd-val">...</div><div class="fd-label">Payload</div></div>
+          <div class="fd-byte fd-ck"><div class="fd-val">CK_A CK_B</div><div class="fd-label">Checksum</div></div>
+        </div>
+        <div class="frame-note">Length is payload length only (little-endian uint16). Checksum covers class, ID, length and payload. Sync bytes 0xB5 0x62 are not checksummed.</div>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<script>
+const UBX_CLASSES = {
+  0x01: { name: 'NAV', desc: 'Navigation results' },
+  0x02: { name: 'RXM', desc: 'Receiver manager' },
+  0x04: { name: 'INF', desc: 'Information' },
+  0x05: { name: 'ACK', desc: 'Acknowledge' },
+  0x06: { name: 'CFG', desc: 'Configuration' },
+  0x0A: { name: 'MON', desc: 'Monitoring' },
+  0x0D: { name: 'TIM', desc: 'Timing' },
+  0x10: { name: 'ESF', desc: 'Ext sensor fusion' },
+  0x27: { name: 'SEC', desc: 'Security' },
+};
+
+const UBX_MSGS = {
+  '01-07': 'NAV-PVT — Navigation position velocity time solution',
+  '01-03': 'NAV-STATUS — Receiver navigation status',
+  '01-35': 'NAV-SAT — Satellite information',
+  '01-01': 'NAV-POSECEF — Position solution in ECEF',
+  '01-02': 'NAV-POSLLH — Geodetic position solution',
+  '01-06': 'NAV-SOL — Navigation solution information',
+  '01-12': 'NAV-VELNED — Velocity solution NED',
+  '01-20': 'NAV-TIMEGPS — GPS time solution',
+  '01-21': 'NAV-TIMEUTC — UTC time solution',
+  '01-32': 'NAV-SVINFO — Space vehicle information',
+  '02-15': 'RXM-RAWX — Multi-GNSS raw measurements',
+  '02-13': 'RXM-SFRBX — Broadcast navigation data subframe',
+  '02-10': 'RXM-RAW — Raw measurement data',
+  '04-00': 'INF-ERROR — ASCII output with error contents',
+  '04-02': 'INF-WARNING — ASCII output with warning contents',
+  '04-03': 'INF-NOTICE — ASCII output with informational contents',
+  '05-01': 'ACK-ACK — Message acknowledged',
+  '05-00': 'ACK-NAK — Message not acknowledged',
+  '06-00': 'CFG-PRT — Port configuration',
+  '06-01': 'CFG-MSG — Message rate configuration',
+  '06-09': 'CFG-CFG — Clear/save/load configurations',
+  '06-24': 'CFG-NAV5 — Navigation engine settings',
+  '06-86': 'CFG-VALSET — Configuration value set',
+  '06-8B': 'CFG-VALGET — Configuration value get',
+  '0A-04': 'MON-VER — Receiver/software/hardware version',
+  '0A-09': 'MON-HW — Hardware status',
+  '0A-36': 'MON-COMMS — Communication port stats',
+  '0D-01': 'TIM-TP — Time pulse time data',
+  '10-10': 'ESF-MEAS — External sensor fusion measurements',
+  '27-01': 'SEC-UNIQID — Unique chip ID',
+};
+
+function parseHex(input) {
+  const cleaned = input.replace(/[^0-9A-Fa-f]/g, ' ').trim();
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  const bytes = tokens.map(t => parseInt(t, 16));
+  if (bytes.some(isNaN)) return null;
+  return bytes;
+}
+
+function ubxChecksum(bytes) {
+  // Checksum over class, ID, length, payload (bytes[2] to bytes[length+5])
+  let a = 0, b = 0;
+  for (let i = 2; i < bytes.length - 2; i++) {
+    a = (a + bytes[i]) & 0xFF;
+    b = (b + a) & 0xFF;
+  }
+  return { a, b };
+}
+
+function hex2(v) { return v.toString(16).toUpperCase().padStart(2, '0'); }
+
+function renderBytes(bytes, start, len, cls) {
+  return bytes.slice(start, start + len).map(b => `<span class="${cls}">${hex2(b)}</span>`).join(' ');
+}
+
+function parseUBX(bytes) {
+  if (bytes.length < 8) return { error: `Too short: ${bytes.length} bytes. Minimum UBX frame is 8 bytes.` };
+  if (bytes[0] !== 0xB5 || bytes[1] !== 0x62) return { error: `Invalid sync bytes: ${hex2(bytes[0])} ${hex2(bytes[1])} — expected B5 62.` };
+
+  const cls     = bytes[2];
+  const id      = bytes[3];
+  const len     = bytes[4] | (bytes[5] << 8);
+  const payload = bytes.slice(6, 6 + len);
+  const ck_a    = bytes[6 + len];
+  const ck_b    = bytes[6 + len + 1];
+
+  if (bytes.length < 6 + len + 2) return { error: `Frame truncated. Expected ${6 + len + 2} bytes, got ${bytes.length}.` };
+
+  const computed = ubxChecksum(bytes);
+  const csValid = computed.a === ck_a && computed.b === ck_b;
+  const clsInfo = UBX_CLASSES[cls] || { name: `0x${hex2(cls)}`, desc: 'Unknown class' };
+  const msgKey = `${hex2(cls)}-${hex2(id)}`.toLowerCase();
+  const msgDesc = UBX_MSGS[msgKey] || `${clsInfo.name}-0x${hex2(id)} (unknown message)`;
+
+  return { bytes, cls, id, len, payload, ck_a, ck_b, csValid, computed, clsInfo, msgDesc, msgKey };
+}
+
+function renderResult(r) {
+  if (r.error) return `<div class="parse-error-inline">${r.error}</div>`;
+
+  const csColor = r.csValid ? '#00d4aa' : '#ff4757';
+  const csText  = r.csValid ? `✓ Valid (CK_A=${hex2(r.ck_a)} CK_B=${hex2(r.ck_b)})` : `✗ Invalid — got ${hex2(r.ck_a)} ${hex2(r.ck_b)}, expected ${hex2(r.computed.a)} ${hex2(r.computed.b)}`;
+
+  // Annotated hex dump
+  const totalBytes = r.bytes;
+  const hexDump = totalBytes.map((b, i) => {
+    let cls = 'hb-payload';
+    if (i < 2) cls = 'hb-sync';
+    else if (i === 2) cls = 'hb-class';
+    else if (i === 3) cls = 'hb-id';
+    else if (i === 4 || i === 5) cls = 'hb-len';
+    else if (i >= totalBytes.length - 2) cls = 'hb-ck';
+    return `<span class="${cls}" title="byte ${i}: 0x${hex2(b)} (${b})">${hex2(b)}</span>`;
+  }).join(' ');
+
+  // Payload hex dump with ASCII
+  const payloadHex = r.payload.map((b, i) => {
+    const ascii = b >= 32 && b < 127 ? String.fromCharCode(b) : '.';
+    return `<span class="ph-byte" title="offset +${i}: 0x${hex2(b)} (${b}) '${ascii}'">${hex2(b)}</span>`;
+  }).join(' ');
+
+  const payloadAscii = r.payload.map(b => b >= 32 && b < 127 ? String.fromCharCode(b) : '.').join('');
+
+  return `
+    <div class="result-wrap">
+      <div class="res-header">
+        <div class="res-id">${r.msgDesc}</div>
+        <div class="res-cs" style="color:${csColor}">${csText}</div>
+      </div>
+
+      <div class="frame-fields">
+        <div class="ff-row ff-header"><span>Field</span><span>Offset</span><span>Value</span><span>Decoded</span></div>
+        <div class="ff-row"><span>Sync</span><span class="mono">0–1</span><span class="mono hb-sync-inline">B5 62</span><span>UBX sync bytes</span></div>
+        <div class="ff-row"><span>Class</span><span class="mono">2</span><span class="mono hb-class-inline">${hex2(r.cls)}</span><span>${r.clsInfo.name} — ${r.clsInfo.desc}</span></div>
+        <div class="ff-row"><span>ID</span><span class="mono">3</span><span class="mono hb-id-inline">${hex2(r.id)}</span><span>0x${hex2(r.id)}</span></div>
+        <div class="ff-row"><span>Length</span><span class="mono">4–5</span><span class="mono hb-len-inline">${hex2(r.len & 0xFF)} ${hex2((r.len >> 8) & 0xFF)}</span><span>${r.len} bytes payload (little-endian)</span></div>
+        <div class="ff-row"><span>Checksum</span><span class="mono">${6 + r.len}–${6 + r.len + 1}</span><span class="mono hb-ck-inline">${hex2(r.ck_a)} ${hex2(r.ck_b)}</span><span style="color:${csColor}">${csText}</span></div>
+      </div>
+
+      <div class="hex-wrap">
+        <div class="hw-title">Full frame</div>
+        <div class="hex-dump">${hexDump}</div>
+        <div class="hex-legend">
+          <span class="hb-sync">■ Sync</span>
+          <span class="hb-class">■ Class</span>
+          <span class="hb-id">■ ID</span>
+          <span class="hb-len">■ Length</span>
+          <span class="hb-payload">■ Payload</span>
+          <span class="hb-ck">■ Checksum</span>
+        </div>
+      </div>
+
+      ${r.payload.length > 0 ? `
+      <div class="hex-wrap">
+        <div class="hw-title">Payload (${r.payload.length} bytes)</div>
+        <div class="hex-dump">${payloadHex}</div>
+        <div class="hex-ascii">${payloadAscii}</div>
+      </div>` : '<div class="hex-wrap"><div class="hw-title">Payload</div><div class="empty-payload">Empty payload (poll request)</div></div>'}
+    </div>`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input  = document.getElementById('hexInput');
+  const result = document.getElementById('parseResult');
+  const errEl  = document.getElementById('parseError');
+
+  const run = () => {
+    errEl.style.display = 'none';
+    const bytes = parseHex(input.value);
+    if (!bytes || bytes.length === 0) { result.innerHTML = ''; return; }
+    result.innerHTML = renderResult(parseUBX(bytes));
+  };
+
+  document.getElementById('parseBtn').addEventListener('click', run);
+  document.getElementById('clearBtn').addEventListener('click', () => { input.value = ''; result.innerHTML = ''; errEl.style.display = 'none'; });
+  document.querySelectorAll('.eg-btn').forEach(btn => { btn.addEventListener('click', () => { input.value = btn.dataset.msg; run(); }); });
+
+  // Parse the default example
+  run();
+});
+</script>
+
+<style>
+  .back { font-size:13px; color:var(--text2); display:inline-block; margin-bottom:24px; transition:color 0.2s; }
+  .back:hover { color:var(--accent); }
+  .tool-header { margin-bottom:20px; }
+  h1 { font-size:clamp(24px,4vw,36px); font-weight:700; margin:10px 0 12px; }
+  .sub { color:var(--text2); max-width:600px; font-size:15px; line-height:1.7; }
+
+  .input-area { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .input-label { font-size:11px; color:var(--text3); font-family:var(--mono); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px; }
+  textarea { width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:10px 12px; font-size:12px; font-family:var(--mono); color:var(--text); resize:vertical; box-sizing:border-box; margin-bottom:10px; }
+  textarea:focus { outline:none; border-color:rgba(0,212,170,0.3); }
+  .input-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .btn-parse { font-size:13px; padding:7px 18px; background:rgba(0,212,170,0.1); border:1px solid rgba(0,212,170,0.3); border-radius:6px; color:var(--accent); cursor:pointer; font-family:var(--mono); }
+  .btn-parse:hover { background:rgba(0,212,170,0.2); }
+  .btn-clear { font-size:12px; padding:7px 14px; background:transparent; border:1px solid var(--border); border-radius:6px; color:var(--text3); cursor:pointer; font-family:var(--mono); }
+  .btn-clear:hover { color:#ff4757; border-color:rgba(255,71,87,0.3); }
+  .examples-label { font-size:11px; color:var(--text3); font-family:var(--mono); margin-left:8px; }
+  .example-btns { display:flex; gap:5px; flex-wrap:wrap; }
+  .eg-btn { font-size:11px; padding:4px 10px; background:var(--bg3); border:1px solid var(--border); border-radius:20px; color:var(--text2); cursor:pointer; font-family:var(--mono); transition:border-color 0.15s, color 0.15s; }
+  .eg-btn:hover { border-color:rgba(0,212,170,0.4); color:var(--accent); }
+
+  .parse-error { background:rgba(255,71,87,0.08); border:1px solid rgba(255,71,87,0.25); border-radius:8px; padding:12px 16px; font-size:13px; color:#ff4757; margin-bottom:14px; }
+  .parse-error-inline { background:rgba(255,71,87,0.08); border:1px solid rgba(255,71,87,0.25); border-radius:8px; padding:12px 16px; font-size:13px; color:#ff4757; margin-bottom:14px; }
+
+  .result-wrap { margin-bottom:16px; }
+  .res-header { display:flex; flex-direction:column; gap:4px; padding:14px 16px; background:var(--bg2); border:1px solid var(--border); border-radius:10px 10px 0 0; border-bottom:none; }
+  .res-id { font-size:14px; font-weight:600; color:var(--text); font-family:var(--mono); }
+  .res-cs { font-size:12px; font-family:var(--mono); }
+
+  .frame-fields { background:var(--bg2); border:1px solid var(--border); overflow:hidden; border-top:none; border-bottom:none; }
+  .ff-row { display:grid; grid-template-columns:80px 80px 120px 1fr; gap:8px; padding:7px 16px; border-bottom:1px solid var(--border); font-size:12px; align-items:center; }
+  .ff-row:last-child { border-bottom:none; }
+  .ff-header { font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text3); font-family:var(--mono); background:var(--bg3); }
+  .mono { font-family:var(--mono); color:var(--text2); }
+
+  .hex-wrap { background:var(--bg2); border:1px solid var(--border); border-radius:0; padding:14px 16px; border-top:none; }
+  .hex-wrap:last-child { border-radius:0 0 10px 10px; }
+  .hw-title { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text3); font-family:var(--mono); margin-bottom:8px; }
+  .hex-dump { font-size:12px; font-family:var(--mono); line-height:1.8; word-break:break-all; }
+  .hex-dump span { display:inline-block; margin:1px 2px; padding:1px 3px; border-radius:3px; cursor:default; }
+  .hb-sync    { background:rgba(0,212,170,0.15); color:var(--accent); }
+  .hb-class   { background:rgba(0,153,255,0.15); color:var(--accent2); }
+  .hb-id      { background:rgba(251,191,36,0.15); color:#fbbf24; }
+  .hb-len     { background:rgba(163,230,53,0.12); color:#a3e635; }
+  .hb-payload { background:rgba(255,255,255,0.04); color:var(--text2); }
+  .hb-ck      { background:rgba(255,71,87,0.12); color:#ff4757; }
+  .hb-sync-inline  { color:var(--accent); }
+  .hb-class-inline { color:var(--accent2); }
+  .hb-id-inline    { color:#fbbf24; }
+  .hb-len-inline   { color:#a3e635; }
+  .hb-ck-inline    { color:#ff4757; }
+  .ph-byte { background:rgba(255,255,255,0.04); color:var(--text2); display:inline-block; margin:1px 2px; padding:1px 3px; border-radius:3px; cursor:default; }
+  .hex-ascii { font-family:var(--mono); font-size:11px; color:var(--text3); margin-top:6px; letter-spacing:0.08em; word-break:break-all; }
+  .hex-legend { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; font-size:10px; font-family:var(--mono); }
+  .hex-legend span { padding:1px 6px; border-radius:3px; }
+  .empty-payload { font-size:12px; color:var(--text3); font-family:var(--mono); }
+
+  .ref-section { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:14px; }
+  .ref-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); font-family:var(--mono); margin-bottom:14px; }
+
+  .class-table { display:flex; flex-direction:column; gap:2px; }
+  .ct-row { display:grid; grid-template-columns:80px 60px 1fr 1fr; gap:10px; padding:7px 12px; background:var(--bg3); border:1px solid var(--border); border-radius:6px; font-size:12px; align-items:center; }
+  .ct-header { font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text3); font-family:var(--mono); }
+  .ct-cls { font-family:var(--mono); font-weight:700; font-size:11px; padding:2px 7px; border-radius:4px; }
+  .nav { background:rgba(0,212,170,0.12); color:var(--accent); }
+  .rxm { background:rgba(0,153,255,0.12); color:var(--accent2); }
+  .inf { background:rgba(163,230,53,0.12); color:#a3e635; }
+  .ack { background:rgba(251,191,36,0.12); color:#fbbf24; }
+  .cfg { background:rgba(249,115,22,0.12); color:#f97316; }
+  .mon { background:rgba(192,132,252,0.12); color:#c084fc; }
+  .tim { background:rgba(248,113,113,0.12); color:#f87171; }
+  .esf { background:rgba(255,255,255,0.06); color:var(--text2); }
+  .sec { background:rgba(255,71,87,0.12); color:#ff4757; }
+
+  .frame-diagram { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:12px; }
+  .fd-byte { border-radius:6px; padding:8px 10px; text-align:center; min-width:60px; }
+  .fd-sync1, .fd-sync2 { background:rgba(0,212,170,0.12); border:1px solid rgba(0,212,170,0.25); }
+  .fd-class { background:rgba(0,153,255,0.12); border:1px solid rgba(0,153,255,0.25); }
+  .fd-id { background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.25); }
+  .fd-len { background:rgba(163,230,53,0.1); border:1px solid rgba(163,230,53,0.2); }
+  .fd-payload { background:rgba(255,255,255,0.04); border:1px solid var(--border); flex:1; }
+  .fd-ck { background:rgba(255,71,87,0.1); border:1px solid rgba(255,71,87,0.2); }
+  .fd-val { font-family:var(--mono); font-size:12px; color:var(--text); font-weight:600; margin-bottom:3px; }
+  .fd-label { font-size:10px; color:var(--text3); }
+  .frame-note { font-size:12px; color:var(--text3); line-height:1.6; }
+
+  @media (max-width:640px) {
+    .ct-row { grid-template-columns:70px 50px 1fr; }
+    .ct-row span:last-child { display:none; }
+    .ff-row { grid-template-columns:70px 60px 90px 1fr; }
+  }
+</style>

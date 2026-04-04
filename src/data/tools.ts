@@ -45,7 +45,7 @@ export const tools: Tool[] = [
     title: 'RINEX Header Inspector',
     desc: 'Upload a RINEX 2 or 3 observation file and inspect header metadata — receiver, antenna, observables, epochs — without needing any software.',
     tags: ['RINEX', 'Observation'],
-    status: 'soon',
+    status: 'live',
     icon: '🔍',
   },
   {
@@ -53,7 +53,7 @@ export const tools: Tool[] = [
     title: 'Coordinate Converter',
     desc: 'Convert between ECEF Cartesian, Geodetic (lat/lon/height) and ENU. Supports WGS84 and GRS80.',
     tags: ['ECEF', 'Geodetic', 'ENU'],
-    status: 'soon',
+    status: 'live',
     icon: '🌐',
   },
   {
@@ -61,7 +61,7 @@ export const tools: Tool[] = [
     title: 'NMEA Sentence Decoder',
     desc: 'Paste any NMEA sentence — GGA, RMC, GSA, GSV — and get a field-by-field breakdown with validation.',
     tags: ['NMEA', 'GGA', 'RMC'],
-    status: 'soon',
+    status: 'live',
     icon: '📋',
   },
   {
@@ -69,7 +69,7 @@ export const tools: Tool[] = [
     title: 'Klobuchar Calculator',
     desc: 'Enter the 8 Klobuchar coefficients from a GPS navigation message and compute the ionospheric delay on L1.',
     tags: ['Ionosphere', 'L1', 'GPS'],
-    status: 'soon',
+    status: 'live',
     icon: '🌤️',
   },
   {
@@ -77,7 +77,7 @@ export const tools: Tool[] = [
     title: 'UBX Frame Parser',
     desc: 'Paste u-blox UBX hex bytes and decode the message class, ID, payload fields and checksum.',
     tags: ['UBX', 'u-blox', 'Binary'],
-    status: 'soon',
+    status: 'live',
     icon: '🔩',
   },
 ];

@@ -1,0 +1,302 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="Klobuchar Calculator">
+  <section class="section">
+    <div class="container">
+
+      <a href="/tools" class="back">← All tools</a>
+
+      <div class="tool-header">
+        <span class="badge">Tool</span>
+        <h1>Klobuchar Calculator</h1>
+        <p class="sub">
+          Enter the 8 Klobuchar coefficients from a GPS navigation message and the receiver
+          location and time to compute the single-frequency L1 ionospheric delay correction.
+        </p>
+      </div>
+
+      <div class="calc-grid">
+
+        <!-- Coefficients -->
+        <div class="coeff-panel">
+          <div class="panel-title">Klobuchar Coefficients</div>
+          <div class="coeff-note">From GPS navigation message subframe 4, page 18. Enter the values as transmitted (scientific notation accepted).</div>
+
+          <div class="coeff-group">
+            <div class="coeff-group-label">α coefficients (amplitude)</div>
+            <div class="coeff-row"><label>α₀</label><input type="number" id="a0" step="any" placeholder="e.g. 1.304e-8" /><span class="coeff-unit">s</span></div>
+            <div class="coeff-row"><label>α₁</label><input type="number" id="a1" step="any" placeholder="e.g. 1.490e-8" /><span class="coeff-unit">s/semicircle</span></div>
+            <div class="coeff-row"><label>α₂</label><input type="number" id="a2" step="any" placeholder="e.g. -5.960e-8" /><span class="coeff-unit">s/semicircle²</span></div>
+            <div class="coeff-row"><label>α₃</label><input type="number" id="a3" step="any" placeholder="e.g. -5.960e-8" /><span class="coeff-unit">s/semicircle³</span></div>
+          </div>
+
+          <div class="coeff-group">
+            <div class="coeff-group-label">β coefficients (period)</div>
+            <div class="coeff-row"><label>β₀</label><input type="number" id="b0" step="any" placeholder="e.g. 8.192e4" /><span class="coeff-unit">s</span></div>
+            <div class="coeff-row"><label>β₁</label><input type="number" id="b1" step="any" placeholder="e.g. -8.192e4" /><span class="coeff-unit">s/semicircle</span></div>
+            <div class="coeff-row"><label>β₂</label><input type="number" id="b2" step="any" placeholder="e.g. -6.554e4" /><span class="coeff-unit">s/semicircle²</span></div>
+            <div class="coeff-row"><label>β₃</label><input type="number" id="b3" step="any" placeholder="e.g. 3.277e5" /><span class="coeff-unit">s/semicircle³</span></div>
+          </div>
+
+          <div class="preset-row">
+            <div class="preset-label">Load example coefficients</div>
+            <button class="preset-btn" id="loadExample">Load typical values</button>
+          </div>
+        </div>
+
+        <!-- Receiver inputs -->
+        <div class="input-panel">
+          <div class="panel-title">Receiver &amp; Satellite</div>
+
+          <div class="field-group">
+            <div class="fg-label">Receiver position</div>
+            <div class="coeff-row"><label>Latitude</label><input type="number" id="recLat" step="0.0001" placeholder="−90 to +90 °" min="-90" max="90" /><span class="coeff-unit">°</span></div>
+            <div class="coeff-row"><label>Longitude</label><input type="number" id="recLon" step="0.0001" placeholder="−180 to +180 °" min="-180" max="180" /><span class="coeff-unit">°</span></div>
+          </div>
+
+          <div class="field-group">
+            <div class="fg-label">Satellite direction</div>
+            <div class="coeff-row"><label>Elevation</label><input type="number" id="satEl" step="0.1" placeholder="5 to 90 °" min="0" max="90" value="45" /><span class="coeff-unit">°</span></div>
+            <div class="coeff-row"><label>Azimuth</label><input type="number" id="satAz" step="0.1" placeholder="0 to 360 °" min="0" max="360" value="180" /><span class="coeff-unit">°</span></div>
+          </div>
+
+          <div class="field-group">
+            <div class="fg-label">GPS time</div>
+            <div class="coeff-row"><label>Time of week</label><input type="number" id="gpsTow" step="1" placeholder="0 – 604799 s" min="0" max="604799" value="50400" /><span class="coeff-unit">s</span></div>
+            <div class="tow-note">50400 s = 14:00:00 local time (peak ionospheric activity)</div>
+          </div>
+
+          <button class="btn-calc" id="calcBtn">Calculate</button>
+          <div class="error-msg" id="calcError" style="display:none"></div>
+        </div>
+
+        <!-- Results -->
+        <div class="results-panel">
+          <div class="panel-title">Results</div>
+
+          <div class="result-cards" id="resultCards">
+            <div class="result-placeholder">Enter coefficients, receiver position and satellite direction, then click Calculate.</div>
+          </div>
+
+          <div class="ipps-section" id="ippsSection" style="display:none">
+            <div class="ipp-title">Ionospheric Pierce Point (IPP)</div>
+            <div class="ipp-rows" id="ippRows"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- How it works -->
+      <div class="ref-section">
+        <div class="ref-title">Klobuchar Model — Algorithm Steps</div>
+        <div class="steps-list">
+          <div class="step"><div class="step-n">1</div><div class="step-body"><strong>Earth-centred angle:</strong> ψ = 0.0137/(El + 0.11) − 0.022 (semicircles), where El = elevation in semicircles.</div></div>
+          <div class="step"><div class="step-n">2</div><div class="step-body"><strong>IPP latitude:</strong> φ_IPP = φ_rec + ψ · cos(Az) — clamped to ±0.416 semicircles.</div></div>
+          <div class="step"><div class="step-n">3</div><div class="step-body"><strong>IPP longitude:</strong> λ_IPP = λ_rec + ψ · sin(Az) / cos(φ_IPP)</div></div>
+          <div class="step"><div class="step-n">4</div><div class="step-body"><strong>Geomagnetic latitude:</strong> φ_m = φ_IPP + 0.064 · cos(λ_IPP − 1.617) (semicircles)</div></div>
+          <div class="step"><div class="step-n">5</div><div class="step-body"><strong>Local time at IPP:</strong> t = 43200 · λ_IPP + t_GPS (mod 86400). Clamped to [0, 86400].</div></div>
+          <div class="step"><div class="step-n">6</div><div class="step-body"><strong>Amplitude:</strong> A = Σ αₙ · φ_mⁿ (clamped to minimum 0)</div></div>
+          <div class="step"><div class="step-n">7</div><div class="step-body"><strong>Period:</strong> P = Σ βₙ · φ_mⁿ (clamped to minimum 72000 s)</div></div>
+          <div class="step"><div class="step-n">8</div><div class="step-body"><strong>Phase:</strong> X = 2π(t − 50400) / P</div></div>
+          <div class="step"><div class="step-n">9</div><div class="step-body"><strong>Vertical delay:</strong> I_v = 5×10⁻⁹ + A · cos(X) when |X| &lt; 1.57, else I_v = 5×10⁻⁹ (seconds)</div></div>
+          <div class="step"><div class="step-n">10</div><div class="step-body"><strong>Mapping function:</strong> F = 1 + 16 · (0.53 − El)³ (slant to zenith conversion)</div></div>
+          <div class="step"><div class="step-n">11</div><div class="step-body"><strong>Slant delay:</strong> I = F · I_v (seconds). Multiply by c = 299,792,458 m/s for metres.</div></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<script>
+const DEG = Math.PI / 180;
+const SC  = Math.PI; // 1 semicircle = π radians
+
+function numVal(id) { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? null : v; }
+
+function calcKlobuchar() {
+  const a = [numVal('a0'), numVal('a1'), numVal('a2'), numVal('a3')];
+  const b = [numVal('b0'), numVal('b1'), numVal('b2'), numVal('b3')];
+  const lat   = numVal('recLat');
+  const lon   = numVal('recLon');
+  const elDeg = numVal('satEl');
+  const azDeg = numVal('satAz');
+  const tow   = numVal('gpsTow');
+
+  if (a.some(v => v === null) || b.some(v => v === null)) return { error: 'Enter all 8 Klobuchar coefficients (α₀–α₃ and β₀–β₃).' };
+  if (lat === null || lon === null) return { error: 'Enter receiver latitude and longitude.' };
+  if (elDeg === null || azDeg === null) return { error: 'Enter satellite elevation and azimuth.' };
+  if (tow === null) return { error: 'Enter GPS Time of Week.' };
+
+  // Convert to semicircles
+  const phi_u = lat / 180;    // receiver lat in semicircles
+  const lam_u = lon / 180;    // receiver lon in semicircles
+  const El    = elDeg / 180;  // elevation in semicircles
+  const Az    = azDeg * DEG;  // azimuth in radians
+
+  // Step 1: Earth-centred angle
+  const psi = 0.0137 / (El + 0.11) - 0.022;
+
+  // Step 2: IPP latitude (semicircles)
+  let phi_i = phi_u + psi * Math.cos(Az);
+  phi_i = Math.max(-0.416, Math.min(0.416, phi_i));
+
+  // Step 3: IPP longitude (semicircles)
+  const lam_i = lam_u + psi * Math.sin(Az) / Math.cos(phi_i * SC);
+
+  // Step 4: Geomagnetic latitude (semicircles)
+  const phi_m = phi_i + 0.064 * Math.cos((lam_i - 1.617) * SC);
+
+  // Step 5: Local time at IPP (seconds)
+  let t = 43200 * lam_i + tow;
+  t = ((t % 86400) + 86400) % 86400;
+
+  // Step 6: Amplitude (seconds)
+  let A = 0;
+  for (let n = 0; n < 4; n++) A += a[n] * Math.pow(phi_m, n);
+  A = Math.max(0, A);
+
+  // Step 7: Period (seconds)
+  let P = 0;
+  for (let n = 0; n < 4; n++) P += b[n] * Math.pow(phi_m, n);
+  P = Math.max(72000, P);
+
+  // Step 8 & 9: Vertical delay
+  const X = 2 * Math.PI * (t - 50400) / P;
+  const I_v = Math.abs(X) < 1.57
+    ? 5e-9 + A * Math.cos(X)
+    : 5e-9;
+
+  // Step 10: Mapping function
+  const F = 1 + 16 * Math.pow(0.53 - El, 3);
+
+  // Step 11: Slant delay
+  const I_slant = F * I_v;
+  const I_m = I_slant * 299792458; // metres
+
+  return {
+    I_v_ns: I_v * 1e9,
+    I_v_m:  I_v * 299792458,
+    I_s_ns: I_slant * 1e9,
+    I_s_m:  I_m,
+    F, A, P, X, t, phi_m,
+    ipp: { lat: phi_i * 180, lon: lam_i * 180, phi_m: phi_m * 180 },
+  };
+}
+
+function renderResults(r) {
+  if (r.error) {
+    document.getElementById('calcError').textContent = r.error;
+    document.getElementById('calcError').style.display = 'block';
+    document.getElementById('resultCards').innerHTML = '<div class="result-placeholder">Fix the errors above and try again.</div>';
+    document.getElementById('ippsSection').style.display = 'none';
+    return;
+  }
+  document.getElementById('calcError').style.display = 'none';
+
+  const rateColor = r.I_s_m < 1 ? '#00d4aa' : r.I_s_m < 5 ? '#a3e635' : r.I_s_m < 15 ? '#fbbf24' : '#ff4757';
+
+  document.getElementById('resultCards').innerHTML = `
+    <div class="res-main" style="border-color:${rateColor}22">
+      <div class="res-val" style="color:${rateColor}">${r.I_s_m.toFixed(3)}</div>
+      <div class="res-label">Slant L1 delay (m)</div>
+    </div>
+    <div class="res-grid">
+      <div class="res-card"><div class="rc-val">${r.I_s_ns.toFixed(2)} ns</div><div class="rc-label">Slant delay (ns)</div></div>
+      <div class="res-card"><div class="rc-val">${r.I_v_m.toFixed(3)} m</div><div class="rc-label">Vertical delay (m)</div></div>
+      <div class="res-card"><div class="rc-val">${r.I_v_ns.toFixed(2)} ns</div><div class="rc-label">Vertical delay (ns)</div></div>
+      <div class="res-card"><div class="rc-val">${r.F.toFixed(3)}</div><div class="rc-label">Mapping function F</div></div>
+      <div class="res-card"><div class="rc-val">${(r.A * 1e9).toFixed(2)} ns</div><div class="rc-label">Amplitude A</div></div>
+      <div class="res-card"><div class="rc-val">${(r.P).toFixed(0)} s</div><div class="rc-label">Period P</div></div>
+    </div>`;
+
+  document.getElementById('ippRows').innerHTML = `
+    <div class="ipp-row"><span>IPP latitude</span><span class="ipp-val">${r.ipp.lat.toFixed(4)}°</span></div>
+    <div class="ipp-row"><span>IPP longitude</span><span class="ipp-val">${r.ipp.lon.toFixed(4)}°</span></div>
+    <div class="ipp-row"><span>Geomagnetic latitude</span><span class="ipp-val">${r.ipp.phi_m.toFixed(4)}°</span></div>
+    <div class="ipp-row"><span>Local time at IPP</span><span class="ipp-val">${Math.floor(r.t/3600).toString().padStart(2,'0')}:${Math.floor((r.t%3600)/60).toString().padStart(2,'0')} (${r.t.toFixed(0)} s)</span></div>`;
+  document.getElementById('ippsSection').style.display = 'block';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('calcBtn').addEventListener('click', () => renderResults(calcKlobuchar()));
+
+  document.getElementById('loadExample').addEventListener('click', () => {
+    // Typical GPS Klobuchar coefficients from IS-GPS-200
+    document.getElementById('a0').value = '1.304e-8';
+    document.getElementById('a1').value = '1.490e-8';
+    document.getElementById('a2').value = '-5.960e-8';
+    document.getElementById('a3').value = '-5.960e-8';
+    document.getElementById('b0').value = '8.192e4';
+    document.getElementById('b1').value = '-8.192e4';
+    document.getElementById('b2').value = '-6.554e4';
+    document.getElementById('b3').value = '3.277e5';
+    document.getElementById('recLat').value = '51.5';
+    document.getElementById('recLon').value = '-0.1';
+    document.getElementById('satEl').value = '45';
+    document.getElementById('satAz').value = '180';
+    document.getElementById('gpsTow').value = '50400';
+    renderResults(calcKlobuchar());
+  });
+});
+</script>
+
+<style>
+  .back { font-size:13px; color:var(--text2); display:inline-block; margin-bottom:24px; transition:color 0.2s; }
+  .back:hover { color:var(--accent); }
+  .tool-header { margin-bottom:20px; }
+  h1 { font-size:clamp(24px,4vw,36px); font-weight:700; margin:10px 0 12px; }
+  .sub { color:var(--text2); max-width:600px; font-size:15px; line-height:1.7; }
+
+  .calc-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px; align-items:start; }
+  .coeff-panel, .input-panel, .results-panel { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:18px; }
+  .panel-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--accent); font-family:var(--mono); margin-bottom:12px; }
+  .coeff-note { font-size:11px; color:var(--text3); line-height:1.5; margin-bottom:14px; }
+
+  .coeff-group { margin-bottom:14px; }
+  .coeff-group-label { font-size:11px; font-weight:600; color:var(--text2); font-family:var(--mono); margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+  .coeff-row { display:grid; grid-template-columns:28px 1fr 80px; gap:6px; align-items:center; margin-bottom:5px; }
+  .coeff-row label { font-size:12px; color:var(--text3); font-family:var(--mono); }
+  .coeff-row input { background:var(--bg3); border:1px solid var(--border); border-radius:5px; padding:6px 8px; font-size:12px; font-family:var(--mono); color:var(--text); width:100%; box-sizing:border-box; }
+  .coeff-row input:focus { outline:none; border-color:rgba(0,212,170,0.4); }
+  .coeff-unit { font-size:10px; color:var(--text3); font-family:var(--mono); }
+
+  .preset-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px; }
+  .preset-label { font-size:11px; color:var(--text3); font-family:var(--mono); }
+  .preset-btn { font-size:11px; padding:5px 12px; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:var(--text2); cursor:pointer; font-family:var(--mono); transition:border-color 0.15s; }
+  .preset-btn:hover { border-color:rgba(0,212,170,0.4); color:var(--accent); }
+
+  .field-group { margin-bottom:14px; }
+  .fg-label { font-size:11px; font-weight:600; color:var(--text2); font-family:var(--mono); margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+  .tow-note { font-size:10px; color:var(--text3); font-family:var(--mono); margin-top:4px; }
+
+  .btn-calc { width:100%; padding:10px; background:rgba(0,212,170,0.1); border:1px solid rgba(0,212,170,0.3); border-radius:7px; color:var(--accent); font-size:13px; font-weight:600; cursor:pointer; font-family:var(--mono); transition:background 0.15s; margin-top:4px; }
+  .btn-calc:hover { background:rgba(0,212,170,0.2); }
+  .error-msg { font-size:12px; color:#ff4757; margin-top:8px; font-family:var(--mono); }
+
+  .result-placeholder { font-size:13px; color:var(--text3); padding:20px 0; text-align:center; }
+  .res-main { text-align:center; padding:20px; background:var(--bg3); border:1px solid var(--border); border-radius:8px; margin-bottom:10px; }
+  .res-val { font-size:40px; font-weight:700; font-family:var(--mono); line-height:1; margin-bottom:4px; }
+  .res-label { font-size:12px; color:var(--text3); }
+  .res-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .res-card { background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:10px; text-align:center; }
+  .rc-val { font-size:14px; font-weight:600; font-family:var(--mono); color:var(--accent2); margin-bottom:3px; }
+  .rc-label { font-size:10px; color:var(--text3); }
+
+  .ipps-section { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+  .ipp-title { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text3); font-family:var(--mono); margin-bottom:8px; }
+  .ipp-row { display:flex; justify-content:space-between; font-size:12px; padding:4px 0; border-bottom:1px solid var(--border); color:var(--text3); }
+  .ipp-row:last-child { border-bottom:none; }
+  .ipp-val { font-family:var(--mono); color:var(--accent2); }
+
+  .ref-section { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .ref-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); font-family:var(--mono); margin-bottom:14px; }
+  .steps-list { display:flex; flex-direction:column; gap:6px; }
+  .step { display:flex; gap:12px; align-items:flex-start; }
+  .step-n { width:24px; height:24px; background:rgba(0,212,170,0.1); color:var(--accent); border-radius:50%; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--mono); margin-top:1px; }
+  .step-body { font-size:12px; color:var(--text2); line-height:1.6; }
+  .step-body strong { color:var(--text); font-weight:600; }
+
+  @media (max-width:900px) { .calc-grid { grid-template-columns:1fr; } }
+</style>
