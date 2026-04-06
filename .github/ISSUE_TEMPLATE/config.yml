@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: General project website
+    url: https://gnssmetrics.com
+    about: Visit the live site for documentation, tools, and project context.

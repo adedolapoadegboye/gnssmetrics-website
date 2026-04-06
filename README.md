@@ -49,7 +49,7 @@ Daily GNSS industry news digest powered by Claude AI:
 
 | Layer      | Technology                                                   |
 | ---------- | ------------------------------------------------------------ |
-| Framework  | [Astro](https://astro.build) v5                              |
+| Framework  | [Astro](https://astro.build) v6                              |
 | Deployment | [Cloudflare Pages](https://pages.cloudflare.com) (free tier) |
 | Domain     | GoDaddy → Cloudflare DNS                                     |
 | Newsletter | [Buttondown](https://buttondown.com/gnssmetrics)             |
@@ -109,7 +109,7 @@ gnssmetrics-website/
 
 ## Local Development
 
-**Requirements:** Node.js v18+
+**Requirements:** Node.js v22+
 
 ```bash
 # Clone

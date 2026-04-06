@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a broken feature, page, workflow, or technical issue.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please include enough detail for the issue to be reproduced.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the problem clearly and concisely.
+      placeholder: The page fails to render, a tool gives incorrect output, a workflow errors, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the steps that reproduce the issue.
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: Affected page or file
+      placeholder: /tools/rinex-inspector or src/pages/tools/rinex-inspector.astro
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Website UI
+        - GNSS tool
+        - Educational content
+        - News pipeline
+        - Newsletter workflow
+        - Deployment / infrastructure
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include browser, OS, device, or workflow run details if relevant.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, logs, links, or related issues.

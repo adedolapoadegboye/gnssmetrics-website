@@ -1,0 +1,42 @@
+name: Content correction
+description: Report a technical inaccuracy, unclear explanation, or citation issue.
+title: "[Content]: "
+labels:
+  - documentation
+  - accuracy
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve technical accuracy. For GNSS content, sources and precise corrections are especially helpful.
+  - type: input
+    id: page
+    attributes:
+      label: Affected page
+      placeholder: /learn/positioning/ppp or /projects/gps-l1-engine
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is incorrect or unclear?
+      placeholder: Describe the statement, equation, claim, or explanation that should be corrected.
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Suggested correction
+      placeholder: Provide the corrected wording, interpretation, or technical clarification.
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: References
+      description: Include standards, textbooks, papers, or authoritative documentation if possible.
+      placeholder: IS-GPS-200, RTCM standard, peer-reviewed paper, manufacturer documentation, etc.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
