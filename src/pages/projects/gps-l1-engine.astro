@@ -31,45 +31,56 @@ import Layout from '../../layouts/Layout.astro';
 
       <!-- PIPELINE OVERVIEW -->
       <div class="pipeline-card">
-        <div class="pipeline-title">Pipeline architecture</div>
-        <div class="pipeline-steps">
-          <div class="ps-step">
-            <div class="ps-num">1</div>
-            <div class="ps-body">
-              <div class="ps-name">RINEX Parser</div>
-              <div class="ps-desc">Reads RINEX 2.11 observation file — C1 pseudoranges and L1 carrier phase per epoch</div>
-            </div>
+        <div class="pipeline-head">
+          <div class="pipeline-title-wrap">
+            <div class="pipeline-title">Pipeline architecture</div>
+            <div class="pipeline-hint">Scroll sideways to follow the processing chain</div>
           </div>
-          <div class="ps-arrow">→</div>
-          <div class="ps-step">
-            <div class="ps-num">2</div>
-            <div class="ps-body">
-              <div class="ps-name">Nav Parser + Orbit</div>
-              <div class="ps-desc">Parses broadcast ephemeris; computes satellite ECEF positions via IS-GPS-200 algorithm</div>
-            </div>
+          <div class="pipeline-controls" aria-label="Pipeline navigation">
+            <button type="button" class="pipeline-btn" data-pipeline-scroll="left" aria-label="Scroll pipeline left">←</button>
+            <button type="button" class="pipeline-btn" data-pipeline-scroll="right" aria-label="Scroll pipeline right">→</button>
           </div>
-          <div class="ps-arrow">→</div>
-          <div class="ps-step">
-            <div class="ps-num">3</div>
-            <div class="ps-body">
-              <div class="ps-name">Corrections</div>
-              <div class="ps-desc">Satellite clock, Klobuchar ionosphere, Saastamoinen troposphere</div>
+        </div>
+        <div class="pipeline-scroll" data-pipeline-scroll-region>
+          <div class="pipeline-steps">
+            <div class="ps-step">
+              <div class="ps-num">1</div>
+              <div class="ps-body">
+                <div class="ps-name">RINEX Parser</div>
+                <div class="ps-desc">Reads RINEX 2.11 observation file — C1 pseudoranges and L1 carrier phase per epoch</div>
+              </div>
             </div>
-          </div>
-          <div class="ps-arrow">→</div>
-          <div class="ps-step ps-solver">
-            <div class="ps-num">4</div>
-            <div class="ps-body">
-              <div class="ps-name">WLS seed → EKF</div>
-              <div class="ps-desc">Epoch 0: WLS cold start. Epochs 1–N: 4-state EKF predict + sequential update</div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step">
+              <div class="ps-num">2</div>
+              <div class="ps-body">
+                <div class="ps-name">Nav Parser + Orbit</div>
+                <div class="ps-desc">Parses broadcast ephemeris; computes satellite ECEF positions via IS-GPS-200 algorithm</div>
+              </div>
             </div>
-          </div>
-          <div class="ps-arrow">→</div>
-          <div class="ps-step">
-            <div class="ps-num">5</div>
-            <div class="ps-body">
-              <div class="ps-name">ECEF → LLH + DOP</div>
-              <div class="ps-desc">Bowring iteration for geodetic coordinates; HDOP / VDOP / PDOP from design matrix</div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step">
+              <div class="ps-num">3</div>
+              <div class="ps-body">
+                <div class="ps-name">Corrections</div>
+                <div class="ps-desc">Satellite clock, Klobuchar ionosphere, Saastamoinen troposphere</div>
+              </div>
+            </div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step ps-solver">
+              <div class="ps-num">4</div>
+              <div class="ps-body">
+                <div class="ps-name">WLS seed → EKF</div>
+                <div class="ps-desc">Epoch 0: WLS cold start. Epochs 1–N: 4-state EKF predict + sequential update</div>
+              </div>
+            </div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step">
+              <div class="ps-num">5</div>
+              <div class="ps-body">
+                <div class="ps-name">ECEF → LLH + DOP</div>
+                <div class="ps-desc">Bowring iteration for geodetic coordinates; HDOP / VDOP / PDOP from design matrix</div>
+              </div>
             </div>
           </div>
         </div>
@@ -326,8 +337,22 @@ python3 results/plot_results.py</code></pre>
 
   /* Pipeline */
   .pipeline-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:22px; margin-bottom:28px; }
-  .pipeline-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--accent); font-family:var(--mono); margin-bottom:16px; }
-  .pipeline-steps { display:flex; align-items:flex-start; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:16px; }
+  .pipeline-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  .pipeline-title-wrap { display:flex; flex-direction:column; gap:6px; }
+  .pipeline-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--accent); font-family:var(--mono); margin:0; }
+  .pipeline-hint { font-size:11px; color:var(--text3); font-family:var(--mono); white-space:nowrap; }
+  .pipeline-controls { display:flex; align-items:center; gap:8px; }
+  .pipeline-btn { width:34px; height:34px; border-radius:999px; border:1px solid var(--border); background:var(--bg3); color:var(--accent); font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:center; transition:border-color 0.2s, background 0.2s, color 0.2s, transform 0.2s; }
+  .pipeline-btn:hover { border-color:rgba(0,212,170,0.35); background:rgba(0,212,170,0.08); transform:translateY(-1px); }
+  .pipeline-scroll { position:relative; margin:0 -6px 16px; padding:0 6px 10px; }
+  .pipeline-scroll::before, .pipeline-scroll::after { content:''; position:absolute; top:0; bottom:10px; width:28px; pointer-events:none; z-index:1; }
+  .pipeline-scroll::before { left:0; background:linear-gradient(90deg, var(--bg2) 15%, rgba(15,18,24,0)); }
+  .pipeline-scroll::after { right:0; background:linear-gradient(270deg, var(--bg2) 15%, rgba(15,18,24,0)); }
+  .pipeline-steps { display:flex; align-items:flex-start; gap:6px; overflow-x:auto; padding:2px 4px 10px; margin:0; scrollbar-width:thin; scrollbar-color:rgba(0,212,170,0.45) rgba(255,255,255,0.05); cursor:grab; scroll-padding-inline:4px; }
+  .pipeline-steps::-webkit-scrollbar { height:10px; }
+  .pipeline-steps::-webkit-scrollbar-track { background:rgba(255,255,255,0.05); border-radius:999px; }
+  .pipeline-steps::-webkit-scrollbar-thumb { background:linear-gradient(90deg, rgba(0,212,170,0.35), rgba(0,153,255,0.35)); border-radius:999px; border:2px solid rgba(8,10,14,0.35); }
+  .pipeline-steps:active { cursor:grabbing; }
   .ps-step { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:12px; min-width:150px; flex-shrink:0; display:flex; gap:10px; }
   .ps-solver { border-color:rgba(0,212,170,0.3); background:rgba(0,212,170,0.04); }
   .ps-num { width:22px; height:22px; background:rgba(0,212,170,0.12); color:var(--accent); border-radius:50%; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--mono); }
@@ -405,9 +430,26 @@ python3 results/plot_results.py</code></pre>
     .improvements-grid { grid-template-columns:1fr; }
     .perf-grid { grid-template-columns:1fr 1fr; }
     .files-grid { grid-template-columns:1fr 1fr; }
-    .pipeline-steps { flex-direction:column; }
+    .pipeline-head { align-items:flex-start; }
+    .pipeline-hint { white-space:normal; }
+    .pipeline-controls { width:100%; justify-content:flex-start; }
+    .pipeline-scroll::before, .pipeline-scroll::after { display:none; }
+    .pipeline-steps { flex-direction:column; overflow-x:visible; padding:0; cursor:default; }
     .ps-arrow { transform:rotate(90deg); align-self:center; }
     .pt-row { grid-template-columns:1fr; }
     .pipeline-io { grid-template-columns:1fr; }
   }
 </style>
+<script>
+  const pipelineRegion = document.querySelector('[data-pipeline-scroll-region]');
+  const pipelineSteps = pipelineRegion?.querySelector('.pipeline-steps');
+  const pipelineButtons = document.querySelectorAll('[data-pipeline-scroll]');
+
+  pipelineButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!pipelineSteps) return;
+      const direction = button.getAttribute('data-pipeline-scroll') === 'left' ? -1 : 1;
+      pipelineSteps.scrollBy({ left: direction * 220, behavior: 'smooth' });
+    });
+  });
+</script>
