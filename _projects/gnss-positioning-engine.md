@@ -16,6 +16,7 @@ tags:
   - "Python"
   - "Galileo"
   - "GPS"
+  - "GLONASS"
   - "BeiDou"
 ---
 
