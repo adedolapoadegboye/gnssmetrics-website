@@ -1,0 +1,85 @@
+name: Auto-Update Project Cards
+
+on:
+  push:
+    paths:
+      - '_projects/**'
+    branches:
+      - main
+
+  # Allows manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      project_file:
+        description: 'Project file name (e.g., gps-multipath.md)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  update-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get new project files
+        id: get-projects
+        run: |
+          if [ -n "${{ github.event.inputs.project_file }}" ]; then
+            echo "files=_projects/${{ github.event.inputs.project_file }}" >> $GITHUB_OUTPUT
+          else
+            # Get files changed in the last commit
+            FILES=$(git diff --name-only HEAD~1 HEAD -- '_projects/*.md' 2>/dev/null || echo "")
+            if [ -z "$FILES" ]; then
+              FILES=$(ls _projects/*.md 2>/dev/null | head -5)
+            fi
+            echo "files=$FILES" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Claude Code to update site
+        if: steps.get-projects.outputs.files != ''
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            A new project file has been added to the _projects/ folder.
+
+            New file(s): ${{ steps.get-projects.outputs.files }}
+
+            Your task:
+            1. Read the CLAUDE.md file in the root of this repo for full instructions
+            2. Read the new project markdown file(s)
+            3. Read existing project entries to understand the exact format and patterns
+            4. Add the new project as a content entry following the existing patterns
+            5. Do NOT modify any existing files except to add the new entry
+            6. Make sure the build would succeed (check imports, paths, etc.)
+            7. Commit your changes with a descriptive message
+
+            IMPORTANT:
+            - Match the existing code style exactly
+            - Only ADD content, never modify or delete existing content
+            - If unsure about anything, err on the side of doing less
+          claude_args: "--max-turns 15 --max-budget-usd 0.50"
+          timeout_minutes: 10
+
+      - name: Auto-merge PR
+        if: steps.get-projects.outputs.files != ''
+        run: |
+          # Wait for PR to be created
+          sleep 10
+          # Find the most recent open PR from this workflow
+          PR_NUM=$(gh pr list --state open --label "claude" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$PR_NUM" ]; then
+            gh pr merge "$PR_NUM" --auto --squash
+            echo "Auto-merge enabled for PR #$PR_NUM"
+          else
+            echo "No PR found to auto-merge (Claude may have committed directly)"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
