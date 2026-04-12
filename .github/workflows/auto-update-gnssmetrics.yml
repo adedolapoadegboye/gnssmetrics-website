@@ -3,15 +3,14 @@ name: Auto-Update Project Cards
 on:
   push:
     paths:
-      - '_projects/**'
+      - "_projects/**"
     branches:
       - main
 
-  # Allows manual trigger from GitHub UI
   workflow_dispatch:
     inputs:
       project_file:
-        description: 'Project file name (e.g., gps-multipath.md)'
+        description: "Project file name (e.g., gps-multipath.md)"
         required: false
         type: string
 
@@ -21,65 +20,77 @@ permissions:
   issues: write
 
 jobs:
-  update-site:
+  create-update-issue:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 2
 
       - name: Get new project files
         id: get-projects
         run: |
           if [ -n "${{ github.event.inputs.project_file }}" ]; then
-            echo "files=_projects/${{ github.event.inputs.project_file }}" >> $GITHUB_OUTPUT
+            FILES="_projects/${{ github.event.inputs.project_file }}"
           else
-            # Get files changed in the last commit
             FILES=$(git diff --name-only HEAD~1 HEAD -- '_projects/*.md' 2>/dev/null || echo "")
             if [ -z "$FILES" ]; then
               FILES=$(ls _projects/*.md 2>/dev/null | head -5)
             fi
-            echo "files=$FILES" >> $GITHUB_OUTPUT
           fi
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+          echo "Found files: $FILES"
 
-      - name: Run Claude Code to update site
+      - name: Read project content
         if: steps.get-projects.outputs.files != ''
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            A new project file has been added to the _projects/ folder.
-
-            New file(s): ${{ steps.get-projects.outputs.files }}
-
-            Your task:
-            1. Read the CLAUDE.md file in the root of this repo for full instructions
-            2. Read the new project markdown file(s)
-            3. Read existing project entries to understand the exact format and patterns
-            4. Add the new project as a content entry following the existing patterns
-            5. Do NOT modify any existing files except to add the new entry
-            6. Make sure the build would succeed (check imports, paths, etc.)
-            7. Commit your changes with a descriptive message
-
-            IMPORTANT:
-            - Match the existing code style exactly
-            - Only ADD content, never modify or delete existing content
-            - If unsure about anything, err on the side of doing less
-          claude_args: "--max-turns 15 --max-budget-usd 0.50"
-          timeout_minutes: 10
-
-      - name: Auto-merge PR
-        if: steps.get-projects.outputs.files != ''
+        id: read-content
         run: |
-          # Wait for PR to be created
-          sleep 10
-          # Find the most recent open PR from this workflow
-          PR_NUM=$(gh pr list --state open --label "claude" --json number --jq '.[0].number' 2>/dev/null || echo "")
-          if [ -n "$PR_NUM" ]; then
-            gh pr merge "$PR_NUM" --auto --squash
-            echo "Auto-merge enabled for PR #$PR_NUM"
-          else
-            echo "No PR found to auto-merge (Claude may have committed directly)"
-          fi
+          CONTENT=""
+          for f in ${{ steps.get-projects.outputs.files }}; do
+            if [ -f "$f" ]; then
+              CONTENT="$CONTENT\n\n--- File: $f ---\n$(cat "$f")"
+            fi
+          done
+          # Save to a file to avoid escaping issues
+          echo -e "$CONTENT" > /tmp/project-content.txt
+          echo "has_content=true" >> $GITHUB_OUTPUT
+
+      - name: Create issue for Claude
+        if: steps.read-content.outputs.has_content == 'true'
+        run: |
+          BODY=$(cat <<'ISSUE_BODY'
+          @claude
+
+          A new project file has been pushed to the `_projects/` folder.
+
+          **Files:** ${{ steps.get-projects.outputs.files }}
+
+          Your task:
+          1. Read the `CLAUDE.md` file in the root of this repo for full instructions
+          2. Read the new project markdown file(s) in `_projects/`
+          3. Read existing project entries to understand the exact format and patterns
+          4. Add the new project as a content entry following the existing patterns
+          5. Do NOT modify any existing files except to add the new entry
+          6. Make sure the build would succeed (check imports, paths, formatting)
+          7. Create a PR with your changes
+
+          IMPORTANT:
+          - Match the existing code style exactly
+          - Only ADD content, never modify or delete existing content
+          - If unsure about anything, err on the side of doing less
+          ISSUE_BODY
+          )
+
+          gh issue create \
+            --title "Add new project: ${{ steps.get-projects.outputs.files }}" \
+            --body "$BODY" \
+            --label "claude"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # This job runs when Claude is triggered by the issue
+  run-claude:
+    runs-on: ubuntu-latest
+    if: false # This job is triggered by a SEPARATE workflow below
+    steps:
+      - run: echo "See claude-respond.yml for the Claude handler"
