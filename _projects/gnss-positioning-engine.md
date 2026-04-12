@@ -1,5 +1,5 @@
 ---
-title: "GNSS Positioning Engine"
+title: "Multi-Constellation Dual-band GNSS Positioning Engine"
 slug: "gnss-positioning-engine"
 description: "Software-defined GNSS engine from RTCM3 MSM observations with multi-constellation WLS, atmospheric corrections, and Hatch smoothing."
 date: 2026-04-12
