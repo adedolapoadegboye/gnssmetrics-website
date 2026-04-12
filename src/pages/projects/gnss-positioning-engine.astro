@@ -1,0 +1,433 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="Multi-Constellation Dual-band GNSS Positioning Engine">
+  <section class="section">
+    <div class="container">
+
+      <a href="/projects" class="back">← All projects</a>
+
+      <div class="project-header">
+        <div class="project-meta">
+          <span class="lang-badge lang-python">Python</span>
+          <span class="status-badge status-live">Complete</span>
+        </div>
+        <h1>Multi-Constellation Dual-band GNSS Positioning Engine</h1>
+        <p class="sub">
+          A software-defined GNSS positioning system that computes receiver position directly
+          from raw RTCM3 MSM observations — supporting GPS, Galileo, and BeiDou in active
+          multi-constellation WLS, with dual-frequency iono-free combinations, atmospheric
+          corrections, Hatch smoothing, and a live PyQt interface.
+        </p>
+        <div class="project-links">
+          <a href="https://github.com/adedolapoadegboye/gnss-positioning-engine" target="_blank" rel="noopener noreferrer" class="gh-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836a9.59 9.59 0 012.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+
+      <!-- PIPELINE OVERVIEW -->
+      <div class="pipeline-card">
+        <div class="pipeline-head">
+          <div class="pipeline-title-wrap">
+            <div class="pipeline-title">Pipeline architecture</div>
+            <div class="pipeline-hint">Scroll sideways to follow the processing chain</div>
+          </div>
+          <div class="pipeline-controls" aria-label="Pipeline navigation">
+            <button type="button" class="pipeline-btn" data-pipeline-scroll="left" aria-label="Scroll pipeline left">←</button>
+            <button type="button" class="pipeline-btn" data-pipeline-scroll="right" aria-label="Scroll pipeline right">→</button>
+          </div>
+        </div>
+        <div class="pipeline-scroll" data-pipeline-scroll-region>
+          <div class="pipeline-steps">
+            <div class="ps-step">
+              <div class="ps-num">1</div>
+              <div class="ps-body">
+                <div class="ps-name">Serial RTCM3 Stream</div>
+                <div class="ps-desc">Threaded serial handler ingests rover stream; CRC24Q frame extractor validates each message</div>
+              </div>
+            </div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step">
+              <div class="ps-num">2</div>
+              <div class="ps-body">
+                <div class="ps-name">Message Router</div>
+                <div class="ps-desc">Dispatches MSM4/MSM7 observation payloads and GPS/GLONASS/BeiDou/Galileo ephemeris messages</div>
+              </div>
+            </div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step">
+              <div class="ps-num">3</div>
+              <div class="ps-body">
+                <div class="ps-name">Epoch Accumulator</div>
+                <div class="ps-desc">Merges multi-constellation observations on GPS TOW boundaries; triggers positioning on complete epoch</div>
+              </div>
+            </div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step">
+              <div class="ps-num">4</div>
+              <div class="ps-body">
+                <div class="ps-name">Satellite State</div>
+                <div class="ps-desc">Keplerian orbit propagation (GPS/Galileo/BeiDou); RK4 integration for GLONASS; relativistic clock + Sagnac corrections</div>
+              </div>
+            </div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step">
+              <div class="ps-num">5</div>
+              <div class="ps-body">
+                <div class="ps-name">Corrections</div>
+                <div class="ps-desc">Saastamoinen tropo + Niell mapping; dual-frequency iono-free combination; Klobuchar single-frequency fallback; Hatch smoothing</div>
+              </div>
+            </div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step ps-solver">
+              <div class="ps-num">6</div>
+              <div class="ps-body">
+                <div class="ps-name">Multi-constellation WLS</div>
+                <div class="ps-desc">Per-constellation clock offsets; residual outlier rejection; earth-surface validity guard</div>
+              </div>
+            </div>
+            <div class="ps-arrow">→</div>
+            <div class="ps-step">
+              <div class="ps-num">7</div>
+              <div class="ps-body">
+                <div class="ps-name">PyQt Interface</div>
+                <div class="ps-desc">Live SPS position output with quality panels, DOP display, and solution plots</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pipeline-io">
+          <div class="pio-in">
+            <div class="pio-label">Input</div>
+            <div class="pio-val"><code>Serial RTCM3</code> — MSM4/MSM7 observations</div>
+            <div class="pio-val"><code>MT 1019/1020/1042/1045/1046</code> — broadcast ephemeris</div>
+          </div>
+          <div class="pio-out">
+            <div class="pio-label">Output</div>
+            <div class="pio-val"><code>Live SPS position</code> — lat / lon / height</div>
+            <div class="pio-val"><code>PyQt quality panels</code> — DOP, residuals, plots</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALGORITHMS -->
+      <h2>Implemented algorithms and models</h2>
+      <div class="improvements-grid">
+        <div class="imp-card">
+          <div class="imp-label">A</div>
+          <div class="imp-body">
+            <div class="imp-name">Multi-constellation WLS</div>
+            <div class="imp-desc">GPS + Galileo + BeiDou active in solver. Per-constellation clock offsets estimated simultaneously to handle inter-system biases.</div>
+            <div class="imp-file">gnss_positioning/engines/sps_engine.py</div>
+          </div>
+        </div>
+        <div class="imp-card">
+          <div class="imp-label">B</div>
+          <div class="imp-body">
+            <div class="imp-name">Dual-frequency iono-free</div>
+            <div class="imp-desc">L1/L2 or L1/L5 ionosphere-free combination eliminates first-order iono delay where dual-frequency observables are available.</div>
+            <div class="imp-file">gnss_positioning/corrections/ionosphere.py</div>
+          </div>
+        </div>
+        <div class="imp-card">
+          <div class="imp-label">C</div>
+          <div class="imp-body">
+            <div class="imp-name">Hatch carrier smoothing</div>
+            <div class="imp-desc">100-epoch carrier-phase smoothing window reduces code pseudorange noise. Warmed filter improves 2D accuracy to ~2–3 m in favorable geometry.</div>
+            <div class="imp-file">gnss_positioning/corrections/hatch.py</div>
+          </div>
+        </div>
+        <div class="imp-card">
+          <div class="imp-label">D</div>
+          <div class="imp-body">
+            <div class="imp-name">Saastamoinen + Niell tropo</div>
+            <div class="imp-desc">Saastamoinen model computes zenith tropospheric delay; Niell mapping function projects it to slant range per satellite elevation.</div>
+            <div class="imp-file">gnss_positioning/corrections/troposphere.py</div>
+          </div>
+        </div>
+        <div class="imp-card">
+          <div class="imp-label">E</div>
+          <div class="imp-body">
+            <div class="imp-name">Keplerian orbit propagation</div>
+            <div class="imp-desc">GPS, Galileo, and BeiDou satellite positions computed via Keplerian + perturbation elements. GLONASS uses RK4 integration (tracked path).</div>
+            <div class="imp-file">gnss_positioning/core/sat_state.py</div>
+          </div>
+        </div>
+        <div class="imp-card">
+          <div class="imp-label">F</div>
+          <div class="imp-body">
+            <div class="imp-name">Residual outlier rejection</div>
+            <div class="imp-desc">Residual-based outlier gating removes measurements with large post-fit residuals. Earth-surface validity guard discards unreasonable solutions.</div>
+            <div class="imp-file">gnss_positioning/engines/sps_engine.py</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERFORMANCE -->
+      <h2>Performance</h2>
+      <p class="section-sub">
+        Live serial RTCM3 stream · GPS + Galileo + BeiDou · dual-frequency iono-free where available
+      </p>
+
+      <div class="perf-grid">
+        <div class="perf-card perf-highlight">
+          <div class="perf-val">~5 m</div>
+          <div class="perf-label">2D accuracy</div>
+          <div class="perf-note">GPS + Galileo + BeiDou vs. receiver NMEA reference under typical open-sky conditions.</div>
+        </div>
+        <div class="perf-card">
+          <div class="perf-val">~2–3 m</div>
+          <div class="perf-label">2D warmed Hatch</div>
+          <div class="perf-note">After 100-epoch Hatch filter convergence in favorable geometry conditions.</div>
+        </div>
+        <div class="perf-card">
+          <div class="perf-val">30–60 s</div>
+          <div class="perf-label">First fix</div>
+          <div class="perf-note">Typical time from connect to first valid position solution; environment dependent.</div>
+        </div>
+        <div class="perf-card">
+          <div class="perf-val">3</div>
+          <div class="perf-label">Active constellations</div>
+          <div class="perf-note">GPS, Galileo, BeiDou in WLS. GLONASS decoded and tracked; excluded pending PZ-90.11 transform.</div>
+        </div>
+      </div>
+
+      <!-- CONSTELLATION STATUS -->
+      <div class="error-budget">
+        <div class="eb-title">Constellation status</div>
+        <div class="eb-table">
+          <div class="eb-row eb-header">
+            <span>Constellation</span>
+            <span>Ephemeris message</span>
+            <span>Observation</span>
+            <span>WLS status</span>
+          </div>
+          <div class="eb-row">
+            <span>GPS</span>
+            <span class="eb-ok">MT 1019</span>
+            <span>MSM4 / MSM7</span>
+            <span class="eb-yes">Active</span>
+          </div>
+          <div class="eb-row">
+            <span>Galileo</span>
+            <span class="eb-ok">MT 1045 / 1046</span>
+            <span>MSM4 / MSM7</span>
+            <span class="eb-yes">Active</span>
+          </div>
+          <div class="eb-row">
+            <span>BeiDou</span>
+            <span class="eb-ok">MT 1042</span>
+            <span>MSM4 / MSM7</span>
+            <span class="eb-yes">Active</span>
+          </div>
+          <div class="eb-row">
+            <span>GLONASS</span>
+            <span class="eb-warn">MT 1020</span>
+            <span>MSM4 / MSM7</span>
+            <span class="eb-no">Tracked — excluded from WLS pending PZ-90.11 → WGS-84 Helmert transform</span>
+          </div>
+        </div>
+        <div class="eb-insight">
+          GLONASS observations are decoded, stored, and tracked but excluded from the weighted least-squares solver
+          until the PZ-90.11 to WGS-84 Helmert coordinate transformation is implemented.
+          Adding this transform is the next planned milestone.
+        </div>
+      </div>
+
+      <!-- PLANNED MILESTONES -->
+      <h2>Planned next milestones</h2>
+      <div class="path-table">
+        <div class="pt-row pt-header">
+          <span>Milestone</span>
+          <span>Current status</span>
+        </div>
+        <div class="pt-row">
+          <span>PZ-90.11 → WGS-84 Helmert transform; enable GLONASS in WLS</span>
+          <span class="pt-gain">Planned</span>
+        </div>
+        <div class="pt-row">
+          <span>DGNSS correction flow</span>
+          <span class="pt-gain">Planned</span>
+        </div>
+        <div class="pt-row">
+          <span>RTK float/fixed solution with ambiguity resolution</span>
+          <span class="pt-gain">Planned</span>
+        </div>
+        <div class="pt-row">
+          <span>Advanced cycle-slip detection and RINEX logging</span>
+          <span class="pt-gain">Planned</span>
+        </div>
+        <div class="pt-row">
+          <span>NTRIP client support</span>
+          <span class="pt-gain">Planned</span>
+        </div>
+      </div>
+
+      <!-- SOURCE FILES -->
+      <h2>Source files</h2>
+      <div class="files-grid">
+        <div class="file-card"><div class="file-name">main.py</div><div class="file-desc">Entry point — pipeline startup, serial connection, UI launch</div></div>
+        <div class="file-card"><div class="file-name">core/pipeline.py</div><div class="file-desc">Pipeline orchestration, epoch loop, constants, and data models</div></div>
+        <div class="file-card"><div class="file-name">core/serial_handler.py</div><div class="file-desc">Threaded serial handler — ingests rover and base RTCM3 streams</div></div>
+        <div class="file-card"><div class="file-name">parsers/rtcm3.py</div><div class="file-desc">RTCM3 frame extractor with CRC24Q validation and message routing</div></div>
+        <div class="file-card"><div class="file-name">parsers/msm.py</div><div class="file-desc">MSM4 and MSM7 observation decoder for all four constellations</div></div>
+        <div class="file-card"><div class="file-name">parsers/ephemeris.py</div><div class="file-desc">Broadcast ephemeris parser for GPS, GLONASS, BeiDou, and Galileo</div></div>
+        <div class="file-card"><div class="file-name">engines/sps_engine.py</div><div class="file-desc">SPS positioning engine — multi-constellation WLS, outlier rejection, validity guard</div></div>
+        <div class="file-card"><div class="file-name">corrections/</div><div class="file-desc">Atmosphere models: Saastamoinen tropo, Klobuchar iono, iono-free combination, Hatch smoothing</div></div>
+        <div class="file-card"><div class="file-name">engines/dgnss_engine.py</div><div class="file-desc">DGNSS engine stub — planned</div></div>
+        <div class="file-card"><div class="file-name">engines/rtk_engine.py</div><div class="file-desc">RTK engine stub — planned</div></div>
+        <div class="file-card"><div class="file-name">ui/app.py</div><div class="file-desc">PyQt application — live position display, quality panels, residual and DOP plots</div></div>
+        <div class="file-card"><div class="file-name">parsers/nmea.py</div><div class="file-desc">NMEA parser for receiver reference comparison</div></div>
+      </div>
+
+      <!-- GITHUB FOOTER -->
+      <div class="gh-footer">
+        <div class="ghf-left">
+          <div class="ghf-title">Multi-Constellation Dual-band GNSS Positioning Engine</div>
+          <div class="ghf-sub">Python · GPS + Galileo + BeiDou · MIT licence</div>
+        </div>
+        <a href="https://github.com/adedolapoadegboye/gnss-positioning-engine" target="_blank" rel="noopener noreferrer" class="ghf-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836a9.59 9.59 0 012.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+          View source on GitHub
+        </a>
+      </div>
+
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .back { font-size:13px; color:var(--text2); display:inline-block; margin-bottom:24px; transition:color 0.2s; }
+  .back:hover { color:var(--accent); }
+
+  .project-header { margin-bottom:36px; }
+  .project-meta { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  h1 { font-size:clamp(26px,4vw,40px); font-weight:700; margin-bottom:14px; line-height:1.15; }
+  h2 { font-size:20px; font-weight:700; margin:36px 0 14px; padding-top:8px; border-top:1px solid var(--border); }
+  .sub { color:var(--text2); max-width:680px; font-size:16px; line-height:1.8; margin-bottom:20px; }
+  .section-sub { font-size:13px; color:var(--text3); margin-bottom:14px; font-family:var(--mono); }
+  p { font-size:15px; color:var(--text2); line-height:1.8; margin-bottom:14px; }
+  code { font-family:var(--mono); font-size:12px; background:var(--bg3); padding:1px 5px; border-radius:3px; color:var(--accent2); }
+
+  .lang-badge { font-size:11px; font-weight:700; font-family:var(--mono); padding:3px 10px; border-radius:4px; }
+  .lang-python { background:rgba(0,153,255,0.12); color:var(--accent2); }
+  .status-badge { font-size:12px; font-weight:600; }
+  .status-live { color:var(--accent); }
+
+  .project-links { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  .gh-link { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:var(--text); background:var(--bg2); border:1px solid var(--border); padding:7px 14px; border-radius:7px; transition:border-color 0.2s; }
+  .gh-link:hover { border-color:rgba(0,212,170,0.4); color:var(--accent); }
+
+  /* Pipeline */
+  .pipeline-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:22px; margin-bottom:28px; }
+  .pipeline-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  .pipeline-title-wrap { display:flex; flex-direction:column; gap:6px; }
+  .pipeline-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--accent); font-family:var(--mono); margin:0; }
+  .pipeline-hint { font-size:11px; color:var(--text3); font-family:var(--mono); white-space:nowrap; }
+  .pipeline-controls { display:flex; align-items:center; gap:8px; }
+  .pipeline-btn { width:34px; height:34px; border-radius:999px; border:1px solid var(--border); background:var(--bg3); color:var(--accent); font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:center; transition:border-color 0.2s, background 0.2s, color 0.2s, transform 0.2s; }
+  .pipeline-btn:hover { border-color:rgba(0,212,170,0.35); background:rgba(0,212,170,0.08); transform:translateY(-1px); }
+  .pipeline-scroll { position:relative; margin:0 -6px 16px; padding:0 6px 10px; }
+  .pipeline-scroll::before, .pipeline-scroll::after { content:''; position:absolute; top:0; bottom:10px; width:28px; pointer-events:none; z-index:1; }
+  .pipeline-scroll::before { left:0; background:linear-gradient(90deg, var(--bg2) 15%, rgba(15,18,24,0)); }
+  .pipeline-scroll::after { right:0; background:linear-gradient(270deg, var(--bg2) 15%, rgba(15,18,24,0)); }
+  .pipeline-steps { display:flex; align-items:flex-start; gap:6px; overflow-x:auto; padding:2px 4px 10px; margin:0; scrollbar-width:thin; scrollbar-color:rgba(0,212,170,0.45) rgba(255,255,255,0.05); cursor:grab; scroll-padding-inline:4px; }
+  .pipeline-steps::-webkit-scrollbar { height:10px; }
+  .pipeline-steps::-webkit-scrollbar-track { background:rgba(255,255,255,0.05); border-radius:999px; }
+  .pipeline-steps::-webkit-scrollbar-thumb { background:linear-gradient(90deg, rgba(0,212,170,0.35), rgba(0,153,255,0.35)); border-radius:999px; border:2px solid rgba(8,10,14,0.35); }
+  .pipeline-steps:active { cursor:grabbing; }
+  .ps-step { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:12px; min-width:150px; flex-shrink:0; display:flex; gap:10px; }
+  .ps-solver { border-color:rgba(0,212,170,0.3); background:rgba(0,212,170,0.04); }
+  .ps-num { width:22px; height:22px; background:rgba(0,212,170,0.12); color:var(--accent); border-radius:50%; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--mono); }
+  .ps-name { font-size:12px; font-weight:600; color:var(--text); margin-bottom:3px; }
+  .ps-desc { font-size:11px; color:var(--text3); line-height:1.5; }
+  .ps-arrow { font-size:16px; color:var(--text3); padding-top:14px; flex-shrink:0; }
+  .pipeline-io { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding-top:14px; border-top:1px solid var(--border); }
+  .pio-label { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text3); font-family:var(--mono); margin-bottom:6px; }
+  .pio-val { font-size:12px; color:var(--text2); margin-bottom:3px; }
+
+  /* Improvements */
+  .improvements-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:8px; }
+  .imp-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; display:flex; gap:12px; }
+  .imp-label { width:26px; height:26px; background:rgba(0,212,170,0.12); color:var(--accent); border-radius:6px; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--mono); }
+  .imp-name { font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px; }
+  .imp-desc { font-size:12px; color:var(--text3); line-height:1.6; margin-bottom:6px; }
+  .imp-file { font-size:10px; font-family:var(--mono); color:var(--accent2); }
+
+  /* Performance */
+  .perf-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+  .perf-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:18px; text-align:center; }
+  .perf-highlight { border-color:rgba(0,212,170,0.3); }
+  .perf-val { font-size:26px; font-weight:700; font-family:var(--mono); color:var(--accent); margin-bottom:6px; }
+  .perf-label { font-size:12px; font-weight:600; color:var(--text); margin-bottom:6px; }
+  .perf-note { font-size:11px; color:var(--text3); line-height:1.5; }
+
+  /* Constellation status table */
+  .error-budget { background:var(--bg2); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:8px; }
+  .eb-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); font-family:var(--mono); padding:12px 16px; background:var(--bg3); border-bottom:1px solid var(--border); }
+  .eb-table { display:flex; flex-direction:column; }
+  .eb-row { display:grid; grid-template-columns:120px 160px 140px 1fr; gap:10px; padding:9px 16px; border-bottom:1px solid var(--border); font-size:13px; align-items:center; }
+  .eb-row:last-child { border-bottom:none; }
+  .eb-header { font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text3); font-family:var(--mono); background:var(--bg3); }
+  .eb-bad { color:#ff4757; font-family:var(--mono); font-size:12px; }
+  .eb-warn { color:#fbbf24; font-family:var(--mono); font-size:12px; }
+  .eb-ok { color:var(--accent); font-family:var(--mono); font-size:12px; }
+  .eb-no { color:#ff4757; font-size:12px; }
+  .eb-yes { color:var(--accent); font-size:12px; }
+  .eb-insight { font-size:13px; color:var(--text2); line-height:1.7; padding:14px 16px; border-top:1px solid var(--border); background:rgba(0,212,170,0.03); }
+
+  /* Path table */
+  .path-table { display:flex; flex-direction:column; gap:2px; margin-bottom:8px; }
+  .pt-row { display:grid; grid-template-columns:1fr 160px; gap:12px; padding:9px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:6px; font-size:13px; align-items:center; }
+  .pt-header { font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text3); font-family:var(--mono); background:var(--bg3); }
+  .pt-gain { font-family:var(--mono); color:var(--accent); font-size:12px; }
+
+  /* Source files */
+  .files-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:28px; }
+  .file-card { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px; }
+  .file-name { font-size:12px; font-weight:600; font-family:var(--mono); color:var(--accent2); margin-bottom:4px; }
+  .file-desc { font-size:11px; color:var(--text3); line-height:1.5; }
+
+  /* GitHub footer */
+  .gh-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px 24px; flex-wrap:wrap; }
+  .ghf-title { font-size:15px; font-weight:600; color:var(--text); margin-bottom:3px; }
+  .ghf-sub { font-size:12px; color:var(--text3); font-family:var(--mono); }
+  .ghf-btn { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--text); background:var(--bg3); border:1px solid var(--border); padding:9px 18px; border-radius:8px; transition:border-color 0.2s, color 0.2s; }
+  .ghf-btn:hover { border-color:rgba(0,212,170,0.4); color:var(--accent); }
+
+  @media (max-width:900px) {
+    .improvements-grid { grid-template-columns:repeat(2,1fr); }
+    .perf-grid { grid-template-columns:repeat(2,1fr); }
+    .files-grid { grid-template-columns:repeat(2,1fr); }
+    .eb-row { grid-template-columns:1fr 1fr; }
+    .eb-row span:nth-child(3), .eb-row span:last-child { display:none; }
+  }
+  @media (max-width:600px) {
+    .improvements-grid { grid-template-columns:1fr; }
+    .perf-grid { grid-template-columns:1fr 1fr; }
+    .files-grid { grid-template-columns:1fr 1fr; }
+    .pipeline-head { align-items:flex-start; }
+    .pipeline-hint { white-space:normal; }
+    .pipeline-controls { width:100%; justify-content:flex-start; }
+    .pipeline-scroll::before, .pipeline-scroll::after { display:none; }
+    .pipeline-steps { flex-direction:column; overflow-x:visible; padding:0; cursor:default; }
+    .ps-arrow { transform:rotate(90deg); align-self:center; }
+    .pt-row { grid-template-columns:1fr; }
+    .pipeline-io { grid-template-columns:1fr; }
+  }
+</style>
+<script>
+  const pipelineRegion = document.querySelector('[data-pipeline-scroll-region]');
+  const pipelineSteps = pipelineRegion?.querySelector('.pipeline-steps');
+  const pipelineButtons = document.querySelectorAll('[data-pipeline-scroll]');
+
+  pipelineButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!pipelineSteps) return;
+      const direction = button.getAttribute('data-pipeline-scroll') === 'left' ? -1 : 1;
+      pipelineSteps.scrollBy({ left: direction * 220, behavior: 'smooth' });
+    });
+  });
+</script>
