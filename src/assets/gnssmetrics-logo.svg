@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" fill="none">
+  <!-- Background card (dark, for documentation / README use) -->
+  <rect width="320" height="80" rx="12" fill="#13161e"/>
+  <rect width="320" height="80" rx="12" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+
+  <!-- ── Icon mark (128×128 source → 64×64 rendered at x=12, y=8) ── -->
+  <svg x="12" y="8" width="64" height="64" viewBox="0 0 128 128" fill="none">
+    <defs>
+      <linearGradient id="wOrbitGrad" x1="16" y1="68" x2="114" y2="48" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#0099ff"/>
+        <stop offset="1" stop-color="#00d4aa"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Earth globe -->
+    <circle cx="58" cy="88" r="28" stroke="#00d4aa" stroke-width="2.5"/>
+    <path d="M30 88 Q58 80 86 88" stroke="#00d4aa" stroke-width="1.2" opacity="0.28" fill="none"/>
+
+    <!-- Orbital arc -->
+    <path d="M16 68 C 32 16, 92 10, 114 48" stroke="url(#wOrbitGrad)" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Satellite -->
+    <rect x="101" y="40" width="12" height="8" rx="1.5" fill="#0099ff"/>
+    <rect x="89"  y="42" width="12" height="4"  rx="1"   fill="#0066cc"/>
+    <rect x="113" y="42" width="11" height="4"  rx="1"   fill="#0066cc"/>
+    <line x1="107" y1="40" x2="107" y2="36" stroke="#0099ff" stroke-width="1.5" stroke-linecap="round"/>
+    <circle cx="107" cy="35" r="1.8" fill="#00d4aa"/>
+
+    <!-- Signal beam -->
+    <path d="M107 49 L79 69" stroke="#00d4aa" stroke-width="1.5" stroke-dasharray="4,3.5" opacity="0.65"/>
+
+    <!-- Position fix marker -->
+    <circle cx="79" cy="69" r="4.5" fill="#00d4aa"/>
+    <circle cx="79" cy="69" r="9"   stroke="#00d4aa" stroke-width="1.5" opacity="0.40"/>
+    <circle cx="79" cy="69" r="14"  stroke="#00d4aa" stroke-width="1"   opacity="0.18"/>
+  </svg>
+
+  <!-- ── Wordmark ── -->
+  <!-- "GNSS" white + "Metrics" teal — mirrors the nav logo style -->
+  <text
+    x="90" y="42"
+    font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-weight="700"
+    font-size="26"
+    letter-spacing="-0.5"
+    fill="#e8eaf0"
+  >GNSS<tspan fill="#00d4aa">Metrics</tspan></text>
+
+  <!-- Tagline in mono -->
+  <text
+    x="91" y="60"
+    font-family="'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace"
+    font-size="11"
+    letter-spacing="0.06em"
+    fill="#8b91a8"
+  >gnssmetrics.com</text>
+</svg>
