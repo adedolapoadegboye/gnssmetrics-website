@@ -1,7 +1,18 @@
 ---
 import Layout from '../layouts/Layout.astro';
 ---
-<Layout title="GNSS Metrics: A Community-based GNSS Platform">
+<Layout
+  title="Free GNSS Tools, Dashboards & Satellite Navigation Education"
+  description="Free GNSS accuracy and precision analysis tools. Upload your positioning data to calculate CEP, RMSE, 2DRMS, and other metrics for GPS, GLONASS, Galileo, and BeiDou static testing."
+  jsonLd={{
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "GNSSMetrics.com",
+    "url": "https://gnssmetrics.com",
+    "description": "Community-driven GNSS knowledge platform — tools, dashboards, news, and learning resources for satellite navigation engineers.",
+    "publisher": { "@type": "Person", "name": "Ade Adegboye" }
+  }}
+>
 
   <!-- HERO -->
   <section class="hero">

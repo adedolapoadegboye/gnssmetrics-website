@@ -1,7 +1,23 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 ---
-<Layout title="GPS L1 Only Position Engine">
+<Layout
+  title="GPS L1 Only Position Engine — EKF, Hatch Smoothing & RAIM"
+  description="Open-source C11 GPS L1 positioning engine with Extended Kalman Filter, Hatch carrier-phase smoothing, SNR weighting, elevation masking, and RAIM innovation gating. Achieves 50.8 m horizontal 1σ accuracy on real RINEX observation data."
+  ogType="article"
+  jsonLd={{
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "GPS L1 Only Position Engine",
+    "url": "https://gnssmetrics.com/projects/gps-l1-engine",
+    "description": "Portable C11 GPS L1 positioning pipeline with Extended Kalman Filter, Hatch carrier-phase smoothing, SNR weighting, elevation masking, and RAIM innovation gating.",
+    "applicationCategory": "SatelliteNavigationSoftware",
+    "programmingLanguage": "C",
+    "license": "https://opensource.org/licenses/MIT",
+    "codeRepository": "https://github.com/adedolapoadegboye/GPS_L1_Only_Resolver",
+    "author": { "@type": "Person", "name": "Ade Adegboye" }
+  }}
+>
   <section class="section">
     <div class="container">
 

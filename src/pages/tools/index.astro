@@ -5,7 +5,10 @@ import { tools } from '../../data/tools';
 const liveTools = tools.filter(t => t.status === 'live');
 const soonTools = tools.filter(t => t.status === 'soon');
 ---
-<Layout title="Tools — GNSSMetrics">
+<Layout
+  title="GNSS Analysis Tools — NMEA, RINEX, DOP, Coordinate Converter"
+  description="Free browser-based GNSS analysis tools: NMEA decoder, RINEX inspector, DOP calculator, coordinate converter, Klobuchar ionospheric model, and UBX parser. No installation required — all computation runs locally."
+>
   <section class="section">
     <div class="container">
 

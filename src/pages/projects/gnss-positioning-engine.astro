@@ -1,7 +1,21 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 ---
-<Layout title="Multi-Constellation Dual-band GNSS Positioning Engine">
+<Layout
+  title="Multi-Constellation Dual-band GNSS Positioning Engine"
+  description="Open-source Python GNSS positioning engine that decodes RTCM3 MSM messages and computes multi-constellation WLS solutions with Hatch carrier-phase smoothing, Klobuchar ionospheric corrections, and DOP-based satellite selection for GPS, GLONASS, Galileo, and BeiDou."
+  ogType="article"
+  jsonLd={{
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Multi-Constellation Dual-band GNSS Positioning Engine",
+    "url": "https://gnssmetrics.com/projects/gnss-positioning-engine",
+    "description": "Python GNSS positioning engine decoding RTCM3 MSM messages with multi-constellation WLS, Hatch smoothing, atmospheric corrections, and DOP-based satellite selection.",
+    "applicationCategory": "SatelliteNavigationSoftware",
+    "programmingLanguage": "Python",
+    "author": { "@type": "Person", "name": "Ade Adegboye" }
+  }}
+>
   <section class="section">
     <div class="container">
 
